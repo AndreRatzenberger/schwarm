@@ -11,6 +11,7 @@ from schwarm.core.tools import ToolHandler
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.provider_manager import PROVIDER_MANAGER
 from schwarm.services.display_service import DisplayService
 from schwarm.utils.function import function_to_json
@@ -241,9 +242,9 @@ class Schwarm:
         result = None
         for provider_config in agent.providers:
             provider = self._provider_manager.get_provider(agent, provider_config.provider_name)
-            if provider and hasattr(provider, event_name):
+            if provider and isinstance(provider, BaseEventHandleProvider):
                 try:
-                    result = getattr(provider, event_name)(**kwargs)
+                    result = provider.handle_event(event_name, **kwargs)
                 except Exception as e:
                     logger.error(f"Error in provider {provider_config.provider_name} handling {event_name}: {e}")
         return result

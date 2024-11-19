@@ -11,7 +11,17 @@ from schwarm.provider.models.base_event_handle_provider_config import BaseEventH
 
 
 class BaseEventHandleProvider(BaseProvider):
-    """Abstract base class for event handle providers."""
+    """Abstract base class for event handle providers.
+
+    This class provides event handling capabilities for providers that need to react
+    to system events. Events are triggered by the Schwarm system at key points
+    (message completion, tool execution, etc.), and providers can subscribe to handle
+    these events.
+
+    To handle events, providers should override the handle_* methods for the events
+    they care about. The provider will be automatically subscribed to those events
+    during initialization.
+    """
 
     config: BaseEventHandleProviderConfig
     _event_handlers: dict[str, list[tuple[Callable, int]]] = {}  # {event_name: [(handler, priority)]}
@@ -20,6 +30,31 @@ class BaseEventHandleProvider(BaseProvider):
         """Initialize the provider with event handling capabilities."""
         super().__init__(agent, config)
         self._event_handlers = {}
+        self._setup_event_handlers()
+
+    def _setup_event_handlers(self) -> None:
+        """Sets up event handlers based on provider implementation.
+
+        This method automatically subscribes to events based on which handler
+        methods are implemented in the provider class. For example, if a provider
+        overrides handle_message_completion, it will be subscribed to the
+        on_message_completion event.
+        """
+        # Map of event names to their corresponding handler methods
+        event_methods = {
+            "on_start": self.handle_start,
+            "on_handoff": self.handle_handoff,
+            "on_message_completion": self.handle_message_completion,
+            "on_tool_execution": self.handle_tool_execution,
+            "on_post_message_completion": self.handle_post_message_completion,
+            "on_post_tool_execution": self.handle_post_tool_execution,
+        }
+
+        # Subscribe to events based on which handlers are implemented
+        for event_name, handler in event_methods.items():
+            # Check if the handler is overridden in the child class
+            if handler.__qualname__.split(".")[0] != "BaseEventHandleProvider":
+                self.subscribe(event_name, handler)
 
     def subscribe(self, event_name: str, handler: Callable, priority: int = 0) -> None:
         """Subscribe to an event with optional priority.
@@ -36,42 +71,49 @@ class BaseEventHandleProvider(BaseProvider):
         self._event_handlers[event_name].sort(key=lambda x: x[1], reverse=True)
         logger.debug(f"Subscribed to event {event_name} with priority {priority}")
 
-    def publish(self, event_name: str, **kwargs: Any) -> None:
-        """Publish an event to all subscribers.
+    def handle_event(self, event_name: str, **kwargs: Any) -> Any:
+        """Handle an event triggered by the system.
+
+        This method is called by the Schwarm system when an event occurs. It executes
+        all handlers subscribed to the event in priority order.
 
         Args:
-            event_name: Name of the event to publish
-            **kwargs: Event data to pass to handlers
+            event_name: Name of the event to handle
+            **kwargs: Event data passed by the system
+
+        Returns:
+            The result from the last handler, if any
         """
+        result = None
         if event_name in self._event_handlers:
             for handler, _ in self._event_handlers[event_name]:
                 try:
-                    handler(**kwargs)
+                    result = handler(**kwargs)
                 except Exception as e:
                     logger.error(f"Error in event handler for {event_name}: {e}")
+        return result
 
-    # Lifecycle Events
-    def on_start(self) -> None:
-        """Run when an agent is started."""
-        self.publish("on_start")
+    # Base event handlers - providers should override these as needed
+    def handle_start(self) -> None:
+        """Handle agent start event."""
+        pass
 
-    def on_handoff(self, next_agent: Agent) -> Agent | None:
-        """Run when an agent is handing off task to another agent."""
-        self.publish("on_handoff", next_agent=next_agent)
+    def handle_handoff(self, next_agent: Agent) -> Agent | None:
+        """Handle agent handoff event."""
         return next_agent
 
-    def on_message_completion(self) -> None:
-        """Run when an agent is sending a message."""
-        self.publish("on_message_completion")
+    def handle_message_completion(self) -> None:
+        """Handle message completion event."""
+        pass
 
-    def on_tool_execution(self) -> None:
-        """Run when an agent is executing a tool."""
-        self.publish("on_tool_execution")
+    def handle_tool_execution(self) -> None:
+        """Handle tool execution event."""
+        pass
 
-    def on_post_message_completion(self) -> None:
-        """Run after a message is sent and result is received."""
-        self.publish("on_post_message_completion")
+    def handle_post_message_completion(self) -> None:
+        """Handle post message completion event."""
+        pass
 
-    def on_post_tool_execution(self) -> None:
-        """Run after a tool is executed and result is received."""
-        self.publish("on_post_tool_execution")
+    def handle_post_tool_execution(self) -> None:
+        """Handle post tool execution event."""
+        pass

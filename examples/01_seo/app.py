@@ -21,7 +21,6 @@ from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Result
 from schwarm.provider.litellm_provider import LiteLLMConfig
-from schwarm.provider.models.base_event_handle_provider_config import BaseEventHandleProviderConfig
 from schwarm.provider.models.budget_provider_config import BudgetProviderConfig
 from schwarm.provider.models.context_provider_config import ContextProviderConfig
 from schwarm.provider.models.debug_provider_config import DebugProviderConfig
@@ -126,17 +125,6 @@ def seo_optimizer_instructions(context_variables: dict[str, Any]) -> str:
 
 ## PROVIDER CONFIGURATIONS ##
 
-# Event handling configuration for tracking agent interactions
-event_config = BaseEventHandleProviderConfig(
-    provider_name="event_handler",
-    provider_lifecycle="scoped",
-    _provider_type="event",
-    enable_on_message_completion=True,
-    enable_on_post_message_completion=True,
-    enable_on_tool_execution=True,
-    enable_on_post_tool_execution=True,
-)
-
 # LLM configuration with caching enabled
 llm_config = LiteLLMConfig(
     provider_name="lite_llm",
@@ -154,7 +142,6 @@ orchestrator_agent = Agent(
     parallel_tool_calls=False,
     providers=[
         llm_config,
-        event_config,
         DebugProviderConfig(),
         BudgetProviderConfig(),
     ],
@@ -166,7 +153,6 @@ blog_writer = Agent(
     instructions=blog_writer_instructions,
     providers=[
         llm_config,
-        event_config,
         ContextProviderConfig(),
     ],
 )
@@ -177,7 +163,6 @@ seo_optimizer = Agent(
     instructions=seo_optimizer_instructions,
     providers=[
         llm_config,
-        event_config,
         ContextProviderConfig(),
     ],
 )
