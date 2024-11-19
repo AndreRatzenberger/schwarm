@@ -1,4 +1,4 @@
-"""Agent class."""
+"""Agent orchestration and execution engine."""
 
 import copy
 import sys
@@ -12,8 +12,6 @@ from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.provider_manager import PROVIDER_MANAGER
-from schwarm.services.display_service import DisplayService
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -27,14 +25,12 @@ class Schwarm:
 
     def __init__(self, agent_list: list[Agent] = []):
         """Initialize the orchestrator."""
-        self.display_service = None
         # Remove default handler to control logging output
         logger.remove()
         # Add a default handler that we can control
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
         self._logging_enabled = True
         self._agents: list[Agent] = agent_list
-        self._provider_manager = PROVIDER_MANAGER
 
         logger.info("Schwarm instance initialized")
 
@@ -126,12 +122,6 @@ class Schwarm:
         # Configure logging
         self._configure_logging(show_logs)
 
-        # Initialize display service if needed
-        if display_config:
-            logger.info("Initializing display service with config")
-            self.display_service = DisplayService(display_config)
-            self.display_service.delete_logs()
-
         # Initialize execution state
         active_agent = agent
         context_variables = copy.deepcopy(context_variables)
@@ -143,7 +133,7 @@ class Schwarm:
         logger.debug(f"Initial message history length: {init_len}")
 
         # Initialize providers for the agent
-        self._provider_manager.initialize(active_agent)
+        active_agent.initialize_providers()
 
         # Trigger provider start events
         self._trigger_provider_event(active_agent, "on_start")
@@ -152,9 +142,6 @@ class Schwarm:
         while len(history) - init_len < max_turns and active_agent:
             current_turn = len(history) - init_len + 1
             logger.info(f"Processing turn {current_turn}/{max_turns}")
-
-            if self.display_service:
-                self.display_service.show_budget_table(self._agents)
 
             # Generate completion
             completion = self._complete_agent_request(
@@ -197,7 +184,7 @@ class Schwarm:
                     if next_agent:
                         active_agent = next_agent
                         # Initialize providers for new agent
-                        self._provider_manager.initialize(active_agent)
+                        active_agent.initialize_providers()
                         self._trigger_provider_event(active_agent, "on_start")
             else:
                 logger.info("No tools to execute or tool execution disabled")
@@ -241,7 +228,7 @@ class Schwarm:
         """
         result = None
         for provider_config in agent.providers:
-            provider = self._provider_manager.get_provider(agent, provider_config.provider_name)
+            provider = agent.get_provider(provider_config.provider_name)
             if provider and isinstance(provider, BaseEventHandleProvider):
                 try:
                     result = provider.handle_event(event_name, **kwargs)
@@ -264,20 +251,12 @@ class Schwarm:
         Returns:
             The completion message
         """
-        # Track budget/tokens before completion
-        prev_spent = agent.budget.current_spent
-        prev_tokens = agent.budget.current_tokens
-
         # Trigger pre-completion events
         self._trigger_provider_event(agent, "on_message_completion")
 
         # Get agent instructions
         instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
         logger.debug(f"Generated instructions for agent '{agent.name}'")
-
-        if self.display_service:
-            logger.debug("Showing instructions in display service")
-            self.display_service.show_instructions(agent.name, instructions)
 
         # Prepare messages and tools
         system_msg = Message(role="system", content=instructions)
@@ -288,7 +267,7 @@ class Schwarm:
         logger.debug(f"Prepared {len(tools)} tools for completion")
 
         # Get LLM provider and generate completion
-        provider = self._provider_manager.get_llm_provider(agent)
+        provider = agent.get_llm_provider()
         if not provider:
             raise ValueError("No LLM provider found for agent")
 
@@ -299,10 +278,6 @@ class Schwarm:
             tool_choice=str(agent.tool_choice),
             parallel_tool_calls=agent.parallel_tool_calls,
         )
-
-        # Update budget tracking
-        if result.info:
-            self._update_budget_tracking(agent, result, prev_spent, prev_tokens)
 
         # Trigger post-completion events
         self._trigger_provider_event(agent, "on_post_message_completion")
@@ -319,22 +294,3 @@ class Schwarm:
         if APP_SETTINGS.CONTEXT_VARS_KEY in params["required"]:
             params["required"].remove(APP_SETTINGS.CONTEXT_VARS_KEY)
         return tool
-
-    def _update_budget_tracking(self, agent: Agent, result: Message, prev_spent: float, prev_tokens: int):
-        """Update agent budget tracking."""
-        if result.info:
-            agent.budget.current_spent += result.info.completion_cost
-            logger.debug(f"Completion cost: {result.info.completion_cost}")
-            agent.budget.current_tokens += result.info.token_counter
-            logger.debug(f"Token: {result.info.token_counter}")
-
-            # Save budget to CSV if values changed
-            if prev_spent != agent.budget.current_spent or prev_tokens != agent.budget.current_tokens:
-                agent.budget.save_to_csv(agent.name)
-
-            if self.display_service:
-                if agent.budget.show_budget or self.display_service.display_config.show_budget:
-                    self.display_service.show_budget(agent)
-
-            # Check budget and token limits
-            agent.budget.check_limits()

@@ -181,3 +181,33 @@ while running:
         trigger_provider_event("on_handoff")
 
 ```
+
+
+Removed global ProviderManager singleton in favor of:
+
+
+ProviderFactory: 
+Simple factory for creating providers
+Agent-managed provider lifecycle: Each agent manages its own providers
+No global state: All state is contained within the relevant agent
+
+
+Improved architecture:
+Better separation of concerns
+Easier testing (no global state)
+More flexible (can have different provider configurations per agent)
+Clearer ownership (agents own their providers)
+
+
+Provider lifecycle management:
+Singleton providers are shared across agent instances
+Scoped providers are unique to each agent
+Stateless providers are created on-demand
+All managed by the agent that owns them
+
+
+Event system improvements:
+Events are triggered through agent-owned providers
+Each provider handles only the events it cares about
+No redundant event publishing (providers only handle events)
+Clear event flow from Schwarm through agents to providers
