@@ -1,10 +1,10 @@
-"""Provider configuration model."""
+"""Base configuration for the Lite LLM provider."""
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class ProviderConfig(BaseModel):
-    """Configuration for a provider.
+class LLMProviderBaseConfig(BaseModel):
+    """Configuration for the Lite LLM provider.
 
     Attributes:
         api_key: The API key for authentication with the provider

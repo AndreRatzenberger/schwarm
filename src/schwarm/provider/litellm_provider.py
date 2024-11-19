@@ -11,8 +11,8 @@ from loguru import logger
 from pydantic import Field
 
 from schwarm.models.message import Message, MessageInfo
-from schwarm.models.provider_config import ProviderConfig
-from schwarm.provider.provider_base import LLMProvider
+from schwarm.provider.base import LLMProviderBase
+from schwarm.provider.models import LLMProviderBaseConfig
 
 
 class ConfigurationError(Exception):
@@ -36,7 +36,7 @@ class LoggingHandler(CustomLogger):
         logger.log("INFO", f"Value of Cache hit: {kwargs['cache_hit']}")
 
 
-class LiteLLMConfig(ProviderConfig):
+class LiteLLMConfig(LLMProviderBaseConfig):
     """Configuration for the Lite LLM provider.
 
     Attributes:
@@ -51,7 +51,7 @@ class LiteLLMConfig(ProviderConfig):
     )  # TODO: Add this field to the config
 
 
-class LiteLLMProvider(LLMProvider):
+class LiteLLMProvider(LLMProviderBase):
     """Provider for the Lite LLM API.
 
     This provider implements the LLMProvider interface using the LiteLLM library,
@@ -115,7 +115,8 @@ class LiteLLMProvider(LLMProvider):
             bool: True if connection is successful, False otherwise
         """
         try:
-            result = check_valid_key(self.active_model, self.config.api_key)
+            if isinstance(self.config, LiteLLMConfig):
+                result = check_valid_key(self.active_model, self.config.api_key)
             if result:
                 return True
             try:

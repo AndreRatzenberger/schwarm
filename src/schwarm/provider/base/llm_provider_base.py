@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from schwarm.models.message import Message
-from schwarm.models.provider_config import ProviderConfig
+from schwarm.provider.models import LLMProviderBaseConfig
 
 
-class LLMProvider(ABC):
+class LLMProviderBase(ABC):
     """Abstract base class for LLM providers."""
 
-    config: ProviderConfig
+    config: LLMProviderBaseConfig
 
     @abstractmethod
     def test_connection(self) -> bool:
@@ -37,6 +37,6 @@ class LLMProvider(ABC):
         pass
 
     @staticmethod
-    def build_provider_list() -> list["LLMProvider"]:
+    def build_provider_list() -> list["LLMProviderBase"]:
         """Build a list of available LLM providers."""
         return []
