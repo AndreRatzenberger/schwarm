@@ -13,7 +13,7 @@ Alpha will end 2025 Q1 with the release of a web UI to Schwarm)_
 
 - **Extend the capabilities of your agents with "Providers"**
 
-  - A `zep_provider` integrates `zep` into an agent, giving it near-infinite memory with the help of knowledge graphs.
+  - A `zep_provider` integrates `zep` (https://github.com/getzep/zep) into an agent, giving it near-infinite memory with the help of knowledge graphs.
   - An `api_provider` makes your agent have its own API.
   - Use 100s of LLM providers
   - Budget tracking
