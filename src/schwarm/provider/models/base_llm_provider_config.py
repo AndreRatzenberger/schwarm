@@ -1,10 +1,12 @@
-"""Base configuration for the Lite LLM provider."""
+"""Base configuration for LLM providers."""
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
+
+from schwarm.provider.models.base_provider_config import BaseProviderConfig
 
 
-class LLMProviderBaseConfig(BaseModel):
-    """Configuration for the Lite LLM provider.
+class BaseLLMProviderConfig(BaseProviderConfig):
+    """Configuration for the LLM providers.
 
     Attributes:
         api_key: The API key for authentication with the provider

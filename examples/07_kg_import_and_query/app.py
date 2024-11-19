@@ -36,7 +36,7 @@ zep.memory.add_session(
 )
 
 
-stephen_king_agent = Agent(name="mr_stephen_king", provider_config=LiteLLMConfig(enable_cache=True))
+stephen_king_agent = Agent(name="mr_stephen_king", providers=[LiteLLMConfig(enable_cache=True)])
 
 
 def instruction_stephen_king_agent(context_variables: ContextVariables) -> str:

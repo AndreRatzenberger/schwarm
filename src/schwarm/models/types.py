@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import BaseModel, Field
 
 from schwarm.models.message import Message
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.models.base_provider_config import BaseProviderConfig
 from schwarm.services.budget_service import BudgetService
 
 # Type alias for agent functions that can return various types
@@ -39,9 +39,9 @@ class Agent(BaseModel):
         description="Specific tool selection strategy. none = no tools get called, auto = llm decides if generating a text or calling a tool, required = tools are forced",
     )
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
-    provider_config: LiteLLMConfig = Field(default=LiteLLMConfig(), description="Provider Config")
+    # llm_provider_config: LiteLLMConfig = Field(default=LiteLLMConfig(), description="Provider Config")
+    providers: list[BaseProviderConfig] = Field(default=[], description="List of provider configurations")
     budget: BudgetService = Field(default=BudgetService(), description="Budget Config")
-    # force_tool_use: bool = Field(default=False, description="Force tool use")
 
 
 class Response(BaseModel):

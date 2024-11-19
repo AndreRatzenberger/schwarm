@@ -47,10 +47,10 @@ os.makedirs(APP_SETTINGS.DATA_FOLDER)
 #### AGENTS ####
 
 
-google_search_agent = Agent(name="google_search_agent", provider_config=LiteLLMConfig(enable_cache=True))
-arxiv_search_agent = Agent(name="arxiv_search_agent", provider_config=LiteLLMConfig(enable_cache=True))
-report_agent = Agent(name="report_agent", provider_config=LiteLLMConfig(enable_cache=True))
-user_agent = Agent(name="user_agent", tool_choice="none", provider_config=LiteLLMConfig(enable_cache=True))
+google_search_agent = Agent(name="google_search_agent", providers=[LiteLLMConfig(enable_cache=True)])
+arxiv_search_agent = Agent(name="arxiv_search_agent", providers=[LiteLLMConfig(enable_cache=True)])
+report_agent = Agent(name="report_agent", providers=[LiteLLMConfig(enable_cache=True)])
+user_agent = Agent(name="user_agent", tool_choice="none", providers=[LiteLLMConfig(enable_cache=True)])
 
 ### Instructions ###
 
@@ -152,12 +152,14 @@ def google_search(
     enriched_results = []
     for item in results:
         body = get_page_content(item["link"])
-        enriched_results.append({  # type: ignore
-            "title": item["title"],
-            "link": item["link"],
-            "snippet": item["snippet"],
-            "body": body,
-        })
+        enriched_results.append(
+            {  # type: ignore
+                "title": item["title"],
+                "link": item["link"],
+                "snippet": item["snippet"],
+                "body": body,
+            }
+        )
         time.sleep(1)  # Be respectful to the servers
 
     save_dictionary_list("google_results.json", enriched_results)  # type: ignore
@@ -174,13 +176,15 @@ def arxiv_search(context_variables: ContextVariables, query: str, max_results: i
 
     results = []
     for paper in client.results(search):
-        results.append({  # type: ignore
-            "title": paper.title,
-            "authors": [author.name for author in paper.authors],
-            "published": paper.published.strftime("%Y-%m-%d"),
-            "abstract": paper.summary,
-            "pdf_url": paper.pdf_url,
-        })
+        results.append(
+            {  # type: ignore
+                "title": paper.title,
+                "authors": [author.name for author in paper.authors],
+                "published": paper.published.strftime("%Y-%m-%d"),
+                "abstract": paper.summary,
+                "pdf_url": paper.pdf_url,
+            }
+        )
 
     # # Write results to a file
     # with open('arxiv_search_results.json', 'w') as f:

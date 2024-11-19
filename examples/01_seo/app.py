@@ -71,25 +71,25 @@ orchestrator_agent = Agent(
     name="orchestrator",
     instructions=orchestrator_instructions,
     parallel_tool_calls=False,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    providers=[LiteLLMConfig(enable_cache=True)],
 )
 
 blog_writer = Agent(
     name="blog_writer",
     instructions=blog_writer_instructions,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    providers=[LiteLLMConfig(enable_cache=True)],
 )
 
 seo_optimizer = Agent(
     name="seo_optimizer",
     instructions=seo_optimizer_instructions,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    providers=[LiteLLMConfig(enable_cache=True)],
 )
 
 user_agent = Agent(
     name="user_agent",
     instructions="Print the final blog post.",
-    provider_config=LiteLLMConfig(enable_cache=True),
+    providers=[LiteLLMConfig(enable_cache=True)],
     tool_choice="none",  # forces to print the final blog post
 )
 

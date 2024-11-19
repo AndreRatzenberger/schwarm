@@ -1,14 +1,12 @@
-"""Base class for LLM providers."""
+"""Base class for providers."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
-from schwarm.provider.models import ProviderConfig
+from schwarm.provider.base.base_provider import BaseProvider
 
 
-class ProviderBase(ABC):
-    """Abstract base class for LLM providers."""
-
-    config: ProviderConfig
+class BaseEventHandleProvider(BaseProvider):
+    """Abstract base class for providers."""
 
     @abstractmethod
     def on_start(self) -> None:

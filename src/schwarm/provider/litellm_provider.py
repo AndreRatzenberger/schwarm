@@ -8,11 +8,10 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.utils import check_valid_key, get_valid_models
 from loguru import logger
-from pydantic import Field
 
 from schwarm.models.message import Message, MessageInfo
-from schwarm.provider.base import LLMProviderBase
-from schwarm.provider.models import LLMProviderBaseConfig
+from schwarm.provider.base import BaseLLMProvider
+from schwarm.provider.models.lite_llm_config import LiteLLMConfig
 
 
 class ConfigurationError(Exception):
@@ -36,22 +35,7 @@ class LoggingHandler(CustomLogger):
         logger.log("INFO", f"Value of Cache hit: {kwargs['cache_hit']}")
 
 
-class LiteLLMConfig(LLMProviderBaseConfig):
-    """Configuration for the Lite LLM provider.
-
-    Attributes:
-        enable_cost_tracking: Whether to enable cost tracking
-        enable_cache: Whether to enable caching
-    """
-
-    enable_cache: bool = Field(default=False, description="Whether to enable cost tracking")
-    enable_debug: bool = Field(default=False, description="Whether to enable debug mode")
-    enable_mocking: bool = Field(
-        default=False, description="Whether to enable mocking"
-    )  # TODO: Add this field to the config
-
-
-class LiteLLMProvider(LLMProviderBase):
+class LiteLLMProvider(BaseLLMProvider):
     """Provider for the Lite LLM API.
 
     This provider implements the LLMProvider interface using the LiteLLM library,
@@ -107,6 +91,10 @@ class LiteLLMProvider(LLMProviderBase):
 
         if config.enable_debug:
             litellm.set_verbose = True  # type: ignore
+
+    def initialize(self):
+        """Initialize the provider."""
+        pass
 
     def test_connection(self) -> bool:
         """Test connection to Lite LLM provider.

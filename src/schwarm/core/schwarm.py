@@ -12,7 +12,8 @@ from schwarm.core.tools import ToolHandler
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
-from schwarm.provider.litellm_provider import LiteLLMProvider
+from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.provider_factory import ProviderFactory
 from schwarm.services.display_service import DisplayService
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -244,14 +245,24 @@ class Schwarm:
                 params["required"].remove(APP_SETTINGS.CONTEXT_VARS_KEY)
 
         logger.info(f"Requesting completion from provider with model override: {override_model}")
-        provider = LiteLLMProvider(agent.model, agent.provider_config)
-        result = provider.complete(
-            messages,
-            override_model=override_model,
-            tools=tools,
-            tool_choice=str(agent.tool_choice),
-            parallel_tool_calls=agent.parallel_tool_calls,
-        )
+
+        cfg = None
+        for p in agent.providers:
+            if p._provider_type == "llm":
+                cfg = p
+                break
+        if cfg is None:
+            raise ValueError("No LLM provider found in agent config")
+
+        provider = ProviderFactory.create_llm_provider_from_agent(agent)
+        if isinstance(provider, BaseLLMProvider):
+            result = provider.complete(
+                messages,
+                override_model=override_model,
+                tools=tools,
+                tool_choice=str(agent.tool_choice),
+                parallel_tool_calls=agent.parallel_tool_calls,
+            )
         # budget stuff
         if result.info is not None:
             agent.budget.current_spent += result.info.completion_cost
