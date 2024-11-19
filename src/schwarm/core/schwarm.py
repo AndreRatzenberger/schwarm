@@ -13,7 +13,7 @@ from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
-from schwarm.provider.provider_factory import ProviderFactory
+from schwarm.provider.provider_manager import PROVIDER_MANAGER, ProviderManager
 from schwarm.services.display_service import DisplayService
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -36,6 +36,7 @@ class Schwarm:
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
         self._logging_enabled = True
         self._agents: list[Agent] = agent_list
+        self._provider_manager = ProviderManager()
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):
@@ -162,6 +163,8 @@ class Schwarm:
         logger.debug(f"Initial context variables: {context_variables}")
         logger.debug(f"Initial message history length: {init_len}")
 
+        PROVIDER_MANAGER.initialize(active_agent)
+
         while len(history) - init_len < max_turns and active_agent:
             current_turn = len(history) - init_len + 1
             logger.info(f"Processing turn {current_turn}/{max_turns}")
@@ -254,7 +257,7 @@ class Schwarm:
         if cfg is None:
             raise ValueError("No LLM provider found in agent config")
 
-        provider = ProviderFactory.create_llm_provider_from_agent(agent)
+        provider = PROVIDER_MANAGER.create_llm_provider_from_agent(agent)
         if isinstance(provider, BaseLLMProvider):
             result = provider.complete(
                 messages,

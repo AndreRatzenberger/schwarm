@@ -16,3 +16,6 @@ class BaseProviderConfig(BaseModel):
         default="", description="The type of provider. LLM provider or EventHandler provider"
     )
     provider_name: str = Field(default="", description="The provider id for the provider")
+    provider_lifecycle: Literal["singleton", "scoped", "stateless"] = Field(
+        default="", description="The type of provider. LLM provider or EventHandler provider"
+    )

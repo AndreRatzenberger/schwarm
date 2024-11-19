@@ -47,6 +47,7 @@ class LiteLLMProvider(BaseLLMProvider):
     """
 
     active_model: str = "gpt-4o"
+    provider_name: str = "lite_llm"
 
     def __init__(
         self,

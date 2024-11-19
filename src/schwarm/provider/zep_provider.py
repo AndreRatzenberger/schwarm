@@ -29,3 +29,21 @@ class ZepProvider(BaseEventHandleProvider):
             user_id=user_id,
             session_id=session_id,
         )
+
+    def on_start(self):
+        super().on_start()
+
+    def on_handoff(self, next_agent):
+        super().on_handoff(next_agent)
+
+    def on_message_completion(self):
+        super().on_message_completion()
+
+    def on_tool_execution(self):
+        super().on_tool_execution()
+
+    def on_post_message_completion(self):
+        super().on_post_message_completion()
+
+    def on_post_tool_execution(self):
+        super().on_post_tool_execution()
