@@ -10,7 +10,8 @@ from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
 from schwarm.models.display_config import DisplayConfig
-from schwarm.models.types import Agent, ContextVariables, Result
+from schwarm.models.types import Agent, Result
+from schwarm.provider.context_provider import ContextVariables
 from schwarm.utils.settings import APP_SETTINGS
 
 console = Console()

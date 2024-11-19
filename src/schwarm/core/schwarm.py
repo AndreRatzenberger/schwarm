@@ -3,23 +3,22 @@
 import copy
 import sys
 from collections import defaultdict
-from typing import Any, Literal
+from typing import Literal
 
 from loguru import logger
 
-from schwarm.context.context import ContextManager
 from schwarm.core.logging import log_function_call
 from schwarm.core.tools import ToolHandler
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.context_provider import ContextVariables
 from schwarm.provider.provider_manager import PROVIDER_MANAGER, ProviderManager
 from schwarm.services.display_service import DisplayService
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
 
-ContextVariables = dict[str, Any]
 logger.add(
     APP_SETTINGS.DATA_FOLDER + "/logs/debug.log", format="{time} {level} {message}", level="DEBUG", rotation="10 MB"
 )
@@ -38,7 +37,7 @@ class Schwarm:
         self._logging_enabled = True
         self._agents: list[Agent] = agent_list
         self._provider_manager = ProviderManager()
-        self._context_manager = ContextManager()
+
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):
@@ -223,6 +222,7 @@ class Schwarm:
         """Complete an agent request."""
         prev_spent = agent.budget.current_spent
         prev_tokens = agent.budget.current_tokens
+        PROVIDER_MANAGER.trigger("before_completion", agent=agent, context_variables=context_variables, history=history)
         context_variables = defaultdict(str, context_variables)
 
         # Get the agent instructions to set system prompt

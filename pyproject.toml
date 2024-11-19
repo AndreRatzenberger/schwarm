@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "arxiv>=2.1.3",
     "beautifulsoup4>=4.12.3",
+    "burr[start]>=0.33.0",
     "diskcache>=5.6.3",
     "litellm>=1.51.3",
     "loguru>=0.7.2",
