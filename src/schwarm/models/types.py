@@ -11,7 +11,7 @@ from schwarm.services.budget_service import BudgetService
 
 # Type alias for agent functions that can return various types
 AgentFunction = Callable[..., "str | Agent | dict[str, Any] | Result"]
-ContextVariables = dict[str, Any]
+# ContextVariables = dict[str, Any]
 
 
 class Agent(BaseModel):

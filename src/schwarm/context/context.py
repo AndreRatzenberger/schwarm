@@ -19,7 +19,7 @@ class AgentHandOffLog(BaseModel):
     handoffs_to: list[str] = Field(default_factory=list, description="The children of the agent.")
 
 
-class SchwarmContext(BaseModel):
+class ContextManager(BaseModel):
     """Schwarm context class."""
 
     agents: list[AgentHandOffLog] = Field(default_factory=list, description="The agent tree.")
@@ -56,6 +56,3 @@ class SchwarmContext(BaseModel):
             if agent_tree.agent == agent:
                 agent_tree.handoffs_to.append(child)
                 return
-
-
-SCHWARM_CONTEXT = SchwarmContext()

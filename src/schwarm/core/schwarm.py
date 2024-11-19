@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from loguru import logger
 
+from schwarm.context.context import ContextManager
 from schwarm.core.logging import log_function_call
 from schwarm.core.tools import ToolHandler
 from schwarm.models.display_config import DisplayConfig
@@ -37,6 +38,7 @@ class Schwarm:
         self._logging_enabled = True
         self._agents: list[Agent] = agent_list
         self._provider_manager = ProviderManager()
+        self._context_manager = ContextManager()
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):

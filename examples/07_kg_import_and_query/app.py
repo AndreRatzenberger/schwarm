@@ -11,9 +11,9 @@ from rich.console import Console
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage
 
-from schwarm.context.context import SCHWARM_CONTEXT
 from schwarm.core.schwarm import Schwarm
-from schwarm.models.types import Agent, ContextVariables, Result
+from schwarm.models.types import Agent, Result
+from schwarm.provider.context_provider import ContextVariables
 from schwarm.provider.litellm_provider import LiteLLMConfig
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -48,7 +48,7 @@ def instruction_stephen_king_agent(context_variables: ContextVariables) -> str:
     Execute "remember_things" to remember things you aren't sure about or to check if something is at odds with previous established facts.
     
     """
-    if "book" in SCHWARM_CONTEXT.variables:
+    if "book" in context_variables:
         book = context_variables["book"]
         addendum = "\n\n You current story has this many words right now (goal: 10000): " + str(len(book) / 8)
 

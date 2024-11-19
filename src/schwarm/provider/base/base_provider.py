@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 
+from loguru import logger
+
 from schwarm.models.types import Agent
 from schwarm.provider.models import BaseProviderConfig
 
@@ -21,4 +23,4 @@ class BaseProvider(ABC):
     @abstractmethod
     def initialize(self) -> None:
         """Run when an agent is started."""
-        pass
+        logger.info(f"Initializing {self.config.provider_name} provider")
