@@ -1,0 +1,1 @@
+"""provides infinite memory."""
