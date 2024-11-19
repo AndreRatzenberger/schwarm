@@ -145,3 +145,39 @@ tbd.
 - a real documentation
 - web ui
 - an extensive arsenal of provider
+
+
+## refactor
+
+```python
+# Initialize providers
+provider_manager.initialize(agent)
+
+# Trigger start events
+trigger_provider_event("on_start")
+
+# Main loop
+while running:
+    # Pre-completion events
+    trigger_provider_event("on_message_completion")
+    
+    # Get completion from LLM provider
+    completion = llm_provider.complete(...)
+    
+    # Post-completion events
+    trigger_provider_event("on_post_message_completion")
+    
+    # Pre-tool events
+    trigger_provider_event("on_tool_execution")
+    
+    # Execute tools
+    result = tool_handler.execute(...)
+    
+    # Post-tool events
+    trigger_provider_event("on_post_tool_execution")
+    
+    # Handle agent handoff if needed
+    if handoff:
+        trigger_provider_event("on_handoff")
+
+```

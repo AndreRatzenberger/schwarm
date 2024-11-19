@@ -10,6 +10,7 @@ from litellm.utils import check_valid_key, get_valid_models
 from loguru import logger
 
 from schwarm.models.message import Message, MessageInfo
+from schwarm.models.types import Agent
 from schwarm.provider.base import BaseLLMProvider
 from schwarm.provider.models.lite_llm_config import LiteLLMConfig
 
@@ -46,26 +47,24 @@ class LiteLLMProvider(BaseLLMProvider):
         config: Provider configuration
     """
 
-    active_model: str = "gpt-4o"
+    active_model: str = "gpt-4"
     provider_name: str = "lite_llm"
 
     def __init__(
         self,
-        active_model: str,
-        config: LiteLLMConfig = LiteLLMConfig(),
-        **kwargs: dict[str, Any],
+        model: str,
+        config: LiteLLMConfig,
+        agent: Agent | None = None,
     ):
         """Initialize the Lite LLM provider.
 
         Args:
-            active_model: The model identifier to use
+            model: The model identifier to use
             config: Provider configuration
-            **kwargs: Additional configuration options
-
-        Raises:
-            ConfigurationError: If the configuration is invalid or no valid models are found
+            agent: Optional agent context
         """
-        self.active_model = active_model
+        super().__init__(agent, config) if agent else None
+        self.active_model = model
         self.config = config
         # enable drop params for models that don't support certain params
         litellm.drop_params = True

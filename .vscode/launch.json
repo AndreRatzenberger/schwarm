@@ -10,59 +10,6 @@
             "cwd": "${workspaceFolder}",
             "python": "${workspaceFolder}/.venv/Scripts/python",
             "preLaunchTask": "sync env"
-        },
-        {
-            "name": "02 - WIN - Researcher",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/02_researcher/app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "python": "${workspaceFolder}/.venv/Scripts/python",
-            "preLaunchTask": "sync env"
-        },
-        {
-            "name": "04 - WIN - Autogen",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/04_autogen/app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "python": "${workspaceFolder}/.venv/Scripts/python",
-            "preLaunchTask": "sync env"
-        },
-        {
-            "name": "01 - UNIX - SEO Blog optimization",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/01_seo/app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "python": "${workspaceFolder}/.venv/bin/python",
-            "preLaunchTask": "sync env"
-        },
-        {
-            "name": "02 - UNIX - Researcher",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/02_researcher/app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/src/schwarm",
-            "python": "${workspaceFolder}/.venv/bin/python",
-            "args": [
-                "--verbose"
-            ],
-            "preLaunchTask": "sync env"
-        },
-        {
-            "name": "04 - UNIX - Autogen example",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/examples/04_autogen/app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "python": "${workspaceFolder}/.venv/bin/python",
-            "preLaunchTask": "sync env"
         }
     ]
 }

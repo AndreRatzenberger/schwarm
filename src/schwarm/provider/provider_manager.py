@@ -1,5 +1,7 @@
 """A provider factory that creates providers based on the provider type and name."""
 
+from loguru import logger
+
 from schwarm.core.logging import log_function_call
 from schwarm.models.types import Agent
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
@@ -7,72 +9,164 @@ from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.litellm_provider import LiteLLMProvider
 from schwarm.provider.models.base_provider_config import BaseProviderConfig
 from schwarm.provider.models.lite_llm_config import LiteLLMConfig
-from schwarm.provider.models.zep_config import ZepConfig
 from schwarm.provider.zep_provider import ZepProvider
 
 
 class ProviderManager:
-    """Factory class for creating providers."""
+    """Factory class for creating and managing providers.
+
+    This class handles provider lifecycle management (singleton/scoped/stateless),
+    provider initialization, and provider type-specific operations.
+    """
 
     def __init__(self):
-        """Initializes the provider manager."""
-        self._singleton_providers: list[BaseProvider] = []
-        self._scoped_providers: dict[str, list[BaseProvider]] = {}
+        """Initialize the provider manager."""
+        self._singleton_providers: dict[str, BaseProvider] = {}
+        self._scoped_providers: dict[str, dict[str, BaseProvider]] = {}
+        self._provider_registry: dict[str, type[BaseProvider]] = {
+            "lite_llm": LiteLLMProvider,
+            "zep": ZepProvider,
+        }
 
     @log_function_call()
-    def initialize(self, agent: Agent):
-        """Initializes the provider manager."""
-        for provider in agent.providers:
-            if provider.provider_lifecycle == "singleton":
-                self.add_singleton_provider(agent, provider)
-            elif provider.provider_lifecycle == "scoped":
-                self.add_scoped_provider(agent, provider)
+    def initialize(self, agent: Agent) -> None:
+        """Initialize providers for an agent.
 
-    @log_function_call()
-    def add_singleton_provider(self, agent, config: BaseProviderConfig):
-        """Creates a singleton provider based on the provider type and name."""
-        for provider in self._singleton_providers:
-            if provider.config.provider_name == config.provider_name:
-                return None
-        provider = ProviderManager.create_provider(config)
-        if provider:
-            provider.initialize()
-            self._singleton_providers.append(provider)
+        This method handles provider lifecycle management, ensuring providers
+        are created and initialized according to their lifecycle configuration.
 
-    @log_function_call()
-    def add_scoped_provider(self, active_agent: Agent, config: BaseProviderConfig):
-        """Creates a scoped provider based on the provider type and name."""
-        prov = self._scoped_providers[active_agent.name]
+        Args:
+            agent: The agent to initialize providers for
+        """
+        logger.info(f"Initializing providers for agent {agent.name}")
 
-        if prov:
-            for provider in prov:
-                if provider.config.provider_name == config.provider_name:
-                    return None
-        provider = ProviderManager.create_provider(config, active_agent)
-        if provider:
-            provider.initialize()
+        # Initialize scoped providers dict for this agent if needed
+        if agent.name not in self._scoped_providers:
+            self._scoped_providers[agent.name] = {}
 
-            if prov:
-                prov.append(provider)
-            else:
-                self._scoped_providers[active_agent.name] = [provider]
+        for provider_config in agent.providers:
+            try:
+                if provider_config.provider_lifecycle == "singleton":
+                    self._add_singleton_provider(agent, provider_config)
+                elif provider_config.provider_lifecycle == "scoped":
+                    self._add_scoped_provider(agent, provider_config)
+                elif provider_config.provider_lifecycle == "stateless":
+                    # Stateless providers are created on-demand
+                    pass
+                else:
+                    logger.warning(f"Unknown provider lifecycle: {provider_config.provider_lifecycle}")
+            except Exception as e:
+                logger.error(f"Failed to initialize provider {provider_config.provider_name}: {e}")
 
-    @log_function_call()
-    @staticmethod
-    def create_provider(config: BaseProviderConfig, agent: Agent | None = None) -> BaseProvider | None:
-        """Creates a provider based on the provider type and name."""
-        if config.provider_name == "lite_llm" and isinstance(config, LiteLLMConfig):
-            return LiteLLMProvider(agent.model if agent else "", config)
-        if config.provider_name == "zep" and isinstance(config, ZepConfig) and agent:
-            return ZepProvider(agent, config)
+    def _add_singleton_provider(self, agent: Agent, config: BaseProviderConfig) -> None:
+        """Add a singleton provider if it doesn't already exist.
 
-    @log_function_call()
-    @staticmethod
-    def create_llm_provider_from_agent(agent: Agent) -> BaseLLMProvider | None:
-        """Creates a provider based on the agent."""
-        for provider in agent.providers:
-            if provider.provider_name == "lite_llm" and isinstance(provider, LiteLLMConfig):
-                return LiteLLMProvider(agent.model, provider)
+        Args:
+            agent: The agent requesting the provider
+            config: Provider configuration
+        """
+        if config.provider_name not in self._singleton_providers:
+            provider = self._create_provider(config, agent)
+            if provider:
+                provider.initialize()
+                self._singleton_providers[config.provider_name] = provider
+                logger.info(f"Created singleton provider: {config.provider_name}")
+
+    def _add_scoped_provider(self, agent: Agent, config: BaseProviderConfig) -> None:
+        """Add a scoped provider for an agent if it doesn't already exist.
+
+        Args:
+            agent: The agent to create the provider for
+            config: Provider configuration
+        """
+        agent_providers = self._scoped_providers[agent.name]
+        if config.provider_name not in agent_providers:
+            provider = self._create_provider(config, agent)
+            if provider:
+                provider.initialize()
+                agent_providers[config.provider_name] = provider
+                logger.info(f"Created scoped provider: {config.provider_name} for agent {agent.name}")
+
+    def _create_provider(self, config: BaseProviderConfig, agent: Agent | None = None) -> BaseProvider | None:
+        """Create a provider instance based on configuration.
+
+        Args:
+            config: Provider configuration
+            agent: Optional agent context
+
+        Returns:
+            Created provider instance or None if creation fails
+        """
+        provider_class = self._provider_registry.get(config.provider_name)
+        if not provider_class:
+            logger.warning(f"No provider class registered for {config.provider_name}")
+            return None
+
+        try:
+            if issubclass(provider_class, BaseLLMProvider):
+                if not agent:
+                    raise ValueError("Agent required for LLM provider creation")
+                if isinstance(config, LiteLLMConfig):
+                    return provider_class(agent.model, config)
+            if agent:
+                return provider_class(agent, config)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to create provider {config.provider_name}: {e}")
+            return None
+
+    def get_provider(self, agent: Agent, provider_name: str) -> BaseProvider | None:
+        """Get a provider instance for an agent.
+
+        This method handles provider lifecycle management, returning:
+        - Singleton provider if it exists
+        - Scoped provider for the agent if it exists
+        - New stateless provider instance if neither exists
+
+        Args:
+            agent: The agent requesting the provider
+            provider_name: Name of the provider to get
+
+        Returns:
+            Provider instance or None if not found/created
+        """
+        # Check singleton providers first
+        if provider_name in self._singleton_providers:
+            return self._singleton_providers[provider_name]
+
+        # Check scoped providers for this agent
+        agent_providers = self._scoped_providers.get(agent.name, {})
+        if provider_name in agent_providers:
+            return agent_providers[provider_name]
+
+        # Find matching provider config
+        provider_config = next((p for p in agent.providers if p.provider_name == provider_name), None)
+        if not provider_config:
+            logger.warning(f"No provider config found for {provider_name}")
+            return None
+
+        # Create new stateless provider if needed
+        if provider_config.provider_lifecycle == "stateless":
+            return self._create_provider(provider_config, agent)
+
+        return None
+
+    def get_llm_provider(self, agent: Agent) -> BaseLLMProvider | None:
+        """Get the LLM provider for an agent.
+
+        Args:
+            agent: The agent to get the LLM provider for
+
+        Returns:
+            LLM provider instance or None if not found
+        """
+        for provider_config in agent.providers:
+            if provider_config._provider_type == "llm":
+                provider = self.get_provider(agent, provider_config.provider_name)
+                if isinstance(provider, BaseLLMProvider):
+                    return provider
+        return None
 
 
+# Global provider manager instance
 PROVIDER_MANAGER = ProviderManager()

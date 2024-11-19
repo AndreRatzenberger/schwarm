@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from schwarm.provider.base import BaseEventHandleProvider
-from schwarm.provider.models.context_config import ContextConfig
+from schwarm.provider.models.context_provider_config import ContextConfig
 
 
 class ContextVariables(BaseModel):

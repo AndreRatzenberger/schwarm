@@ -1,16 +1,8 @@
-"""This package contains the models used in the Schwarm project."""
+"""Models package."""
 
-from .display_config import DisplayConfig
-from .message import Message, MessageInfo
-from .types import Agent, AgentFunction, ContextVariables, Response, Result
+from schwarm.models.context_variables import ContextVariables
+from schwarm.models.display_config import DisplayConfig
+from schwarm.models.message import Message
+from schwarm.models.types import Agent, Response
 
-__all__ = [
-    "DisplayConfig",
-    "Message",
-    "MessageInfo",
-    "AgentFunction",
-    "ContextVariables",
-    "Agent",
-    "Response",
-    "Result",
-]
+__all__ = ["DisplayConfig", "Message", "Agent", "Response", "ContextVariables"]

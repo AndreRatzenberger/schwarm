@@ -3,7 +3,7 @@
 from schwarm.provider.models import BaseEventHandleProviderConfig
 
 
-class ContextConfig(BaseEventHandleProviderConfig):
+class BudgetProviderConfig(BaseEventHandleProviderConfig):
     """Configuration for the context provider."""
 
     def __init__(self):
