@@ -66,7 +66,7 @@ Alpha will end 2025 Q1 with the release of a web UI to Schwarm)_
 
 4. How can I help you?
 
-   Tell it what to do with dynamic instructions that can change every time it's the agent's turn again and carry objects and other data with the help of `context_variables`.
+   Tell it what to do with dynamic instructions that can change every time it's the agent's turn again and carry objects and other data from agent to agent and step to step with the help of `context_variables`.
 
    ```python
    def instruction_stephen_king_agent(context_variables: ContextVariables) -> str:
@@ -88,6 +88,10 @@ Alpha will end 2025 Q1 with the release of a web UI to Schwarm)_
    ```
 
 5. The toolbox
+
+   Give your agent skills it wouldn’t have otherwise! Also, pass the stick to other agents by setting them in the agent property of the Result object. Just not in this example... Mr. King works alone!
+
+   With such a way of doing handoffs you can implement every state graph you could also build with langgraph. But this way you keep your sanity.
 
    ```python
    def write_batch(context_variables: ContextVariables, text: str) -> Result:
@@ -112,9 +116,6 @@ Alpha will end 2025 Q1 with the release of a web UI to Schwarm)_
 
    stephen_king_agent.functions = [write_batch, remember_things]
    ```
-
-   Give your agent skills it wouldn’t have otherwise! Also, pass the stick to other agents by setting them in the agent property of the Result object. Just not in this example... Mr. King works alone!
-   With such a way of doing handoffs you can implement every state graph you could also build with langgraph. But you keep your sanity.
 
    (Based on the function name, variable names and types and the docstring, a valid OpenAI function spec json gets generated, so this will only work if your model does understand those. Support for other tool specs is coming!)
 
