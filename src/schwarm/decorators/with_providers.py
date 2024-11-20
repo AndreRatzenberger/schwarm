@@ -1,4 +1,3 @@
-# schwarm/core/decorators.py
 from collections.abc import Callable
 from functools import wraps
 from typing import (
@@ -29,7 +28,7 @@ def with_providers(*provider_names: str) -> Callable:
 
     def decorator(func: Callable[Concatenate[dict[str, BaseProvider], P], R]) -> Callable[P, R]:
         @wraps(func)
-        def wrapper(context_variables: dict[str, Any], *args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(p: dict, context_variables: dict[str, Any], *args: P.args, **kwargs: P.kwargs) -> R:
             # Extract providers from context_variables
             providers = {}
             for name in provider_names:
