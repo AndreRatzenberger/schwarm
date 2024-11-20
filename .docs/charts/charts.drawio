@@ -1,0 +1,24 @@
+<mxfile host="65bd71144e">
+    <diagram id="HsFDCljkOaCR2qrhRRLS" name="Page-1">
+        <mxGraphModel dx="1226" dy="519" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" value="classDiagram&#10;    class Agent {&#10;        +name: string&#10;        +provider_configurations: List&#10;        +functions: List&#10;        +get_provider()&#10;    }&#10;&#10;    class BaseTool {&#10;        &lt;&lt;abstract&gt;&gt;&#10;        +providers: dict&#10;        +execute()&#10;    }&#10;&#10;    class WriteStoryTool {&#10;        +execute()&#10;    }&#10;&#10;    class StoryContext {&#10;        +book: string&#10;        +zep_provider: ZepProvider&#10;        +vector_store: VectorStore&#10;        +from_dict()&#10;        +to_dict()&#10;    }&#10;&#10;    class ToolContext {&#10;        -_providers: dict&#10;        +variables: dict&#10;        +zep: ZepProvider&#10;        +vector_store: VectorStore&#10;        +execute()&#10;    }&#10;&#10;    class Result {&#10;        +value: string&#10;        +context_variables: dict&#10;        +agent: Agent&#10;    }&#10;&#10;    BaseTool &lt;|-- WriteStoryTool&#10;    WriteStoryTool --&gt; Result&#10;    Agent --&gt; BaseTool&#10;    Agent --&gt; StoryContext&#10;    Agent --&gt; ToolContext&#10;&#10; " style="shadow=0;dashed=0;align=left;strokeWidth=1;shape=mxgraph.mermaid.abstract.mermaid;labelBackgroundColor=#ffffff;noLabel=1;theme=default;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="120" width="400" height="300" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="SqHrzyhv3tgJPNi-S1Zy" name="Page-2">
+        <mxGraphModel dx="1226" dy="519" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="rUhvMk6LFAxxJBslQfMN-1" value="sequenceDiagram&#10;    participant S as Schwarm&#10;    participant P as ZepProvider&#10;    participant Z as Zep Service&#10;    participant C as Context&#10;    &#10;    Note over S,C: Instruction Event&#10;    &#10;    S-&gt;&gt;P: handle_event(INSTRUCT)&#10;    activate P&#10;    P-&gt;&gt;Z: Get memory&#10;    Z--&gt;&gt;P: Memory facts&#10;    &#10;    alt Has relevant facts&#10;        P--&gt;&gt;S: InjectionTask(INSTRUCTION)&#10;        S-&gt;&gt;C: Inject into instructions&#10;    else No facts&#10;        P--&gt;&gt;S: None&#10;    end&#10;    deactivate P&#10;    &#10;    Note over S,C: Message Completion&#10;    &#10;    S-&gt;&gt;P: handle_event(MESSAGE_COMPLETION)&#10;    activate P&#10;    P-&gt;&gt;Z: Save to memory&#10;    Z--&gt;&gt;P: Confirmed&#10;    P--&gt;&gt;S: None&#10;    deactivate P" style="shadow=0;dashed=0;align=left;strokeWidth=1;shape=mxgraph.mermaid.abstract.mermaid;labelBackgroundColor=#ffffff;noLabel=1;theme=default;" vertex="1" parent="1">
+                    <mxGeometry x="370" y="150" width="100" height="240" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

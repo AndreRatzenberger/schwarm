@@ -339,3 +339,172 @@ def test_provider_integration():
     
     # Assert expected results
     assert response.context_variables["something"] == expected
+
+
+
+```python
+# schwarm/provider/manager.py
+from typing import Optional, TypeVar, Type
+from schwarm.provider.base.base_provider import BaseProvider
+
+P = TypeVar('P', bound=BaseProvider)
+
+class ProviderManager:
+    """Centralized provider management."""
+    _instance: Optional['ProviderManager'] = None
+    
+    def __new__(cls) -> 'ProviderManager':
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        if not self._initialized:
+            self._global_providers: dict[str, BaseProvider] = {}
+            self._scoped_providers: dict[str, dict[str, BaseProvider]] = {}
+            self._initialized = True
+    
+    def get_provider(self, agent_id: str, provider_name: str) -> Optional[BaseProvider]:
+        """Get provider instance for an agent."""
+        # Check global providers first
+        if provider_name in self._global_providers:
+            return self._global_providers[provider_name]
+            
+        # Check scoped providers
+        agent_providers = self._scoped_providers.get(agent_id, {})
+        return agent_providers.get(provider_name)
+
+    def get_typed_provider(self, agent_id: str, provider_name: str, 
+                          provider_type: Type[P]) -> Optional[P]:
+        """Get provider with type checking."""
+        provider = self.get_provider(agent_id, provider_name)
+        if provider is not None and isinstance(provider, provider_type):
+            return provider
+        return None
+
+# schwarm/core/decorators.py
+from functools import wraps
+from typing import Callable, Any, TypeVar, ParamSpec
+from typing_extensions import Concatenate
+
+from schwarm.models.types import Result
+from schwarm.provider.base.base_provider import BaseProvider
+from schwarm.provider.manager import ProviderManager
+
+P = ParamSpec('P')
+R = TypeVar('R', bound=Result)
+
+def with_providers(*provider_names: str) -> Callable:
+    """Decorator to inject providers into tool functions.
+    
+    Instead of getting providers from context variables, gets them directly
+    from the ProviderManager.
+    """
+    def decorator(func: Callable[Concatenate[dict[str, BaseProvider], P], R]) -> Callable[P, R]:
+        @wraps(func)
+        def wrapper(context_variables: dict[str, Any], *args: P.args, **kwargs: P.kwargs) -> R:
+            if 'agent_id' not in context_variables:
+                raise ValueError("agent_id must be in context_variables")
+                
+            agent_id = context_variables['agent_id']
+            manager = ProviderManager()
+            
+            # Get providers from manager
+            providers = {}
+            for name in provider_names:
+                provider = manager.get_provider(agent_id, name)
+                if provider is None:
+                    raise ValueError(f"Required provider '{name}' not found for agent {agent_id}")
+                providers[name] = provider
+            
+            return func(providers, context_variables, *args, **kwargs)
+            
+        wrapper.required_providers = provider_names
+        return wrapper
+    return decorator
+
+# Example usage in your story agent:
+from schwarm.provider.zep_provider import ZepProvider
+from schwarm.provider.vector_store_provider import VectorStoreProvider
+
+@with_providers('zep')
+def write_batch(providers: ProviderMap, 
+                context_variables: dict[str, Any],
+                text: str) -> Result:
+    """Write down your story."""
+    zep = providers['zep']  # IDE will know this is ZepProvider
+    
+    # Use the provider
+    zep.add_to_memory(text)
+    context_variables['book'] = context_variables.get('book', '') + text
+    
+    return Result(
+        value=text,
+        context_variables=context_variables,
+        agent=stephen_king_agent
+    )
+
+# Modified Schwarm class to inject agent_id
+class Schwarm:
+    def __init__(self):
+        self._provider_manager = ProviderManager()
+    
+    def run(self, agent: Agent, messages: list[Message], 
+            context_variables: dict[str, Any], **kwargs) -> Response:
+        # Ensure agent_id is in context
+        context_variables['agent_id'] = agent.name
+        
+        # Rest of your run logic...
+        pass
+
+# Even better: Type-safe provider access
+from typing import TypedDict, Union
+
+class TypedProviderMap(TypedDict, total=False):
+    """Fully typed provider mapping."""
+    zep: ZepProvider
+    vector_store: VectorStoreProvider
+    litellm: LiteLLMProvider
+
+@with_providers('zep')
+def remember_things(providers: TypedProviderMap,
+                   context_variables: dict[str, Any],
+                   what_you_want_to_remember: str) -> Result:
+    """Now with fully typed provider access."""
+    zep = providers['zep']  # IDE knows exactly what type this is
+    
+    # Full type completion for all ZepProvider methods
+    results = zep.search_memory(what_you_want_to_remember)
+    memory_text = "\n".join(str(res.fact) for res in results) if results else ""
+    
+    return Result(
+        value=memory_text,
+        context_variables=context_variables,
+        agent=stephen_king_agent
+    )
+
+# Example of how to add type-safe provider retrieval
+def get_provider_safe(agent_id: str, name: str, 
+                     provider_type: Type[P]) -> P:
+    """Get provider with type checking."""
+    manager = ProviderManager()
+    provider = manager.get_typed_provider(agent_id, name, provider_type)
+    if provider is None:
+        raise ValueError(f"Provider {name} not found or wrong type")
+    return provider
+
+# Usage in a tool
+@with_providers('zep', 'vector_store')
+def advanced_tool(providers: TypedProviderMap,
+                 context_variables: dict[str, Any]) -> Result:
+    # Fully typed access
+    zep: ZepProvider = providers['zep']
+    vector_store: VectorStoreProvider = providers['vector_store']
+    
+    # Full IDE completion and type checking
+    zep.add_to_memory("something")
+    vector_store.search("query")
+    
+    return Result(...)
+```

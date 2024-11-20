@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.models import BaseProviderConfig
+from schwarm.provider.base.models import BaseProviderConfig
 
 if TYPE_CHECKING:
     from schwarm.models.agent import Agent

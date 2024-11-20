@@ -1,6 +1,6 @@
 """Config for the zep provider."""
 
-from schwarm.provider.models import BaseEventHandleProviderConfig
+from schwarm.provider.base.models import BaseEventHandleProviderConfig
 
 
 class ZepConfig(BaseEventHandleProviderConfig):

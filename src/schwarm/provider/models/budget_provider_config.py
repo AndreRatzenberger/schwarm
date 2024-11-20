@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from schwarm.provider.models import BaseEventHandleProviderConfig
+from schwarm.provider.base.models import BaseEventHandleProviderConfig
 
 
 class BudgetProviderConfig(BaseEventHandleProviderConfig):

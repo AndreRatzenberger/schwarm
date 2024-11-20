@@ -160,7 +160,7 @@ class Schwarm:
                 # Trigger pre-tool execution events
                 self._trigger_provider_event(active_agent, "on_tool_execution")
 
-                partial_response = ToolHandler(display_config).handle_tool_calls(
+                partial_response = ToolHandler().handle_tool_calls(
                     current_agent=active_agent.name,
                     tool_calls=completion.tool_calls,
                     functions=active_agent.functions,

@@ -1,6 +1,6 @@
 """Config for the context provider."""
 
-from schwarm.provider.models import BaseEventHandleProviderConfig
+from schwarm.provider.base.models import BaseEventHandleProviderConfig
 
 
 class ContextProviderConfig(BaseEventHandleProviderConfig):

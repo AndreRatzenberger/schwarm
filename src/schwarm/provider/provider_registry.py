@@ -7,13 +7,25 @@ from loguru import logger
 from schwarm.models.agent import Agent
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProvider
+from schwarm.provider.base.models.base_provider_config import BaseProviderConfig
 from schwarm.provider.litellm_provider import LiteLLMProvider
-from schwarm.provider.models.base_provider_config import BaseProviderConfig
 from schwarm.provider.zep_provider import ZepProvider
 
 
 class ProviderRegistry:
-    """Manages provider lifecycle and event handling."""
+    """Manages provider lifecycle and event handling.
+
+    The ProviderRegistry class is responsible for managing provider lifecycle and event handling.
+    Schwarm agents can access providers through the provider registry, which handles provider creation,
+    """
+
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        """Create a singleton instance of the provider registry."""
+        if not cls._instance:
+            cls._instance = super().__new__(cls, *args, **kwargs)
+        return cls._instance
 
     def __init__(self):
         """Initialize the provider registry."""
