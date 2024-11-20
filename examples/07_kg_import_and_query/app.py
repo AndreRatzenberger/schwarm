@@ -13,6 +13,7 @@ from schwarm.core.schwarm import Schwarm
 from schwarm.models.agent import Agent
 from schwarm.models.types import Result
 from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.models.lite_llm_config import EnvironmentConfig, FeatureFlags
 from schwarm.provider.models.zep_config import ZepConfig
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -22,7 +23,11 @@ APP_SETTINGS.DATA_FOLDER = "examples/07_kg_import_and_query"
 
 
 stephen_king_agent = Agent(
-    name="mr_stephen_king", provider_configurations=[LiteLLMConfig(enable_cache=True), ZepConfig()]
+    name="mr_stephen_king",
+    provider_configurations=[
+        LiteLLMConfig(model_id="gpt-4", features=FeatureFlags(cache=True), environment=EnvironmentConfig()),
+        ZepConfig(),
+    ],
 )
 
 

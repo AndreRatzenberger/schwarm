@@ -1,29 +1,52 @@
-"""Configuration for the Lite LLM provider."""
+"""Configuration for the LiteLLM provider."""
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from schwarm.provider.models.base_llm_provider_config import BaseLLMProviderConfig
 
 
-class LiteLLMConfig(BaseLLMProviderConfig):
-    """Configuration for the Lite LLM provider.
-
-    See LiteLLM docs for which model needs what environment variables.
-
+class EnvironmentConfig(BaseModel):
+    """Configuration for environment variable handling.
 
     Attributes:
-        env_var_override: Whether to override environment variables
-        env_vars: Environment variables to override
-        enable_cost_tracking: Whether to enable cost tracking
-        enable_cache: Whether to enable caching
+        override: Whether to override environment variables
+        variables: Environment variables to override (excluding API_KEY)
     """
 
-    env_var_override: bool = Field(default=False, description="Whether to override environment variables")
-    env_vars: dict[str, str] = Field(
-        default_factory=dict, description="Environment variables EXCEPT API_KEY to override"
+    override: bool = Field(default=False, description="Controls whether environment variables should be overridden")
+    variables: dict[str, str] = Field(
+        default_factory=dict, description="Environment variables to override (excluding API_KEY)"
     )
-    enable_cache: bool = Field(default=False, description="Whether to enable cost tracking")
-    enable_debug: bool = Field(default=False, description="Whether to enable debug mode")
-    enable_mocking: bool = Field(
-        default=False, description="Whether to enable mocking"
-    )  # TODO: Add this field to the config
+
+
+class FeatureFlags(BaseModel):
+    """Feature flags for LiteLLM provider.
+
+    Attributes:
+        cache: Whether to enable response caching
+        debug: Whether to enable debug mode
+        mocking: Whether to enable mock responses
+    """
+
+    cache: bool = Field(default=False, description="Enables response caching for improved performance")
+    debug: bool = Field(default=False, description="Enables debug mode for detailed logging")
+    mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
+
+
+class LiteLLMConfig(BaseLLMProviderConfig):
+    """Configuration for the LiteLLM provider.
+
+    This configuration class manages settings for the LiteLLM provider,
+    including environment variable handling and feature flags.
+
+    See LiteLLM documentation for model-specific environment variable requirements.
+
+    Attributes:
+        environment: Environment variable configuration
+        features: Feature flag configuration
+    """
+
+    environment: EnvironmentConfig = Field(
+        default_factory=EnvironmentConfig, description="Environment variable configuration"
+    )
+    features: FeatureFlags = Field(default_factory=FeatureFlags, description="Feature flag configuration")
