@@ -1,4 +1,4 @@
-"""provides infinite memory."""
+"""Provider for infinite memory using Zep."""
 
 import uuid
 from typing import Any
@@ -7,38 +7,40 @@ from loguru import logger
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
-from schwarm.decorators.handles_event import handles_event
-from schwarm.events.event_data import Event, MessageCompletionData
 from schwarm.events.event_types import EventType
-from schwarm.models.types import Agent
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base.injection import InjectionTask, InstructionInjection
 from schwarm.provider.zep_config import ZepConfig
 
 
 class ZepProvider(BaseEventHandleProvider):
     """Knowledge graph provider with infinite memory."""
 
-    config: ZepConfig
-    zep_service: Zep | None = None
-    user_id: str | None = None
-    session_id: str | None = None
-
-    def __init__(self, agent: Agent, config: ZepConfig):
+    def __init__(self, config: ZepConfig):
         """Initialize the provider."""
-        super().__init__(agent, config)
-        self.user_id = None
-        self.session_id = None
+        super().__init__(config)
+        self.config: ZepConfig = config
+        self.zep_service: Zep | None = None
+        self.user_id: str | None = None
+        self.session_id: str | None = None
 
-    @handles_event(EventType.START)
-    def initialize(self, event: Event[dict[str, Any]]) -> None:
+    def set_up(self) -> None:
+        """Configure for both external use and event handling."""
+        # Allow use in tools
+        self.external_use = True
+
+        # Set up event handlers
+        self.internal_use = {
+            EventType.START: [self.initialize],
+            EventType.INSTRUCT: [self.enhance_instructions],
+            EventType.MESSAGE_COMPLETION: [self.save_completion],
+        }
+
+    def initialize(self, **kwargs: Any) -> None:
         """Initialize Zep connection."""
         self.zep_service = Zep(api_key=self.config.zep_api_key, base_url=self.config.zep_api_key)
 
-        randomize_user_id = event.payload.get("randomize_user_id", False)
-        if not self.agent:
-            raise ValueError("Agent name not set")
-        self.user_id = self.agent.name + str(uuid.uuid4()) if randomize_user_id else self.agent.name
+        randomize_user_id = kwargs.get("randomize_user_id", False)
+        self.user_id = f"user_{uuid.uuid4()!s}" if randomize_user_id else "default_user"
         self.session_id = str(uuid.uuid4())
 
         self._setup_user()
@@ -99,13 +101,7 @@ class ZepProvider(BaseEventHandleProvider):
             return []
         return response.results
 
-    def inject_instruction(self, instruction: str) -> InjectionTask:
-        """Inject instruction into the conversation."""
-        val = InstructionInjection(instruction)
-        return InjectionTask("instruction", value=val)  # type: ignore
-
-    @handles_event(EventType.INSTRUCT)
-    def enhance_instructions(self, event: Event) -> InjectionTask | None:
+    def enhance_instructions(self, **kwargs: Any) -> str | None:
         """Add memory context to instructions."""
         if not self.zep_service:
             logger.error("Zep service not initialized")
@@ -114,15 +110,14 @@ class ZepProvider(BaseEventHandleProvider):
         try:
             memory = self.zep_service.memory.get("user_agent", min_rating=self.config.min_fact_rating)
             if memory.relevant_facts:
-                return self.inject_instruction(f"\n\nRelevant facts about the story so far:\n{memory.relevant_facts}")
+                return f"\n\nRelevant facts about the story so far:\n{memory.relevant_facts}"
         except Exception as e:
             logger.error(f"Error fetching memory: {e}")
             return None
 
         return None
 
-    @handles_event(EventType.MESSAGE_COMPLETION)
-    def save_completion(self, event: Event[MessageCompletionData]) -> None:
+    def save_completion(self, **kwargs: Any) -> None:
         """Save completion to memory."""
         if not self.zep_service or not self.session_id:
             logger.error("Zep service or session_id not initialized")
@@ -131,10 +126,18 @@ class ZepProvider(BaseEventHandleProvider):
         if not self.config.on_completion_save_completion_to_memory:
             return
 
-        message = event.payload.messages[-1]
-        messages = self.split_text(message.content)
+        messages = kwargs.get("messages", [])
+        if not messages:
+            return
+
+        message = messages[-1]
+        zep_messages = self.split_text(message.content)
 
         try:
-            self.zep_service.memory.add(session_id=self.session_id, messages=messages)
+            self.zep_service.memory.add(session_id=self.session_id, messages=zep_messages)
         except Exception as e:
             logger.error(f"Error saving to memory: {e}")
+
+    def complete(self, messages: list[str]) -> str:
+        """Not implemented as this is primarily an event-based provider."""
+        raise NotImplementedError("ZepProvider does not support direct completion")

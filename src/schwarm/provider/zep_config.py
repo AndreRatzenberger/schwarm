@@ -1,14 +1,28 @@
-"""Config for the zep provider."""
+"""Configuration for Zep memory provider."""
 
-from schwarm.provider.base.models import BaseEventHandleProviderConfig
+from pydantic import Field
+
+from schwarm.provider.base.base_provider_config import BaseProviderConfig, ProviderScope
 
 
-class ZepConfig(BaseEventHandleProviderConfig):
-    """Configuration for the Zep provider."""
+class ZepConfig(BaseProviderConfig):
+    """Configuration for Zep memory provider."""
 
-    zep_api_key: str = "zepzep"
-    zep_url: str = "http://localhost:8000"
-    min_fact_rating: float = 0.3
-    on_interaction_add_result_to_instructions: bool = True
-    on_completion_save_completion_to_memory: bool = True
-    on_tool_execution_save_memory: bool = True
+    zep_api_key: str = Field(..., description="API key for Zep service")
+    zep_api_url: str = Field(default="http://localhost:8000", description="URL for Zep service")
+    min_fact_rating: float = Field(default=0.7, description="Minimum rating for facts to be considered")
+    on_completion_save_completion_to_memory: bool = Field(
+        default=True, description="Whether to save completions to memory"
+    )
+
+    def __init__(self, **data):
+        """Initialize with defaults."""
+        data.update(
+            {
+                "provider_name": "zep",
+                "provider_type": "memory",
+                "provider_class": "schwarm.provider.zep_provider.ZepProvider",
+                "scope": ProviderScope.AGENT,
+            }
+        )
+        super().__init__(**data)

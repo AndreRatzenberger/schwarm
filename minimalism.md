@@ -87,13 +87,19 @@ def analyze_then_draw(context: dict, topic: str) -> Result:
 Providers can be either external (used in tools) or internal (event-based):
 
 ```python
-from enum import Enum
-from typing import Callable, List
-
 class EventType(Enum):
     START = "on_start"
     TOOL_USE = "on_tool_use"
     MESSAGE = "on_message"
+```
+
+
+```python
+from enum import Enum
+from typing import Callable, List
+from schwarm.events import EventType
+
+
 
 class ImageGenerationProvider(BaseEventHandleProvider):
     def set_up(self) -> None:
@@ -114,7 +120,8 @@ class ImageGenerationProvider(BaseEventHandleProvider):
 
 ### Provider Configuration
 
-Each provider needs a configuration:
+Each provider needs a configuration.
+Every provider should work out of the box by having sensical defaults
 
 ```python
 class ImageGenerationConfig(BaseProviderConfig):
@@ -132,7 +139,7 @@ class ImageGenerationConfig(BaseProviderConfig):
 
 ## Running Agents
 
-Start any agent with the quickstart method:
+Start the agent system with any agent
 
 ```python
 # Simple start

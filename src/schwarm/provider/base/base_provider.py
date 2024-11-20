@@ -1,58 +1,43 @@
-"""Base class for providers."""
+"""Base provider implementation."""
 
-import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from typing import Any
 
-from loguru import logger
-
-# from schwarm.models.provider_context import ProviderContext
-from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import BaseProviderConfig
+from schwarm.events.event_types import EventType
+from schwarm.provider.base.base_provider_config import BaseProviderConfig
 
 
 class BaseProvider(ABC):
-    """Abstract base class for providers."""
-
-    config: BaseProviderConfig
-    context: ProviderContext | None = None
-    provider_id: str = ""
-    provider_name: str = ""
-    # context: ProviderContext | None = None
+    """Base class for all providers."""
 
     def __init__(self, config: BaseProviderConfig):
-        """Initializes the provider."""
+        """Initialize the provider."""
         self.config = config
+        self.external_use: bool = False
+        self.internal_use: dict[EventType, list[Callable]] = {}
 
-        self.provider_name = self.config.provider_name
-        self.provider_id = self.provider_name + str(uuid.uuid4())
-        self.initialize()
+    def set_up(self) -> None:
+        """Initialize the provider. Override this in subclasses."""
+        pass
+
+    def handle_event(self, event_type: EventType, *args, **kwargs) -> Any:
+        """Handle internal events if configured."""
+        if event_type in self.internal_use:
+            for handler in self.internal_use[event_type]:
+                result = handler(*args, **kwargs)
+                if result is not None:
+                    return result
+        return None
 
     @abstractmethod
-    def initialize(self) -> None:
-        """Run when an agent is started."""
-        logger.info(f"Initializing {self.provider_name} ({self.provider_id}) provider")
-
-    def cleanup(self) -> None:
-        """Cleanup provider resources. Called when provider is no longer needed."""
-        self._initialized = False
-
-    def update_context(self, context: ProviderContext) -> None:
-        """Updates the provider's context with new data.
+    def complete(self, messages: list[str]) -> str:
+        """Complete a prompt using the provider.
 
         Args:
-            context: New context data
-        """
-        self.context = context
-
-    def get_context(self) -> ProviderContext:
-        """Gets the provider's current context.
+            messages: List of messages to process
 
         Returns:
-            Current context or raises ValueError if context not set
-
-        Raises:
-            ValueError: If context has not been set
+            Completion response as a string
         """
-        if not self.context:
-            raise ValueError("Provider context has not been set")
-        return self.context
+        pass
