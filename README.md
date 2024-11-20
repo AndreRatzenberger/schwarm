@@ -57,7 +57,7 @@ Alpha will end 2025 Q1 with the release of a web UI to Schwarm)_
 3. Create your agent
 
    ```python
-   stephen_king_agent = Agent(name="mr_stephen_king", provider_config=LiteLLMConfig(enable_cache=True))
+   stephen_king_agent = Agent(name="mr_stephen_king", provider_config=[LiteLLMConfig(enable_cache=True), ZepProviderConfig())
    ```
 
    Mr. Stephen King is ready to rock! And has his cache with them! All in one line!
