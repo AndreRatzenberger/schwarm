@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import Field
 
 from schwarm.models.message import Message
-from schwarm.provider.base import BaseProvider, BaseProviderConfig
+from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 
 
 class BaseLLMProviderConfig(BaseProviderConfig):

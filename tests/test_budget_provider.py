@@ -7,8 +7,7 @@ from schwarm.events.event_types import EventType
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Agent
-from schwarm.provider.budget_provider import BudgetProvider
-from schwarm.provider.budget_provider_config import BudgetProviderConfig
+from schwarm.provider.budget_provider import BudgetProvider, BudgetProviderConfig
 
 
 class TestBudgetProvider(BudgetProvider):

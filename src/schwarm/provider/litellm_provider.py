@@ -1,6 +1,6 @@
 """Provider for the Lite LLM API."""
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import litellm
 from litellm import BaseModel, Field, completion, completion_cost, token_counter  # type: ignore
@@ -9,9 +9,11 @@ from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
 from schwarm.models.message import Message, MessageInfo
-from schwarm.models.types import Agent
 from schwarm.provider.base import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
+
+if TYPE_CHECKING:
+    from schwarm.models.types import Agent
 
 
 class EnvironmentConfig(BaseModel):
@@ -126,7 +128,7 @@ class LiteLLMProvider(BaseLLMProvider):
     def __init__(
         self,
         config: LiteLLMConfig,
-        agent: Agent | None = None,
+        agent: "Agent | None" = None,
     ) -> None:
         """Initialize the Lite LLM provider.
 

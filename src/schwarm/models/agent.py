@@ -6,8 +6,7 @@ from typing import Any, Literal, TypeVar
 from pydantic import BaseModel, Field, PrivateAttr
 
 from schwarm.models.result import Result
-from schwarm.provider.base.base_provider import BaseProvider
-from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
 
 T = TypeVar("T", bound=BaseProvider)
