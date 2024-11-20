@@ -1,20 +1,24 @@
 """Defines Pydantic models for agent types and interaction results."""
 
 from collections.abc import Callable
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
 from schwarm.models.message import Message
-from schwarm.provider.litellm_provider import LiteLLMConfig
-from schwarm.services.budget_service import BudgetService
+from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.validation.tool_validation_mixin import ToolValidationMixin
+
+if TYPE_CHECKING:
+    from schwarm.models.types import Result
+
 
 # Type alias for agent functions that can return various types
 AgentFunction = Callable[..., "str | Agent | dict[str, Any] | Result"]
 ContextVariables = dict[str, Any]
 
 
-class Agent(BaseModel):
+class Agent(BaseModel, ToolValidationMixin):
     """Represents an AI agent with specific capabilities and configuration.
 
     Attributes:
@@ -33,15 +37,28 @@ class Agent(BaseModel):
         default="You are a helpful agent.",
         description="Static string or callable returning agent instructions",
     )
-    functions: list[AgentFunction] = Field(default_factory=list, description="List of functions available to the agent")
+    # functions: list[AgentFunction] = Field(default_factory=list, description="List of functions available to the agent")
     tool_choice: Literal["none", "auto", "required"] = Field(
         default="required",
         description="Specific tool selection strategy. none = no tools get called, auto = llm decides if generating a text or calling a tool, required = tools are forced",
     )
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
-    provider_config: LiteLLMConfig = Field(default=LiteLLMConfig(), description="Provider Config")
-    budget: BudgetService = Field(default=BudgetService(), description="Budget Config")
-    # force_tool_use: bool = Field(default=False, description="Force tool use")
+    provider_configurations: list["BaseProviderConfig"] = Field(
+        default_factory=list, description="List of provider configurations"
+    )
+    _functions: list[AgentFunction] = []
+
+    @property
+    def functions(self) -> list[AgentFunction]:
+        """Get the list of functions available to the agent."""
+        return self._functions
+
+    @functions.setter
+    def functions(self, funcs: list[AgentFunction]) -> None:
+        """Validate and set tools."""
+        for func in funcs:
+            self.validate_tool(func)
+        self._functions = funcs
 
 
 class Response(BaseModel):

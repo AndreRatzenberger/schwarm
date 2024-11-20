@@ -9,11 +9,13 @@ from loguru import logger
 
 from schwarm.core.logging import log_function_call
 from schwarm.core.tools import ToolHandler
+from schwarm.events.event_types import EventType
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
+from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Agent, Response
-from schwarm.provider.litellm_provider import LiteLLMProvider
-from schwarm.services.display_service import DisplayService
+from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -35,6 +37,7 @@ class Schwarm:
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
         self._logging_enabled = True
         self._agents: list[Agent] = agent_list
+        self._manager = ProviderManager.initialize_provider_system()
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):
@@ -137,90 +140,106 @@ class Schwarm:
         Returns:
             Response object containing messages, agent, and context variables.
         """
-        # Control logging output based on show_logs parameter
-        if not show_logs and self._logging_enabled:
-            logger.info("Disabling console logging")
-            logger.remove(self._default_handler)
-            self._logging_enabled = False
-        elif show_logs and not self._logging_enabled:
-            logger.info("Enabling console logging")
-            self._default_handler = logger.add(sys.stderr, level="DEBUG")
-            self._logging_enabled = True
+        try:
+            # Control logging output based on show_logs parameter
+            if not show_logs and self._logging_enabled:
+                logger.info("Disabling console logging")
+                logger.remove(self._default_handler)
+                self._logging_enabled = False
+            elif show_logs and not self._logging_enabled:
+                logger.info("Enabling console logging")
+                self._default_handler = logger.add(sys.stderr, level="DEBUG")
+                self._logging_enabled = True
 
-        if display_config:
-            logger.info("Initializing display service with config")
-            self.display_service = DisplayService(display_config)
-            self.display_service.delete_logs()
+            active_agent = agent
+            context_variables = copy.deepcopy(context_variables)
+            history = copy.deepcopy(messages)
+            init_len = len(messages)
 
-        active_agent = agent
-        context_variables = copy.deepcopy(context_variables)
-        history = copy.deepcopy(messages)
-        init_len = len(messages)
-
-        logger.info(f"Starting agent run with {active_agent.name}, max_turns: {max_turns}")
-        logger.debug(f"Initial context variables: {context_variables}")
-        logger.debug(f"Initial message history length: {init_len}")
-
-        while len(history) - init_len < max_turns and active_agent:
-            current_turn = len(history) - init_len + 1
-            logger.info(f"Processing turn {current_turn}/{max_turns}")
-
-            if self.display_service:
-                self.display_service.show_budget_table(self._agents)
-
-            completion = self._complete_agent_request(
-                agent=active_agent, context_variables=context_variables, history=history, override_model=model_override
+            self._provider_context = ProviderContext(
+                message_history=history,
+                current_message=history[-1] if history else None,
+                current_agent=active_agent,
+                context_variables=context_variables,
+                available_agents=self._agents,
+                available_tools=agent.functions,
+                available_providers=self._manager._provider_registry,
             )
 
-            completion.sender = active_agent.name
-            logger.debug(f"Completion received from {completion.sender}")
+            for config in agent.provider_configurations:
+                if config.enabled:
+                    self._manager.initialize_provider(agent.name, config)
 
-            history.append(completion)
+            self._manager.trigger_event(EventType.START, self._provider_context)
 
-            if not completion.tool_calls or not execute_tools:
-                logger.info("No tools to execute or tool execution disabled")
-                break
+            while len(history) - init_len < max_turns and active_agent:
+                current_turn = len(history) - init_len + 1
+                logger.info(f"Processing turn {current_turn}/{max_turns}")
 
-            logger.info(f"Executing {len(completion.tool_calls)} tool calls")
-            partial_response = ToolHandler(display_config).handle_tool_calls(
-                current_agent=active_agent.name,
-                tool_calls=completion.tool_calls,
-                functions=active_agent.functions,
+                completion = self._complete_agent_request(
+                    agent=active_agent,
+                    context_variables=context_variables,
+                    history=history,
+                    override_model=model_override,
+                )
+
+                completion.sender = active_agent.name
+                logger.debug(f"Completion received from {completion.sender}")
+
+                history.append(completion)
+
+                if not completion.tool_calls or not execute_tools:
+                    logger.info("No tools to execute or tool execution disabled")
+                    break
+
+                logger.info(f"Executing {len(completion.tool_calls)} tool calls")
+                partial_response = ToolHandler(display_config).handle_tool_calls(
+                    current_agent=active_agent.name,
+                    tool_calls=completion.tool_calls,
+                    functions=active_agent.functions,
+                    context_variables=context_variables,
+                )
+
+                history.extend(partial_response.messages)
+                context_variables.update(partial_response.context_variables)
+
+                if partial_response.agent and partial_response.agent != active_agent:
+                    logger.info(f"Agent handoff: {active_agent.name} -> {partial_response.agent.name}")
+                    active_agent = partial_response.agent
+
+            logger.info(f"Agent run completed after {len(history) - init_len} turns")
+
+            # Restore logging if it was disabled
+            if not show_logs and not self._logging_enabled:
+                self._default_handler = logger.add(sys.stderr, level="DEBUG")
+                self._logging_enabled = True
+                logger.info("Console logging restored")
+
+            return Response(
+                messages=history[init_len:],
+                agent=active_agent,
                 context_variables=context_variables,
             )
-
-            history.extend(partial_response.messages)
-            context_variables.update(partial_response.context_variables)
-
-            if partial_response.agent and partial_response.agent != active_agent:
-                logger.info(f"Agent handoff: {active_agent.name} -> {partial_response.agent.name}")
-                active_agent = partial_response.agent
-
-        logger.info(f"Agent run completed after {len(history) - init_len} turns")
-
-        # Restore logging if it was disabled
-        if not show_logs and not self._logging_enabled:
-            self._default_handler = logger.add(sys.stderr, level="DEBUG")
-            self._logging_enabled = True
-            logger.info("Console logging restored")
-
-        return Response(
-            messages=history[init_len:],
-            agent=active_agent,
-            context_variables=context_variables,
-        )
+        finally:
+            # Clean up agent-specific providers
+            self._manager.cleanup_agent(agent.name)
 
     @log_function_call(log_level="DEBUG")
     def _complete_agent_request(
         self, agent: Agent, context_variables: ContextVariables, history: list[Message], override_model: str
     ) -> Message:
         """Complete an agent request."""
-        prev_spent = agent.budget.current_spent
-        prev_tokens = agent.budget.current_tokens
         context_variables = defaultdict(str, context_variables)
 
         # Get the agent instructions to set system prompt
         instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
+
+        self._provider_context.current_instruction = instructions
+        self._provider_context.current_message = history[-1]
+        self._provider_context.context_variables = context_variables
+        self._provider_context.current_agent = agent
+        self._manager.trigger_event(EventType.INSTRUCT, self._provider_context)
+
         logger.debug(f"Generated instructions for agent '{agent.name}'")
 
         if self.display_service:
@@ -244,31 +263,16 @@ class Schwarm:
                 params["required"].remove(APP_SETTINGS.CONTEXT_VARS_KEY)
 
         logger.info(f"Requesting completion from provider with model override: {override_model}")
-        provider = LiteLLMProvider(agent.model, agent.provider_config)
-        result = provider.complete(
-            messages,
-            override_model=override_model,
-            tools=tools,
-            tool_choice=str(agent.tool_choice),
-            parallel_tool_calls=agent.parallel_tool_calls,
-        )
-        # budget stuff
-        if result.info is not None:
-            agent.budget.current_spent += result.info.completion_cost
-            logger.debug(f"Completion cost: {result.info.completion_cost}")
-            agent.budget.current_tokens += result.info.token_counter
-            logger.debug(f"Token: {result.info.token_counter}")
 
-            # Save budget to CSV if enabled and values changed
-            if prev_spent != agent.budget.current_spent or prev_tokens != agent.budget.current_tokens:
-                agent.budget.save_to_csv(agent.name)
-
-            if self.display_service:  # noqa: SIM102
-                if agent.budget.show_budget or self.display_service.display_config.show_budget:
-                    self.display_service.show_budget(agent)
-
-            # Check budget and token limits
-            agent.budget.check_limits()
+        provider = self._manager.get_first_llm_provider(agent.name)
+        if isinstance(provider, BaseLLMProvider):
+            result = provider.complete(
+                messages,
+                override_model=override_model,
+                tools=tools,
+                tool_choice=str(agent.tool_choice),
+                parallel_tool_calls=agent.parallel_tool_calls,
+            )
 
         logger.debug("Completion received from provider")
 

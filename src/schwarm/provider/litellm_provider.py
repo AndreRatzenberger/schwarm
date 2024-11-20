@@ -1,112 +1,134 @@
 """Provider for the Lite LLM API."""
 
-from typing import Any
+from typing import Any, cast
 
 import litellm
-from litellm import acompletion, completion, completion_cost, token_counter  # type: ignore
+from litellm import completion, completion_cost, token_counter  # type: ignore
 from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
-from litellm.utils import check_valid_key, get_valid_models
 from loguru import logger
-from pydantic import Field
 
 from schwarm.models.message import Message, MessageInfo
-from schwarm.models.provider_config import ProviderConfig
-from schwarm.provider.provider_base import LLMProvider
+from schwarm.models.types import Agent
+from schwarm.provider.base import BaseLLMProvider
+from schwarm.provider.litellm_config import LiteLLMConfig
+from schwarm.utils.file import temporary_env_vars
 
 
-class ConfigurationError(Exception):
+class LiteLLMError(Exception):
+    """Base exception for LiteLLM provider errors."""
+
+    pass
+
+
+class ConfigurationError(LiteLLMError):
     """Raised when there's an error in the provider configuration."""
 
     pass
 
 
-class CompletionError(Exception):
+class CompletionError(LiteLLMError):
     """Raised when there's an error during completion."""
 
     pass
 
 
+class ConnectionError(LiteLLMError):
+    """Raised when there's an error connecting to the LLM service."""
+
+    pass
+
+
 class LoggingHandler(CustomLogger):
-    """Custom handler for logging events."""
+    """Custom handler for logging LiteLLM events.
 
-    async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):  # type: ignore
-        """Log a success event."""
-        logger.log("INFO", f"Success event: {kwargs}")
-        logger.log("INFO", f"Value of Cache hit: {kwargs['cache_hit']}")
-
-
-class LiteLLMConfig(ProviderConfig):
-    """Configuration for the Lite LLM provider.
-
-    Attributes:
-        enable_cost_tracking: Whether to enable cost tracking
-        enable_cache: Whether to enable caching
+    This handler captures and formats success events from LiteLLM operations,
+    providing detailed logging for monitoring and debugging purposes.
     """
 
-    enable_cache: bool = Field(default=False, description="Whether to enable cost tracking")
-    enable_debug: bool = Field(default=False, description="Whether to enable debug mode")
-    enable_mocking: bool = Field(
-        default=False, description="Whether to enable mocking"
-    )  # TODO: Add this field to the config
+    async def async_log_success_event(
+        self, kwargs: dict[str, Any], response_obj: Any, start_time: float, end_time: float
+    ) -> None:
+        """Log a success event with detailed information.
+
+        Args:
+            kwargs: The arguments passed to the LLM call
+            response_obj: The response from the LLM service
+            start_time: When the request started
+            end_time: When the request completed
+        """
+        duration = end_time - start_time
+        logger.info(f"LiteLLM request completed in {duration:.2f}s")
+        logger.info(f"Cache hit: {kwargs.get('cache_hit', False)}")
+        if "messages" in kwargs:
+            logger.debug(f"Request messages: {kwargs['messages']}")
 
 
-class LiteLLMProvider(LLMProvider):
+class LiteLLMProvider(BaseLLMProvider):
     """Provider for the Lite LLM API.
 
     This provider implements the LLMProvider interface using the LiteLLM library,
     which supports multiple LLM providers through a unified interface.
 
     Attributes:
-        active_model: The currently active model identifier
+        provider_name: Identifier for this provider type
         config: Provider configuration
     """
 
-    active_model: str = "gpt-4o"
+    provider_name: str = "lite_llm"
 
     def __init__(
         self,
-        active_model: str,
-        config: LiteLLMConfig = LiteLLMConfig(),
-        **kwargs: dict[str, Any],
-    ):
+        config: LiteLLMConfig,
+        agent: Agent | None = None,
+    ) -> None:
         """Initialize the Lite LLM provider.
 
         Args:
-            active_model: The model identifier to use
             config: Provider configuration
-            **kwargs: Additional configuration options
+            agent: Optional agent context
 
         Raises:
-            ConfigurationError: If the configuration is invalid or no valid models are found
+            ConfigurationError: If the configuration is invalid
         """
-        self.active_model = active_model
-        self.config = config
-        # enable drop params for models that don't support certain params
+        super().__init__(config) if agent else None
+        self.config = cast(LiteLLMConfig, config)
         litellm.drop_params = True
-        # Validate configuration
-        if not config.api_key:
-            valid_models = get_valid_models()
-            if not valid_models:
-                raise ConfigurationError(
-                    "No valid models found. Please provide an API key or set appropriate environment variables."
-                )
-            if self.active_model not in valid_models:
-                raise ConfigurationError(
-                    f"Model '{self.active_model}' is not valid. Available models: {', '.join(valid_models)}"
-                )
-        else:
-            if self.test_connection() is False:
-                raise ConfigurationError("Invalid API key or connection to Lite LLM provider")
 
-        self.enable_cache = config.enable_cache
-        if self.enable_cache:
-            litellm.cache = Cache(type="disk", disk_cache_dir=".llm_cache")  # type: ignore
-            customHandler_caching = LoggingHandler()
-            litellm.callbacks = [customHandler_caching]
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-        if config.enable_debug:
-            litellm.set_verbose = True  # type: ignore
+        This method sets up caching, logging, and debugging based on configuration.
+        It also validates the connection to ensure the provider is properly configured.
+
+        Raises:
+            ConfigurationError: If the connection test fails
+            ConnectionError: If unable to connect to the LLM service
+        """
+        try:
+            if not self.test_connection():
+                raise ConfigurationError("Failed to connect to LLM service")
+
+            config = cast(LiteLLMConfig, self.config)
+            if config.features.cache:
+                self._setup_caching()
+
+            if config.features.debug:
+                litellm.set_verbose = True  # type: ignore
+                logger.info("Debug mode enabled for LiteLLM provider")
+
+        except Exception as e:
+            raise ConnectionError(f"Failed to initialize provider: {e!s}") from e
+
+    def _setup_caching(self) -> None:
+        """Configure caching for the provider.
+
+        Sets up disk-based caching and logging handlers for cache operations.
+        """
+        litellm.cache = Cache(type="disk", disk_cache_dir=".llm_cache")  # type: ignore
+        customHandler_caching = LoggingHandler()
+        litellm.callbacks = [customHandler_caching]
+        logger.info("Caching enabled for LiteLLM provider")
 
     def test_connection(self) -> bool:
         """Test connection to Lite LLM provider.
@@ -115,63 +137,162 @@ class LiteLLMProvider(LLMProvider):
             bool: True if connection is successful, False otherwise
         """
         try:
-            result = check_valid_key(self.active_model, self.config.api_key)
-            if result:
-                return True
-            try:
-                completion(self.active_model, messages=[{"role": "user", "content": "Test connection"}])
-                return True
-            except Exception:
-                return False
-        except Exception:
+            msg = Message(role="user", content="Test connection")
+            self.complete(messages=[msg])
+            return True
+        except Exception as e:
+            logger.error(f"Connection test failed: {e!s}")
             return False
 
-    async def async_complete(
-        self, messages: list[Message], override_model: str | None = None, stream: bool | None = False
-    ) -> Message:
-        """Generate completion for given messages.
+    def _prepare_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
+        """Prepare messages for LiteLLM API.
 
         Args:
-            messages: List of messages in the conversation
-            override_model: Optional model to use instead of active_model
-            stream: Whether to stream the response
+            messages: List of messages to prepare
+
+        Returns:
+            List of formatted message dictionaries
+        """
+        return [
+            {
+                "role": message.role,
+                "content": message.content,
+                "tool_calls": message.tool_calls,
+                "tool_call_id": message.tool_call_id,
+            }
+            for message in messages
+        ]
+
+    def _create_completion_response(self, response: Any, model: str, message_list: list[dict[str, Any]]) -> Message:
+        """Create a Message from a completion response.
+
+        Args:
+            response: Raw response from LiteLLM
+            model: The model used for completion
+            message_list: The original messages sent
+
+        Returns:
+            Message: Formatted completion response
+
+        Raises:
+            CompletionError: If the response format is invalid
+        """
+        choices = getattr(response, "choices", None)
+        if not choices:
+            raise CompletionError("Invalid response format from LLM service")
+
+        try:
+            cost = completion_cost(completion_response=response)
+        except Exception:
+            cost = 0
+            logger.warning("Failed to calculate completion cost")
+
+        token_count = token_counter(model, messages=message_list)
+        info = MessageInfo(token_counter=token_count, completion_cost=cost)
+
+        choice = choices[0]
+        model_extra = getattr(choice, "model_extra", {})
+        message = model_extra.get("message", {})
+        tool_calls = message.get("tool_calls", [])
+
+        return Message(
+            content=message.get("content", ""),
+            role=message.get("role", "assistant"),
+            name=model,
+            tool_calls=tool_calls,
+            info=info,
+            additional_info={"raw_response": response},
+        )
+
+    def _complete(
+        self,
+        messages: list[Message],
+        override_model: str | None = None,
+        tools: list[dict[str, Any]] = [],
+        tool_choice: str = "",
+        parallel_tool_calls: bool = True,
+    ) -> Message:
+        """Internal completion method.
+
+        Args:
+            messages: List of messages for completion
+            override_model: Optional model override
+            tools: Available tools for the model
+            tool_choice: Selected tool
+            parallel_tool_calls: Whether to run tool calls in parallel
 
         Returns:
             Message: The completion response
 
         Raises:
-            CompletionError: If the completion fails or returns invalid format
-            ValueError: If the input messages are invalid
+            ValueError: If no messages are provided
+            CompletionError: If completion fails
         """
         if not messages:
             raise ValueError("At least one message is required")
+
+        config = cast(LiteLLMConfig, self.config)
+        model = override_model or config.llm_model_id
+        message_list = self._prepare_messages(messages)
+
         try:
-            model = override_model or self.active_model
-            message_list = [message.model_dump() for message in messages]
-            response = await acompletion(model=model, messages=message_list, stream=stream, caching=self.enable_cache)
-            choices = getattr(response, "choices", None)
-            cost = completion_cost(completion_response=response)
-            token_count = token_counter(model, messages=message_list)
+            completion_kwargs = {
+                "model": model,
+                "messages": message_list,
+                "caching": config.features.cache,
+            }
+            if tools:
+                completion_kwargs.update(
+                    {
+                        "tools": tools,
+                        "tool_choice": tool_choice,
+                        "parallel_tool_calls": parallel_tool_calls,
+                    }
+                )
 
-            info = MessageInfo(token_counter=token_count, completion_cost=cost)
+            response = completion(**completion_kwargs)
+            return self._create_completion_response(response, model, message_list)
 
-            if not choices:
-                raise CompletionError("Invalid response format from LLM service")
-
-            choice = choices[0]
-            model_extra = getattr(choice, "model_extra", {})
-            message = model_extra.get("message", {})
-
-            return Message(
-                content=message.get("content", ""),
-                role=message.get("role", "assistant"),
-                name=self.active_model,
-                info=info,
-            )
         except Exception as e:
             if isinstance(e, CompletionError):
                 raise
             raise CompletionError(f"Completion failed: {e!s}") from e
+
+    async def async_complete(
+        self,
+        messages: list[Message],
+        override_model: str | None = None,
+        tools: list[dict[str, Any]] = [],
+        tool_choice: str = "",
+        parallel_tool_calls: bool = True,
+    ) -> Message:
+        """Generate completion for given messages asynchronously.
+
+        This method provides the same functionality as complete() but in an asynchronous manner.
+
+        Args:
+            messages: List of messages in the conversation
+            override_model: Optional model to use instead of active_model
+            tools: List of available tools
+            tool_choice: The tool choice to use
+            parallel_tool_calls: Whether to make tool calls in parallel
+
+        Returns:
+            Message: The completion response
+
+        Raises:
+            CompletionError: If the completion fails
+            ValueError: If the input messages are invalid
+        """
+        # For now, we'll use the synchronous implementation
+        # TODO: Implement proper async completion when litellm supports it
+        return self.complete(
+            messages=messages,
+            override_model=override_model,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+        )
 
     def complete(
         self,
@@ -194,63 +315,27 @@ class LiteLLMProvider(LLMProvider):
             Message: The completion response
 
         Raises:
-            CompletionError: If the completion fails or returns invalid format
+            CompletionError: If the completion fails
             ValueError: If the input messages are invalid
         """
         if not messages:
             raise ValueError("At least one message is required")
-        try:
-            model = override_model or self.active_model
-            # Convert messages to simple role/content format
-            message_list = [
-                {
-                    "role": message.role,
-                    "content": message.content,
-                    "tool_calls": message.tool_calls,
-                    "tool_call_id": message.tool_call_id,
-                }
-                for message in messages
-            ]
-            if tools:
-                response = completion(
-                    model=model,
-                    messages=message_list,
+
+        config = cast(LiteLLMConfig, self.config)
+        if config.environment.variables and config.environment.override:
+            with temporary_env_vars(config.environment.variables):
+                return self._complete(
+                    messages=messages,
+                    override_model=override_model,
                     tools=tools,
                     tool_choice=tool_choice,
                     parallel_tool_calls=parallel_tool_calls,
-                    caching=self.enable_cache,
                 )
-            else:
-                response = completion(model=model, messages=message_list, caching=self.enable_cache)
-            choices = getattr(response, "choices", None)
-
-            try:
-                cost = completion_cost(completion_response=response)
-            except Exception:
-                cost = 0
-
-            token_count = token_counter(model, messages=message_list)
-
-            info = MessageInfo(token_counter=token_count, completion_cost=cost)
-
-            if not choices:
-                raise CompletionError("Invalid response format from LLM service")
-
-            choice = choices[0]
-            model_extra = getattr(choice, "model_extra", {})
-            message = model_extra.get("message", {})
-
-            tool_calls = message.get("tool_calls", [])
-
-            return Message(
-                content=message.get("content", ""),
-                role=message.get("role", "assistant"),
-                name=self.active_model,
-                tool_calls=tool_calls,
-                info=info,
-                additional_info={"raw_response": response},
+        else:
+            return self._complete(
+                messages=messages,
+                override_model=override_model,
+                tools=tools,
+                tool_choice=tool_choice,
+                parallel_tool_calls=parallel_tool_calls,
             )
-        except Exception as e:
-            if isinstance(e, CompletionError):
-                raise
-            raise CompletionError(f"Completion failed: {e!s}") from e
