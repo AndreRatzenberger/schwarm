@@ -1,13 +1,16 @@
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from schwarm.events.event_data import Event
 from schwarm.events.event_types import EventType
-from schwarm.models.types import Agent
 from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.base.base_provider_config import BaseProviderConfig
 from schwarm.provider.base.injection import InjectionTask
+
+if TYPE_CHECKING:
+    from schwarm.models.types import Agent
 
 
 class BaseEventHandleProvider(BaseProvider):

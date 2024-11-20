@@ -1,10 +1,13 @@
 """Data classes for event payloads and injections."""
 
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from schwarm.events.event_types import EventType
-from schwarm.models.types import Agent, Message
+
+if TYPE_CHECKING:
+    from schwarm.models.message import Message
+    from schwarm.models.types import Agent
 
 T = TypeVar("T")
 

@@ -1,11 +1,13 @@
 """Defines the context available to providers."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
 from schwarm.models.message import Message
-from schwarm.models.types import Agent, AgentFunction
+
+if TYPE_CHECKING:
+    from schwarm.models.types import Agent, AgentFunction
 
 
 class ProviderContext(BaseModel):
@@ -19,9 +21,9 @@ class ProviderContext(BaseModel):
         default_factory=list, description="History of all messages in the current conversation"
     )
     current_message: Message | None = Field(..., description="The current message being processed")
-    current_agent: Agent = Field(..., description="The agent currently using this provider")
-    available_agents: list[Agent] = Field(default_factory=list, description="Map of all available agents by name")
-    available_tools: list[AgentFunction] = Field(
+    current_agent: "Agent" = Field(..., description="The agent currently using this provider")
+    available_agents: list["Agent"] = Field(default_factory=list, description="Map of all available agents by name")
+    available_tools: list["AgentFunction"] = Field(
         default_factory=list, description="List of all available tools/functions"
     )
     available_providers: dict[str, Any] = Field(
