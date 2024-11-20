@@ -1,0 +1,218 @@
+"""Tests for the debug provider."""
+import os
+from unittest.mock import MagicMock, patch
+import pytest
+from schwarm.events.event_data import Event, InstructionData
+from schwarm.models.message import Message
+from schwarm.models.types import Agent, Result
+from schwarm.models.provider_context import ProviderContext
+from schwarm.provider.debug_provider import DebugProvider, DebugProviderConfig
+from schwarm.provider.budget_provider import BudgetProvider
+from schwarm.provider.provider_manager import ProviderManager
+
+
+class TestDebugProvider(DebugProvider):
+    """Test implementation of DebugProvider."""
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
+
+
+@pytest.fixture
+def config():
+    """Create a test debug provider config."""
+    return DebugProviderConfig(
+        show_instructions=True,
+        show_function_calls=True,
+        show_budget=True,
+        save_logs=True,
+        max_length=100
+    )
+
+
+@pytest.fixture
+def mock_context():
+    """Create a mock provider context."""
+    context = MagicMock(spec=ProviderContext)
+    context.current_agent = MagicMock(spec=Agent)
+    context.current_agent.name = "test_agent"
+    context.message_history = []
+    context.context_variables = {"test": "value"}
+    return context
+
+
+@pytest.fixture
+def provider(config, mock_context):
+    """Create a test debug provider instance."""
+    provider = TestDebugProvider(config)
+    provider.context = mock_context
+    return provider
+
+
+def test_provider_initialization(provider, config):
+    """Test basic provider initialization."""
+    assert provider.config == config
+    assert provider.config.show_instructions is True
+    assert provider.config.show_function_calls is True
+    assert provider.config.show_budget is True
+
+
+@patch('schwarm.provider.debug_provider.console')
+def test_handle_instructions(mock_console, provider, mock_context):
+    """Test instruction handling and display."""
+    mock_context.current_agent.instructions = "Test instructions"
+    
+    event = InstructionData(
+        agent_name="test_agent",
+        instructions="Test instructions",
+        variables={"test": "value"}
+    )
+    
+    provider.handle_start(event)
+    mock_console.print.assert_called()
+
+
+@patch('schwarm.provider.debug_provider.console')
+@patch('schwarm.provider.debug_provider.ProviderManager')
+def test_handle_message_completion_with_budget(mock_manager, mock_console, provider, mock_context):
+    """Test message completion handling with budget display."""
+    # Mock budget provider
+    mock_budget = MagicMock(spec=BudgetProvider)
+    mock_budget.config.max_spent = 10.0
+    mock_budget.config.max_tokens = 1000
+    mock_budget.config.current_spent = 5.0
+    mock_budget.config.current_tokens = 500
+    
+    mock_manager_instance = MagicMock()
+    mock_manager_instance.get_provider.return_value = mock_budget
+    mock_manager.return_value = mock_manager_instance
+    
+    provider.handle_message_completion()
+    mock_console.print.assert_called()
+
+
+@patch('schwarm.provider.debug_provider.console')
+def test_handle_tool_execution(mock_console, provider, mock_context):
+    """Test tool execution handling and function display."""
+    tool_call = {
+        "id": "test_id",
+        "type": "function",
+        "function": {
+            "name": "test_function",
+            "arguments": {"param": "value"}
+        }
+    }
+    message = Message(
+        role="assistant",
+        content="Test message",
+        tool_calls=[tool_call]
+    )
+    mock_context.message_history.append(message)
+    
+    provider.handle_tool_execution()
+    mock_console.print.assert_called()
+
+
+@patch('schwarm.provider.debug_provider.console')
+def test_handle_post_tool_execution(mock_console, provider, mock_context):
+    """Test post tool execution handling and result display."""
+    result = Result(
+        value="test result",
+        context_variables={"test": "value"}
+    )
+    message = Message(
+        role="tool",
+        content="Test result",
+        additional_info={"result": result}
+    )
+    mock_context.message_history.extend([
+        Message(role="assistant", content="Test call"),
+        message
+    ])
+    
+    provider.handle_post_tool_execution()
+    mock_console.print.assert_called()
+
+
+@patch('schwarm.provider.debug_provider.os.makedirs')
+@patch('schwarm.provider.debug_provider.Path')
+def test_log_file_management(mock_path, mock_makedirs, provider):
+    """Test log file creation and management."""
+    mock_path_instance = MagicMock()
+    mock_path_instance.exists.return_value = True
+    mock_path_instance.glob.return_value = [MagicMock()]
+    mock_path.return_value = mock_path_instance
+    
+    provider._ensure_log_directory()
+    provider._delete_logs()
+    
+    mock_makedirs.assert_called()
+    mock_path_instance.glob.assert_called()
+
+
+@patch('schwarm.provider.debug_provider.console')
+def test_disabled_features(mock_console, provider):
+    """Test provider with disabled features."""
+    provider.config.show_instructions = False
+    provider.config.show_function_calls = False
+    provider.config.show_budget = False
+    
+    event = InstructionData(
+        agent_name="test_agent",
+        instructions="Test instructions",
+        variables={"test": "value"}
+    )
+    
+    provider.handle_start(event)
+    provider.handle_tool_execution()
+    provider.handle_message_completion()
+    
+    # Console should not be used when features are disabled
+    mock_console.print.assert_not_called()
+
+
+@patch('schwarm.provider.debug_provider.open')
+def test_log_writing(mock_open, provider):
+    """Test log writing functionality."""
+    provider._write_to_log("test.log", "Test content")
+    mock_open.assert_called()
+
+
+def test_handle_missing_context(provider):
+    """Test handling when context is missing."""
+    provider.context = None
+    
+    # Should not raise errors when context is missing
+    provider.handle_start(InstructionData(
+        agent_name="test",
+        instructions="test",
+        variables={"test": "value"}
+    ))
+    provider.handle_message_completion()
+    provider.handle_tool_execution()
+    provider.handle_post_tool_execution()
+
+
+def test_handle_empty_message_history(provider, mock_context):
+    """Test handling empty message history."""
+    mock_context.message_history = []
+    
+    # Should not raise errors with empty message history
+    provider.handle_tool_execution()
+    provider.handle_post_tool_execution()
+
+
+@patch('schwarm.provider.debug_provider.console')
+def test_truncated_display(mock_console, provider):
+    """Test text truncation in display."""
+    provider.config.max_length = 10
+    long_text = "x" * 20
+    
+    event = InstructionData(
+        agent_name="test_agent",
+        instructions=long_text,
+        variables={"test": "value"}
+    )
+    
+    provider.handle_start(event)
+    mock_console.print.assert_called()
