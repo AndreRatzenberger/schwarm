@@ -33,8 +33,3 @@ class BaseLLMProvider(BaseProvider):
     ) -> Message:
         """Generate completion for given messages."""
         pass
-
-    @staticmethod
-    def build_provider_list() -> list["BaseLLMProvider"]:
-        """Build a list of available LLM providers."""
-        return []

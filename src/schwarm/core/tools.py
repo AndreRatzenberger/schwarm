@@ -9,7 +9,7 @@ from schwarm.models.agent import Agent, AgentFunction
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Response, Result
-from schwarm.services.display_service import DisplayService
+
 
 # Constants
 CONTEXT_VARS_KEY = "context_variables"
@@ -19,11 +19,9 @@ TOOL_ROLE = "tool"
 class ToolHandler:
     """Handles tool call execution and result processing."""
 
-    def __init__(self, display_config: DisplayConfig | None):
+    def __init__(self):
         """Initialize the ToolHandler."""
-        self.display_service = None
-        if isinstance(display_config, DisplayConfig):
-            self.display_service = DisplayService(display_config)
+
 
     @staticmethod
     def handle_function_result(result: Any) -> Result:
@@ -106,6 +104,8 @@ class ToolHandler:
             if result.agent:
                 partial_response.agent = result.agent
                 receiver = result.agent.name
+                
+                result.agent.
 
             if self.display_service:
                 self.display_service.show_function(

@@ -1,6 +1,6 @@
 """Base configuration for LLM providers."""
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field
 
 from schwarm.provider.models.base_provider_config import BaseProviderConfig
 
@@ -9,23 +9,7 @@ class BaseLLMProviderConfig(BaseProviderConfig):
     """Configuration for the LLM providers.
 
     Attributes:
-        api_key: The API key for authentication with the provider
-        api_base: The base URL for API endpoints
-        api_version: The API version to use
-        organization: The organization identifier
+        model_id: The model identifier
     """
 
-    api_key: str = Field(default="", description="The API key for the provider")
-    api_base: str = Field(default="", description="The API endpoint")
-    api_version: str = Field(default="", description="The API version")
-    organization: str = Field(default="", description="The API organization")
-
-    @field_validator("api_base")
-    @classmethod
-    def validate_api_base(cls, v: str) -> str:
-        """Validate that api_base is a valid URL if provided."""
-        if v and not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("API base must start with http:// or https:// if provided")
-        return v
-
-    model_config = ConfigDict(frozen=True)  # Make config immutable
+    model_id: str = Field(default="", description="The model identifier")

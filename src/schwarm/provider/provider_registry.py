@@ -6,21 +6,43 @@ from loguru import logger
 
 from schwarm.models.agent import Agent
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.base.base_provider import BaseProvider
+from schwarm.provider.litellm_provider import LiteLLMProvider
+from schwarm.provider.models.base_provider_config import BaseProviderConfig
+from schwarm.provider.zep_provider import ZepProvider
 
 
-class ProviderManager:
+class ProviderRegistry:
     """Manages provider lifecycle and event handling."""
 
-    def __init__(self, agent: Agent):
-        """Initialize the provider manager.
+    def __init__(self):
+        """Initialize the provider registry."""
+        # Initialize the provider registry
 
-        Args:
-            agent: Agent to manage providers for
-        """
-        self.agent = agent
-        self.agent.initialize_providers()
+        # Singleton:
+        # The singleton_providers attribute is a dictionary that stores singleton providers.
+        # Lifetime: Start of the application until the end of the application.
+        # Scope: All agents in the application access the same singleton provider instance.
 
-    def handle_event(self, event_name: str, **kwargs: Any) -> Any:
+        # Scoped:
+        # the scoped_providers attribute is a dictionary that stores scoped providers.
+        # Lifetime: tart of the application until the end of the application.
+        # Scope: Each agent has its own scoped provider instances.
+
+        # Stateless:
+        # Lifetime: get created when called. we don't have to store them.
+        # Scope: Created on-demand.
+
+        self._agents: dict[str, Agent] = {}
+
+        self._singleton_providers: dict[str, BaseProvider] = {}
+        self._scoped_providers: dict[str, dict[str, BaseProvider]] = {}
+        self._types: dict[str, type[BaseProvider]] = {
+            "lite_llm": LiteLLMProvider,
+            "zep": ZepProvider,
+        }
+
+    def handle_event(self, event_name: str, **kwargs: Any) -> dict[str, Any]:
         """Handle an event by dispatching to all providers.
 
         Args:
@@ -28,15 +50,55 @@ class ProviderManager:
             **kwargs: Event data to pass to handlers
 
         Returns:
-            Result from the last handler
+            dict: Result of handling the event by each provider
         """
-        result = None
+        result = {}
         for provider in self._get_event_providers():
             try:
-                result = provider.handle_event(event_name, **kwargs)
+                provider_result = provider.handle_event(event_name, **kwargs)
+                if provider_result:
+                    result[provider.provider_name] = provider_result
             except Exception as e:
                 logger.error(f"Error handling event {event_name} in provider {provider.provider_name}: {e}")
         return result
+
+    def get_provider(
+        self, agent_name: str, provider_name: str, provider_config: BaseProviderConfig | None = None
+    ) -> BaseProvider | None:
+        """Get a provider instance for an agent.
+
+        This method handles provider lifecycle management, returning:
+        - Singleton provider if it exists
+        - Scoped provider for the agent if it exists
+        - New stateless provider instance if neither exists
+
+        Args:
+            agent_name: The agent requesting the provider
+            provider_name: Name of the provider to get
+
+        Returns:
+            Provider instance or None if not found/created
+        """
+        # Check singleton providers first
+        if provider_name in self._singleton_providers:
+            return self._singleton_providers[provider_name]
+
+        # Check scoped providers for this agent
+        agent_providers = self._scoped_providers.get(agent_name, {})
+        if provider_name in agent_providers:
+            return agent_providers[provider_name]
+
+        # stateless providers need to be created on-demand with a provider config
+        if not provider_config:
+            logger.warning(f"No provider config found for {provider_name}")
+            return None
+
+        # Create new stateless provider if needed
+        agent = self._agents.get(agent_name)
+        if provider_config.provider_lifecycle == "stateless":
+            return self._create_provider(provider_config, agent)
+
+        return None
 
     def _get_event_providers(self) -> list[Any]:
         """Get all providers that can handle events.
@@ -58,6 +120,34 @@ class ProviderManager:
             LLM provider instance or None if not found
         """
         return self.agent.get_llm_provider()
+
+    def _create_provider(self, config: BaseProviderConfig, agent: Agent | None = None) -> BaseProvider | None:
+        """Create a provider instance based on configuration.
+
+        Args:
+            config: Provider configuration
+            agent: Optional agent context
+
+        Returns:
+            Created provider instance or None if creation fails
+        """
+        try:
+            provider_name = config.provider_name
+            provider_class = self._types.get(provider_name)
+            if not provider_class:
+                logger.warning(f"No provider class registered for {provider_name}")
+                return None
+
+            if issubclass(provider_class, BaseLLMProvider):
+                if not agent:
+                    raise ValueError("Agent required for LLM provider creation")
+                return provider_class(agent.model, config)
+            if agent:
+                return provider_class(agent, config)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to create provider {config.provider_name}: {e}")
+            return None
 
 
 # """A provider factory that creates providers based on the provider type and name."""

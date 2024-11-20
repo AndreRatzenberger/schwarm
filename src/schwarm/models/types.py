@@ -23,7 +23,7 @@ class Response(BaseModel):
         default_factory=list,
         description="List of messages exchanged during the interaction",
     )
-    agent: Agent | None = Field(default=None, description="Final agent state after interaction")
+    agent: "Agent | None" = Field(default=None, description="Final agent state after interaction")
     context_variables: dict[str, Any] = Field(
         default_factory=dict, description="Updated context variables after interaction"
     )
@@ -39,7 +39,7 @@ class Result(BaseModel):
     """
 
     value: str = Field(default="", description="String result of the function execution")
-    agent: Agent | None = Field(default=None, description="Optional new agent to switch to")
+    agent: "Agent | None" = Field(default=None, description="Optional new agent to switch to")
     context_variables: dict[str, Any] = Field(
         default_factory=dict,
         description="Updated context variables from this execution",
