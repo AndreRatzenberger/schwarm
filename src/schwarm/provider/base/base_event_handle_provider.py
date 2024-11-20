@@ -7,7 +7,7 @@ from pydantic import Field
 
 from schwarm.events.event_types import EventType
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import BaseProvider, BaseProviderConfig
+from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 
 
 class BaseEventHandleProviderConfig(BaseProviderConfig):
