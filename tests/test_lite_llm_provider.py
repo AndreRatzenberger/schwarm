@@ -210,7 +210,7 @@ async def test_provider_with_good_config():
 
         config = create_config(enable_cache=True)
         config.environment.override = True
-        config.environment.variables = {"OPENAI_API_KEY": OPENAI_API_KEY}
+        config.environment.variables = {"OPENAI_API_KEY": str(OPENAI_API_KEY)}
 
         provider = LiteLLMProvider(config)
         await provider.initialize()
