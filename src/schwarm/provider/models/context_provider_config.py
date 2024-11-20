@@ -8,4 +8,4 @@ class ContextProviderConfig(BaseEventHandleProviderConfig):
 
     def __init__(self):
         """Initialize the context provider configuration."""
-        super().__init__(_provider_type="event", provider_name="context", provider_lifecycle="singleton")
+        super().__init__(provider_type="event", provider_name="context", provider_lifecycle="singleton")

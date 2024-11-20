@@ -8,8 +8,8 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
+from schwarm.models.agent import Agent
 from schwarm.models.message import Message, MessageInfo
-from schwarm.models.types import Agent
 from schwarm.provider.base import BaseLLMProvider
 from schwarm.provider.models.lite_llm_config import LiteLLMConfig
 from schwarm.utils.file import temporary_env_vars
@@ -232,7 +232,7 @@ class LiteLLMProvider(BaseLLMProvider):
             raise ValueError("At least one message is required")
 
         config = cast(LiteLLMConfig, self.config)
-        model = override_model or config.model_id
+        model = override_model or config.llm_model_id
         message_list = self._prepare_messages(messages)
 
         try:

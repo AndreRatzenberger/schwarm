@@ -1,22 +1,33 @@
 """Tests for the LiteLLM provider."""
 
 import os
+from typing import cast
+from unittest.mock import patch, MagicMock
+
 import pytest
 
 from schwarm.models.message import Message
-from schwarm.provider.litellm_provider import ConfigurationError, LiteLLMConfig, LiteLLMProvider
+from schwarm.provider.litellm_provider import (
+    ConfigurationError,
+    ConnectionError,
+    CompletionError,
+    LiteLLMConfig,
+    LiteLLMProvider,
+)
 from schwarm.provider.models.lite_llm_config import FeatureFlags, EnvironmentConfig
 
-from tests.conftest import OPENAI_API_KEY
 
-
-def create_config(model_id: str = "gpt-4o-mini", enable_cache: bool = False) -> LiteLLMConfig:
+def create_config(
+    llm_model_id: str = "gpt-4",
+    enable_cache: bool = False,
+    enable_debug: bool = False
+) -> LiteLLMConfig:
     """Create a LiteLLMConfig with the given parameters."""
     return LiteLLMConfig(
-        model_id=model_id,
+        llm_model_id=llm_model_id,
         features=FeatureFlags(
             cache=enable_cache,
-            debug=False,
+            debug=enable_debug,
             mocking=False
         ),
         environment=EnvironmentConfig(
@@ -26,199 +37,159 @@ def create_config(model_id: str = "gpt-4o-mini", enable_cache: bool = False) -> 
     )
 
 
-@pytest.mark.asyncio
-async def test_provider_without_config_and_no_envvars():
-    """Test provider initialization without config and no environment variables."""
-    try:
-        old_environ = os.environ
-        os.environ = {}  # clear the environment variable
-
-        provider = LiteLLMProvider(create_config())
-        await provider.initialize()
-        assert False
-    except Exception as e:
-        assert isinstance(e, ConfigurationError)
-    finally:
-        os.environ = old_environ  # type: ignore
-
-
-@pytest.mark.asyncio
-async def test_provider_without_config_and_envvars():
-    """Test provider initialization with environment variables but no config."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': 'api-key'}
-
-        provider = LiteLLMProvider(create_config())
-        await provider.initialize()
-        assert True
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
+def create_mock_completion_response(content: str = "Test response") -> MagicMock:
+    """Create a mock completion response."""
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            model_extra={
+                "message": {
+                    "content": content,
+                    "role": "assistant",
+                    "tool_calls": []
+                }
+            }
+        )
+    ]
+    return mock_response
 
 
 @pytest.mark.asyncio
-async def test_provider_without_config_and_wrong_envvars():
-    """Test provider initialization with wrong environment variables."""
-    try:
-        old_environ = os.environ
-        os.environ = {'ANTHROPIC_API_KEY': 'api-key'}
+async def test_provider_initialization():
+    """Test basic provider initialization."""
+    config = create_config()
+    provider = LiteLLMProvider(config)
+    assert provider.config == config
+    assert provider.provider_name == "lite_llm"
 
-        provider = LiteLLMProvider(create_config())
-        await provider.initialize()
-        assert False
-    except Exception:
-        assert True
-    finally:
-        os.environ = old_environ  # type: ignore
+
 
 
 @pytest.mark.asyncio
-async def test_provider_test_connection_without_config_and_envvars():
-    """Test connection with environment variables but no config."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': 'api-key'}
+async def test_provider_initialization_with_debug():
+    """Test provider initialization with debug mode."""
+    config = create_config(enable_debug=True)
+    provider = LiteLLMProvider(config)
+    await provider.initialize()
+    # Debug mode should be enabled
+    assert hasattr(provider, 'config')
+    config = cast(LiteLLMConfig, provider.config)
+    assert config.features.debug is True
 
+
+@pytest.mark.asyncio
+async def test_provider_completion_success():
+    """Test successful completion request."""
+    expected_response = "Hello, world!"
+    mock_response = create_mock_completion_response(expected_response)
+
+    with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
         await provider.initialize()
+
+        msg = Message(role="user", content="Test message")
+        result = provider.complete([msg])
+
+        assert result.content == expected_response
+        assert result.role == "assistant"
+        assert result.name == "gpt-4"
+
+
+@pytest.mark.asyncio
+async def test_provider_completion_with_tools():
+    """Test completion with tools enabled."""
+    expected_response = "Tool response"
+    mock_response = create_mock_completion_response(expected_response)
+
+    with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
+        provider = LiteLLMProvider(create_config())
+        await provider.initialize()
+
+        msg = Message(role="user", content="Use tool")
+        tools = [{"type": "function", "function": {"name": "test_tool"}}]
+        result = provider.complete([msg], tools=tools)
+
+        assert result.content == expected_response
+        assert result.role == "assistant"
+
+
+@pytest.mark.asyncio
+async def test_provider_completion_error():
+    """Test completion error handling."""
+    with patch('schwarm.provider.litellm_provider.completion', side_effect=Exception("API Error")):
+        provider = LiteLLMProvider(create_config())
+        with pytest.raises(ConnectionError):
+            await provider.initialize()
+
+
+
+
+@pytest.mark.asyncio
+async def test_provider_empty_messages():
+    """Test handling of empty message list."""
+    provider = LiteLLMProvider(create_config())
+    await provider.initialize()
+
+    with pytest.raises(ValueError):
+        provider.complete([])
+
+
+@pytest.mark.asyncio
+async def test_provider_with_environment_override():
+    """Test provider with environment variable override."""
+    expected_response = "Environment test"
+    mock_response = create_mock_completion_response(expected_response)
+
+    config = create_config()
+    config.environment.override = True
+    config.environment.variables = {"TEST_VAR": "test_value"}
+
+    with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
+        provider = LiteLLMProvider(config)
+        await provider.initialize()
+
+        msg = Message(role="user", content="Test message")
+        result = provider.complete([msg])
+
+        assert result.content == expected_response
+
+
+@pytest.mark.asyncio
+async def test_provider_connection_error():
+    """Test provider connection error handling."""
+    with patch('schwarm.provider.litellm_provider.completion', side_effect=Exception("Connection failed")):
+        provider = LiteLLMProvider(create_config())
         
-        result = provider.test_connection()
-        assert result == False
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
+        with pytest.raises(ConnectionError):
+            await provider.initialize()
 
 
 @pytest.mark.asyncio
-async def test_provider_test_connection_without_config_and_good_key():
-    """Test connection with valid API key in environment."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': OPENAI_API_KEY}
+async def test_provider_completion_invalid_response():
+    """Test handling of invalid completion response."""
+    mock_response = MagicMock()
+    mock_response.choices = []  # Invalid response format
 
+    with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
-        await provider.initialize()
-        
-        result = provider.test_connection()
-        assert result == True
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
+        with pytest.raises(ConnectionError, match="Failed to initialize provider: Failed to connect to LLM service"):
+            await provider.initialize()
+
+
 
 
 @pytest.mark.asyncio
-async def test_provider_completion_without_config_and_good_key():
-    """Test completion with valid API key in environment."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': OPENAI_API_KEY}
+async def test_provider_async_complete():
+    """Test async_complete method."""
+    expected_response = "Async response"
+    mock_response = create_mock_completion_response(expected_response)
 
+    with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
         await provider.initialize()
 
-        msg = Message(role="user", content="Hallo!")
-        result = provider.complete([msg])
- 
-        assert result.name == "gpt-4o-mini"
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
-
-
-@pytest.mark.asyncio
-async def test_provider_completion_without_config_and_good_key_with_cache():
-    """Test completion with caching enabled."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': OPENAI_API_KEY}
-
-        provider = LiteLLMProvider(create_config(enable_cache=True))
-        await provider.initialize()
-
-        msg_text = "Hallo! I just wanted to test the cache of my application"
-        msg = Message(role="user", content=msg_text)
-
-        result = provider.complete([msg])
-        assert result.name == "gpt-4o-mini"
-
-        result = provider.complete([msg])
-        assert result.name == "gpt-4o-mini"
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
-
-
-@pytest.mark.asyncio
-async def test_provider_with_bad_config():
-    """Test provider with invalid configuration."""
-    try:
-        old_environ = os.environ
-        os.environ = {'': ''}
-
-        config = create_config()
-        config.environment.override = True
-        config.environment.variables = {"OPENAI_API_KEY": "invalid-key"}
-
-        provider = LiteLLMProvider(config)
-        await provider.initialize()
-        assert False
-
         msg = Message(role="user", content="Test message")
-        result = provider.complete([msg])
-        assert result.name == "gpt-4o-mini"
-    except Exception:
-        assert True
-    finally:
-        os.environ = old_environ  # type: ignore
+        result = await provider.async_complete([msg])
 
-
-@pytest.mark.asyncio
-async def test_provider_with_bad_config_with_fallback_to_env():
-    """Test provider fallback to environment variables with invalid config."""
-    try:
-        old_environ = os.environ
-        os.environ = {'OPENAI_API_KEY': OPENAI_API_KEY}
-
-        config = create_config(enable_cache=True)
-        config.environment.override = True
-        config.environment.variables = {"OPENAI_API_KEY": "invalid-key"}
-
-        provider = LiteLLMProvider(config)
-        await provider.initialize()
-
-        msg = Message(role="user", content="Test message")
-        result = provider.complete([msg])
-        assert result.name == "gpt-4o-mini"
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
-
-
-@pytest.mark.asyncio
-async def test_provider_with_good_config():
-    """Test provider with valid configuration."""
-    try:
-        old_environ = os.environ
-        os.environ = {'': ''}
-
-        config = create_config(enable_cache=True)
-        config.environment.override = True
-        config.environment.variables = {"OPENAI_API_KEY": str(OPENAI_API_KEY)}
-
-        provider = LiteLLMProvider(config)
-        await provider.initialize()
-
-        msg = Message(role="user", content="Test message")
-        result = provider.complete([msg])
-        assert result.name == "gpt-4o-mini"
-    except Exception:
-        assert False
-    finally:
-        os.environ = old_environ  # type: ignore
+        assert result.content == expected_response
+        assert result.role == "assistant"

@@ -9,7 +9,7 @@ class BaseLLMProviderConfig(BaseProviderConfig):
     """Configuration for the LLM providers.
 
     Attributes:
-        model_id: The model identifier
+        llm_model_id: The model identifier
     """
 
-    model_id: str = Field(default="", description="The model identifier")
+    llm_model_id: str = Field(default="", description="The model identifier")

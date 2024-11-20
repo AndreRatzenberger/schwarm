@@ -140,7 +140,7 @@ class Agent(BaseModel):
             LLM provider instance or None if not found
         """
         for provider_config in self.provider_configurations:
-            if provider_config._provider_type == "llm":
+            if provider_config.provider_type == "llm":
                 provider = self.get_provider(provider_config.provider_name)
                 if isinstance(provider, BaseLLMProvider):
                     return provider

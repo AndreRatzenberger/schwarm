@@ -30,7 +30,7 @@ class DebugProviderConfig(BaseEventHandleProviderConfig):
     def __init__(self, **data):
         """Initialize the debug provider configuration."""
         super().__init__(
-            _provider_type="event",  # Debug provider is an event handler
+            provider_type="event",  # Debug provider is an event handler
             provider_name="debug",
             provider_lifecycle="scoped",
             **data,

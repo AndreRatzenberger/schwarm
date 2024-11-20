@@ -12,7 +12,7 @@ class BaseProviderConfig(BaseModel):
         provider_id: The provider id.
     """
 
-    _provider_type: Literal["llm", "event"] = Field(
+    provider_type: Literal["llm", "event"] = Field(
         default="", description="The type of provider. LLM provider or EventHandler provider"
     )
     provider_name: str = Field(default="", description="The provider id for the provider")

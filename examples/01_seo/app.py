@@ -129,7 +129,7 @@ def seo_optimizer_instructions(context_variables: dict[str, Any]) -> str:
 llm_config = LiteLLMConfig(
     provider_name="lite_llm",
     provider_lifecycle="singleton",
-    _provider_type="llm",
+    provider_type="llm",
     enable_cache=True,
 )
 

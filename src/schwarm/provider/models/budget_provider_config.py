@@ -27,7 +27,7 @@ class BudgetProviderConfig(BaseEventHandleProviderConfig):
     def __init__(self, **data):
         """Initialize the budget provider configuration."""
         super().__init__(
-            _provider_type="event",  # Budget provider is an event handler
+            provider_type="event",  # Budget provider is an event handler
             provider_name="budget",
             provider_lifecycle="scoped",
             **data,
