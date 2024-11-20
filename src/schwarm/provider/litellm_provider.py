@@ -3,16 +3,62 @@
 from typing import Any, cast
 
 import litellm
-from litellm import completion, completion_cost, token_counter  # type: ignore
+from litellm import BaseModel, Field, completion, completion_cost, token_counter  # type: ignore
 from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.types import Agent
-from schwarm.provider.base import BaseLLMProvider
-from schwarm.provider.litellm_config import LiteLLMConfig
+from schwarm.provider.base import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
+
+
+class EnvironmentConfig(BaseModel):
+    """Configuration for environment variable handling.
+
+    Attributes:
+        override: Whether to override environment variables
+        variables: Environment variables to override (excluding API_KEY)
+    """
+
+    override: bool = Field(default=False, description="Controls whether environment variables should be overridden")
+    variables: dict[str, str] = Field(
+        default_factory=dict, description="Environment variables to override (excluding API_KEY)"
+    )
+
+
+class FeatureFlags(BaseModel):
+    """Feature flags for LiteLLM provider.
+
+    Attributes:
+        cache: Whether to enable response caching
+        debug: Whether to enable debug mode
+        mocking: Whether to enable mock responses
+    """
+
+    cache: bool = Field(default=False, description="Enables response caching for improved performance")
+    debug: bool = Field(default=False, description="Enables debug mode for detailed logging")
+    mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
+
+
+class LiteLLMConfig(BaseLLMProviderConfig):
+    """Configuration for the LiteLLM provider.
+
+    This configuration class manages settings for the LiteLLM provider,
+    including environment variable handling and feature flags.
+
+    See LiteLLM documentation for model-specific environment variable requirements.
+
+    Attributes:
+        environment: Environment variable configuration
+        features: Feature flag configuration
+    """
+
+    environment: EnvironmentConfig = Field(
+        default_factory=EnvironmentConfig, description="Environment variable configuration"
+    )
+    features: FeatureFlags = Field(default_factory=FeatureFlags, description="Feature flag configuration")
 
 
 class LiteLLMError(Exception):

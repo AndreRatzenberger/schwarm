@@ -1,18 +1,15 @@
 """Manages provider lifecycles and access."""
 
-from typing import Any, Optional, TypeVar
+from typing import Optional, TypeVar
 
 from loguru import logger
 
 from schwarm.events.event_data import Event
 from schwarm.events.event_types import EventType
-from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContext
-from schwarm.models.types import Agent
+from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base.base_provider import BaseProvider
-from schwarm.provider.base.base_provider_config import BaseProviderConfig, ProviderScope
-from schwarm.provider.base.injection import ContextInjection, InjectionTask, InstructionInjection, MessageInjection
 from schwarm.provider.litellm_provider import LiteLLMProvider
 
 P = TypeVar("P", bound=BaseProvider)
@@ -28,16 +25,6 @@ class ProviderManager:
     """Manages provider lifecycles and access."""
 
     _instance: Optional["ProviderManager"] = None
-
-    @staticmethod
-    def initialize_provider_system():
-        """Initialize the provider system with default providers."""
-        manager = ProviderManager()
-
-        # Register default provider types
-        manager.register_provider_type("llm", LiteLLMProvider)
-
-        return manager
 
     def __new__(cls) -> "ProviderManager":
         """Singleton instance creation."""
@@ -108,25 +95,25 @@ class ProviderManager:
             raise ProviderInitError(f"Provider {config.provider_name} is disabled")
 
         # Handle based on scope
-        if config.scope == ProviderScope.GLOBAL:
+        if config.scope == "singleton":
             if config.provider_name not in self._global_providers:
                 provider = self._create_provider(config)
                 self._global_providers[config.provider_name] = provider
-                logger.info(f"Initialized global provider: {config.provider_name}")
+                logger.info(f"Initialized singleton provider: {config.provider_name}")
             return self._global_providers[config.provider_name]
 
-        elif config.scope == ProviderScope.AGENT:
+        elif config.scope == "scoped":
             if agent_id not in self._agent_providers:
                 self._agent_providers[agent_id] = {}
             if config.provider_name not in self._agent_providers[agent_id]:
                 provider = self._create_provider(config, agent_id)
                 self._agent_providers[agent_id][config.provider_name] = provider
-                logger.info(f"Initialized agent provider: {config.provider_name} " f"for agent: {agent_id}")
+                logger.info(f"Initialized scoped provider: {config.provider_name} " f"for agent: {agent_id}")
             return self._agent_providers[agent_id][config.provider_name]
 
         else:  # EPHEMERAL
             provider = self._create_provider(config, agent_id)
-            logger.info(f"Created ephemeral provider: {config.provider_name} " f"for agent: {agent_id}")
+            logger.info(f"Created jit provider: {config.provider_name} " f"for agent: {agent_id}")
             return provider
 
     def get_event_providers(self, agent_id: str) -> list[BaseEventHandleProvider]:
@@ -146,6 +133,21 @@ class ProviderManager:
 
         return providers
 
+    def get_all_providers_as_dict(self) -> dict[str, list[BaseProviderConfig]]:
+        """Return a dictionary of all instanced providers and their configs.
+
+        Returns:
+            dict: A dictionary with keys 'global' and agent IDs, each containing
+                 a list of provider configs for that scope.
+        """
+        result = {"global": [provider.config for provider in self._global_providers.values()]}
+
+        # Add agent-specific providers
+        for agent_id, providers in self._agent_providers.items():
+            result[agent_id] = [provider.config for provider in providers.values()]
+
+        return result
+
     def trigger_event(self, event_type: EventType, payload: ProviderContext) -> None:
         """Trigger an event across all relevant providers.
 
@@ -161,55 +163,3 @@ class ProviderManager:
         # Get event providers in priority order
         providers = self.get_event_providers(agent_id)
         providers.sort(key=lambda p: getattr(p, "priority", 0), reverse=True)
-
-        # Track injections to apply
-        injections: list[InjectionTask] = []
-
-        # Trigger event on all providers
-        for provider in providers:
-            try:
-                result = provider.handle_event(event)
-                if result:
-                    injections.append(result)
-            except Exception as e:
-                logger.error(f"Error in provider {provider.config.provider_name} " f"handling {event_type}: {e}")
-
-        # Apply injections if context is provided
-        if injections:
-            self._apply_injections(injections, payload)
-
-    def _apply_injections(self, injections: list[InjectionTask], payload: ProviderContext) -> None:
-        """Apply injection tasks to the given context."""
-        for injection in injections:
-            try:
-                if injection.target == "instruction":
-                    value: InstructionInjection = injection.value  # type: ignore
-                    current = payload.current_instruction
-
-                    if value.position == "prefix":  # type: ignore
-                        payload.current_instruction = value.content + current  # type: ignore
-                    elif value.position == "suffix":  # type: ignore
-                        payload.current_instruction = current + value.content  # type: ignore
-                    else:  # replace
-                        payload.current_instruction = value.content  # type: ignore
-
-                elif injection.target == "message":  # type: ignore
-                    value: MessageInjection = injection.value  # type: ignore
-                    messages = payload.message_history
-                    messages.append(Message(role=value.role, content=value.content))  # type: ignore
-                    payload.message_history = messages
-
-                elif injection.target == "context":
-                    value: dict[str, Any] = injection.value  # type: ignore
-                    value: ContextInjection = injection.value  # type: ignore
-                    context_vars = payload.context_variables
-                    context_vars[value.key] = value.value  # type: ignore
-                    payload.context_variables = context_vars
-
-                elif injection.target == "agent":
-                    if isinstance(injection.value, "Agent"):
-                        value: Agent = injection.value
-                        payload.current_agent = value
-
-            except Exception as e:
-                logger.error(f"Error applying injection {injection}: {e}")

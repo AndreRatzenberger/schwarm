@@ -6,22 +6,51 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
+from pydantic import Field
 from rich.console import Console
 from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
-from schwarm.decorators.handles_event import handles_event
 from schwarm.events.event_data import InstructionData
-from schwarm.events.event_types import EventType
 from schwarm.models.types import Agent, Result
-from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base.injection import InjectionTask
+from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.budget_provider import BudgetProvider
-from schwarm.provider.debug_provider_config import DebugProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.settings import APP_SETTINGS
 
 console = Console()
+
+
+class DebugProviderConfig(BaseEventHandleProviderConfig):
+    """Configuration for the debug provider.
+
+    This configuration includes all display and logging settings,
+    controlling what information is shown to the user and how.
+    """
+
+    show_instructions: bool = Field(default=True, description="Whether to show agent instructions")
+    instructions_wait_for_user_input: bool = Field(
+        default=True, description="Whether to wait for user input after showing instructions"
+    )
+    show_function_calls: bool = Field(default=True, description="Whether to show function calls")
+    function_calls_wait_for_user_input: bool = Field(
+        default=True, description="Whether to wait for user input after showing function calls"
+    )
+    function_calls_print_context_variables: bool = Field(
+        default=True, description="Whether to print context variables with function calls"
+    )
+    show_budget: bool = Field(default=True, description="Whether to show budget information")
+    max_length: int = Field(default=-1, description="Maximum length for displayed text (-1 for no limit)")
+    save_logs: bool = Field(default=True, description="Whether to save logs to files")
+
+    def __init__(self, **data):
+        """Initialize the debug provider configuration."""
+        super().__init__(
+            provider_type="event",  # Debug provider is an event handler
+            provider_name="debug",
+            scope="singleton",
+            **data,
+        )
 
 
 class DebugProvider(BaseEventHandleProvider):
@@ -37,8 +66,7 @@ class DebugProvider(BaseEventHandleProvider):
 
     config: DebugProviderConfig
 
-    @handles_event(EventType.INSTRUCT)
-    def handle_start(self, event: InstructionData) -> InjectionTask | None:
+    def handle_start(self, event: InstructionData) -> None:
         """Handle agent start by initializing logging and showing instructions."""
         if self.config.save_logs:
             self._ensure_log_directory()
@@ -56,7 +84,6 @@ class DebugProvider(BaseEventHandleProvider):
         )
         self._show_instructions(event)
 
-    @handles_event(EventType.POST_MESSAGE_COMPLETION)
     def handle_message_completion(self) -> None:
         """Handle message completion to show relevant information."""
         if not self.context:
@@ -66,7 +93,6 @@ class DebugProvider(BaseEventHandleProvider):
         if self.config.show_budget:
             self._show_budget(self.context.current_agent)
 
-    @handles_event(EventType.TOOL_EXECUTION)
     def handle_tool_execution(self) -> None:
         """Handle tool execution to show function calls."""
         if not self.context or not self.context.message_history:
@@ -85,7 +111,6 @@ class DebugProvider(BaseEventHandleProvider):
                 parameters=tool_call.function.arguments,
             )
 
-    @handles_event(EventType.POST_TOOL_EXECUTION)
     def handle_post_tool_execution(self) -> None:
         """Handle post tool execution to show results."""
         if not self.context or not self.context.message_history:
@@ -145,8 +170,7 @@ class DebugProvider(BaseEventHandleProvider):
         with open(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", "all.log"), mode, encoding="utf-8") as f:
             f.write(content_with_timestamp)
 
-    @handles_event(EventType.INSTRUCT)
-    def _show_instructions(self, event: InstructionData) -> InjectionTask | None:
+    def _show_instructions(self, event: InstructionData) -> None:
         """Show the instructions to the user."""
         if not self.config.show_instructions:
             return

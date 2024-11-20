@@ -5,10 +5,8 @@ from typing import Any
 
 from litellm import ChatCompletionMessageToolCall
 
-from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, AgentFunction, Response, Result
-from schwarm.services.display_service import DisplayService
 
 # Constants
 CONTEXT_VARS_KEY = "context_variables"
@@ -18,11 +16,10 @@ TOOL_ROLE = "tool"
 class ToolHandler:
     """Handles tool call execution and result processing."""
 
-    def __init__(self, display_config: DisplayConfig | None):
+    def __init__(
+        self,
+    ):
         """Initialize the ToolHandler."""
-        self.display_service = None
-        if isinstance(display_config, DisplayConfig):
-            self.display_service = DisplayService(display_config)
 
     @staticmethod
     def handle_function_result(result: Any) -> Result:
@@ -106,14 +103,14 @@ class ToolHandler:
                 partial_response.agent = result.agent
                 receiver = result.agent.name
 
-            if self.display_service:
-                self.display_service.show_function(
-                    sender=current_agent,
-                    receiver=receiver,
-                    function=name,
-                    parameters=args,
-                    result=result,
-                    context_variables=context_variables,
-                )
+            # if self.display_service:
+            #     self.display_service.show_function(
+            #         sender=current_agent,
+            #         receiver=receiver,
+            #         function=name,
+            #         parameters=args,
+            #         result=result,
+            #         context_variables=context_variables,
+            #     )
 
         return partial_response

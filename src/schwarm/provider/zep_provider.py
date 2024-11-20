@@ -4,12 +4,35 @@ import uuid
 from typing import Any
 
 from loguru import logger
+from pydantic import Field
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
 from schwarm.events.event_types import EventType
-from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.zep_config import ZepConfig
+from schwarm.provider.base import BaseEventHandleProvider, BaseProviderConfig
+
+
+class ZepConfig(BaseProviderConfig):
+    """Configuration for Zep memory provider."""
+
+    zep_api_key: str = Field(..., description="API key for Zep service")
+    zep_api_url: str = Field(default="http://localhost:8000", description="URL for Zep service")
+    min_fact_rating: float = Field(default=0.7, description="Minimum rating for facts to be considered")
+    on_completion_save_completion_to_memory: bool = Field(
+        default=True, description="Whether to save completions to memory"
+    )
+
+    def __init__(self, **data):
+        """Initialize with defaults."""
+        data.update(
+            {
+                "provider_name": "zep",
+                "provider_type": "memory",
+                "provider_class": "schwarm.provider.zep_provider.ZepProvider",
+                "scope": "scoped",
+            }
+        )
+        super().__init__(**data)
 
 
 class ZepProvider(BaseEventHandleProvider):

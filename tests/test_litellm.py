@@ -24,6 +24,9 @@ def create_config(
 ) -> LiteLLMConfig:
     """Create a LiteLLMConfig with the given parameters."""
     return LiteLLMConfig(
+        provider_name="lite_llm",
+        provider_type="llm",
+        provider_class="schwarm.provider.litellm_provider.LiteLLMProvider",
         llm_model_id=llm_model_id,
         features=FeatureFlags(
             cache=enable_cache,

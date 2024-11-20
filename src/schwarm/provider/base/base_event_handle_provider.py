@@ -3,10 +3,22 @@
 from abc import ABC
 from collections.abc import Callable
 
+from pydantic import Field
+
 from schwarm.events.event_types import EventType
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base.base_provider import BaseProvider
-from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.provider.base import BaseProvider, BaseProviderConfig
+
+
+class BaseEventHandleProviderConfig(BaseProviderConfig):
+    """Configuration for a provider.
+
+    Attributes:
+        provider_id: The provider id.
+    """
+
+    external_use: bool = Field(default=False, description="Whether the provider can be used in tools")
+    internal_use: dict[EventType, list[Callable]] = {}
 
 
 class BaseEventHandleProvider(BaseProvider, ABC):

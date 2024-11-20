@@ -3,7 +3,7 @@ import pytest
 from typing import Any, Dict, List
 from schwarm.events.event_types import EventType
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base.base_provider_config import BaseProviderConfig, ProviderScope
+from schwarm.provider.base import BaseProviderConfig
 
 class TestConfig(BaseProviderConfig):
     """Test configuration."""
@@ -12,11 +12,15 @@ class TestConfig(BaseProviderConfig):
             "provider_name": "test_provider",
             "provider_type": "test",
             "provider_class": "tests.test_event_provider.TestEventProvider",
-            "scope": ProviderScope.AGENT
+            "scope": "scoped"
         })
         super().__init__(**data)
 
 class TestEventProvider(BaseEventHandleProvider):
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
     """Test event-based provider."""
     def __init__(self, config: TestConfig):
         super().__init__(config)
@@ -85,4 +89,4 @@ def test_provider_config():
     config = TestConfig()
     assert config.provider_name == "test_provider"
     assert config.provider_type == "test"
-    assert config.scope == ProviderScope.AGENT
+    assert config.scope == "scoped"

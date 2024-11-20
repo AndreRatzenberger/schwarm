@@ -88,7 +88,6 @@ class Agent(BaseModel):
             provider_class = config.get_provider_class()
             provider = provider_class(config)
             provider.set_up()
-            self._providers[config.provider_name] = provider
 
 
 class Response(BaseModel):

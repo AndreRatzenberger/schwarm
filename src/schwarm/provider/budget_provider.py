@@ -3,19 +3,43 @@
 import csv
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from loguru import logger
 from pydantic import Field
 
-from schwarm.decorators.handles_event import handles_event
 from schwarm.events.event_data import Event
-from schwarm.events.event_types import EventType
+from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Message
-from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base.injection import InjectionTask
-from schwarm.provider.budget_provider_config import BudgetProviderConfig
+from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
+
+
+class BudgetProviderConfig(BaseEventHandleProviderConfig):
+    """Configuration for the budget provider.
+
+    This configuration includes all settings for budget tracking,
+    including limits, persistence options, and behavior on limit exceed.
+    """
+
+    save_budget: bool = Field(default=True, description="Whether to save budget to CSV")
+    show_budget: bool = Field(default=False, description="Whether to show budget in display")
+    effect_on_exceed: Literal["warning", "error", "nothing"] = Field(
+        default="warning", description="What to do when limits are exceeded"
+    )
+    max_spent: float = Field(default=10.0, description="Maximum allowed spend")
+    max_tokens: int = Field(default=10000, description="Maximum allowed tokens")
+    current_spent: float = Field(default=0.0, description="Current amount spent")
+    current_tokens: int = Field(default=0, description="Current tokens used")
+
+    def __init__(self, **data):
+        """Initialize the budget provider configuration."""
+        super().__init__(
+            provider_type="event",  # Budget provider is an event handler
+            provider_name="budget",
+            scope="scoped",
+            **data,
+        )
 
 
 class BudgetProvider(BaseEventHandleProvider):
@@ -38,14 +62,13 @@ class BudgetProvider(BaseEventHandleProvider):
         if self.config.save_budget:
             os.makedirs(f"{APP_SETTINGS.DATA_FOLDER}/logs", exist_ok=True)
 
-    @handles_event(EventType.POST_MESSAGE_COMPLETION)
-    def handle_post_message_completion(self, event: Event[dict[str, Any]]) -> InjectionTask | None:
+    def handle_post_message_completion(self, provider_context: ProviderContext) -> None:
         """Handle post message completion to update budget tracking.
 
         This handler is called after each message completion, allowing us
         to track the costs and token usage from the LLM API calls.
         """
-        agent = event.payload.get("agent")
+        agent = provider_context.current_agent
         if not self.context:
             logger.warning("No context available for budget tracking")
             return
@@ -67,13 +90,12 @@ class BudgetProvider(BaseEventHandleProvider):
             logger.debug(f"Added tokens: {latest_message.info.token_counter}")
 
             # Save updated budget to CSV
-            self._save_to_csv()
+            self._save_to_csv(agent.name)
 
             # Check if we've exceeded any limits
             self._check_limits()
 
-    @handles_event(EventType.HANDOFF)
-    def handle_handoff(self, event: Event[dict[str, Any]]) -> InjectionTask | None:
+    def handle_handoff(self, event: Event[dict[str, Any]]) -> None:
         """Handle agent handoff to transfer budget state.
 
         This handler ensures budget tracking continues across agent handoffs
@@ -108,13 +130,13 @@ class BudgetProvider(BaseEventHandleProvider):
 
         return next_agent
 
-    def _save_to_csv(self):
+    def _save_to_csv(self, name: str):
         """Save current budget state to CSV file."""
         if not self.config.save_budget:
             return
 
         timestamp = datetime.now().isoformat()
-        filepath = f"{APP_SETTINGS.DATA_FOLDER}/logs/{self.agent.name}_budget.csv"
+        filepath = f"{APP_SETTINGS.DATA_FOLDER}/logs/{name}_budget.csv"
         file_exists = os.path.exists(filepath)
 
         with open(filepath, mode="a", newline="") as f:

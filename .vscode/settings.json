@@ -7,7 +7,7 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
-    //"python.analysis.diagnosticMode": "workspace",
+    "python.analysis.diagnosticMode": "workspace",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
         "source.organizeImports.ruff": "always",
