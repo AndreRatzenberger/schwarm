@@ -1,13 +1,23 @@
 """Base class for event handle providers."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
-from schwarm.models.types import Agent
+from schwarm.models.agent import Agent
 from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.models.base_event_handle_provider_config import BaseEventHandleProviderConfig
+
+
+class InjectionTask(BaseModel):
+    """An injection task to be executed."""
+
+    target: Literal["agent", "context", "message", "tool", "instruction"] = Field(
+        default="agent", description="The object to inject"
+    )
+    value: str = Field(default="", description="The value to inject")
 
 
 class BaseEventHandleProvider(BaseProvider):
@@ -48,6 +58,8 @@ class BaseEventHandleProvider(BaseProvider):
             "on_tool_execution": self.handle_tool_execution,
             "on_post_message_completion": self.handle_post_message_completion,
             "on_post_tool_execution": self.handle_post_tool_execution,
+            "on_instruct": self.handle_on_instruct,
+            "on_post_instruct": self.handle_post_instruct,
         }
 
         # Subscribe to events based on which handlers are implemented
@@ -94,26 +106,34 @@ class BaseEventHandleProvider(BaseProvider):
         return result
 
     # Base event handlers - providers should override these as needed
-    def handle_start(self) -> None:
-        """Handle agent start event."""
+    def handle_start(self) -> InjectionTask | None:
+        """Handle agent start event. (called once)."""
+        pass
+
+    def handle_on_instruct(self) -> InjectionTask | None:
+        """Handle agent before instruction event."""
+        pass
+
+    def handle_post_instruct(self) -> InjectionTask | None:
+        """Handle agent post instruction event."""
         pass
 
     def handle_handoff(self, next_agent: Agent) -> Agent | None:
         """Handle agent handoff event."""
         return next_agent
 
-    def handle_message_completion(self) -> None:
+    def handle_message_completion(self) -> InjectionTask | None:
         """Handle message completion event."""
         pass
 
-    def handle_tool_execution(self) -> None:
+    def handle_tool_execution(self) -> InjectionTask | None:
         """Handle tool execution event."""
         pass
 
-    def handle_post_message_completion(self) -> None:
+    def handle_post_message_completion(self) -> InjectionTask | None:
         """Handle post message completion event."""
         pass
 
-    def handle_post_tool_execution(self) -> None:
+    def handle_post_tool_execution(self) -> InjectionTask | None:
         """Handle post tool execution event."""
         pass

@@ -12,6 +12,7 @@ from rich.markdown import Markdown
 from schwarm.core.logging import truncate_string
 from schwarm.models.types import Agent, Result
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
+from schwarm.provider.budget_provider import BudgetProvider
 from schwarm.provider.models.debug_provider_config import DebugProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -160,21 +161,26 @@ class DebugProvider(BaseEventHandleProvider):
 
         console.line()
         console.print(Markdown(f"# 💰 Budget - {agent.name}"), style="bold orange3")
+
+        budget = agent.get_provider("budget")
+
         console.line()
-        console.print(Markdown(f"**- Max Spent:** ${agent.budget.max_spent:.5f}"), style="italic")
-        console.print(Markdown(f"**- Max Tokens:** {agent.budget.max_tokens}"), style="italic")
-        console.print(Markdown(f"**- Current Spent:** ${agent.budget.current_spent:.5f}"), style="italic")
-        console.print(Markdown(f"**- Current Tokens:** {agent.budget.current_tokens}"), style="italic")
+        if isinstance(budget, BudgetProvider):
+            console.print(Markdown(f"**- Max Spent:** ${budget.config.max_spent:.5f}"), style="italic")
+            console.print(Markdown(f"**- Max Tokens:** {budget.config.max_tokens}"), style="italic")
+            console.print(Markdown(f"**- Current Spent:** ${budget.config.current_spent:.5f}"), style="italic")
+            console.print(Markdown(f"**- Current Tokens:** {budget.config.current_tokens}"), style="italic")
 
         # Write to budget log
-        log_content = (
-            f"Agent: {agent.name}\n"
-            f"Max Spent: ${agent.budget.max_spent:.5f}\n"
-            f"Max Tokens: {agent.budget.max_tokens}\n"
-            f"Current Spent: ${agent.budget.current_spent:.5f}\n"
-            f"Current Tokens: {agent.budget.current_tokens}\n"
-            f"{'=' * 50}\n"
-        )
+        if isinstance(budget, BudgetProvider):
+            log_content = (
+                f"Agent: {agent.name}\n"
+                f"Max Spent: ${budget.config.max_spent:.5f}\n"
+                f"Max Tokens: {budget.config.max_tokens}\n"
+                f"Current Spent: ${budget.config.current_spent:.5f}\n"
+                f"Current Tokens: {budget.config.current_tokens}\n"
+                f"{'=' * 50}\n"
+            )
         self._write_to_log("budget.log", log_content)
 
     def _show_function(

@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from schwarm.models.types import Agent
+from schwarm.models.agent import Agent
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.litellm_provider import LiteLLMProvider
@@ -35,12 +35,12 @@ class ProviderFactory:
         self._provider_registry[name] = provider_class
         logger.debug(f"Registered provider type: {name}")
 
-    def create_provider(self, config: BaseProviderConfig, agent: Agent | None = None) -> BaseProvider | None:
+    def create_provider(self, config: BaseProviderConfig, agent: Agent) -> BaseProvider | None:
         """Create a provider instance based on configuration.
 
         Args:
             config: Provider configuration
-            agent: Optional agent context
+            agent: Agent context
 
         Returns:
             Created provider instance or None if creation fails
@@ -52,13 +52,9 @@ class ProviderFactory:
 
         try:
             if issubclass(provider_class, BaseLLMProvider):
-                if not agent:
-                    raise ValueError("Agent required for LLM provider creation")
                 if isinstance(config, LiteLLMConfig):
                     return provider_class(agent.model, config)  # type: ignore
-            if agent:
-                return provider_class(agent, config)
-            return None
+            return provider_class(agent, config)
         except Exception as e:
             logger.error(f"Failed to create provider {config.provider_name}: {e}")
             return None
