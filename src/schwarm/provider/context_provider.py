@@ -39,7 +39,10 @@ class ContextProvider(BaseEventHandleProvider):
         if not self.context:
             # Initialize new context if none exists
             self.context = ProviderContext(
-                current_agent=self.agent, message_history=[], context_variables=self.variables.variables
+                current_agent=self.agent,
+                message_history=[],
+                context_variables=self.variables.variables,
+                current_message=None,
             )
             logger.debug(f"Initialized new context for agent {self.agent.name}")
         else:

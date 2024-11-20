@@ -227,7 +227,7 @@ class Schwarm:
             The result from the last provider's event handler
         """
         result = None
-        for provider_config in agent.providers:
+        for provider_config in agent.provider_configurations:
             provider = agent.get_provider(provider_config.provider_name)
             if provider and isinstance(provider, BaseEventHandleProvider):
                 try:

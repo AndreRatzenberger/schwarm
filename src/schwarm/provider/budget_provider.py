@@ -85,7 +85,7 @@ class BudgetProvider(BaseEventHandleProvider):
             logger.warning("No context available for budget handoff")
             return next_agent
 
-        for provider in next_agent.providers:
+        for provider in next_agent.provider_configurations:
             if isinstance(provider, BudgetProviderConfig):
                 # Transfer our current state
                 provider.current_spent = self.current_spent

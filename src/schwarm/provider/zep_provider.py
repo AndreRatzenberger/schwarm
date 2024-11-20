@@ -49,6 +49,7 @@ class ZepProvider(BaseEventHandleProvider):
         self.zap_service.memory.add(session_id=self.session_id, messages=messages)
 
     def search_memory(self, query: str) -> list[SessionSearchResult]:
+        """Search memory for a query."""
         response = self.zap_service.memory.search_sessions(
             text=query,
             user_id=self.user_id,
@@ -67,7 +68,9 @@ class ZepProvider(BaseEventHandleProvider):
 
     def handle_post_message_completion(self) -> None:
         """Handle post message completion to update context."""
+        cur_msg = self.get_context().current_message
+
         if self.config.on_completion_save_completion_to_memory:
             self.zap_service.memory.add(
-                session_id=self.session_id, messages=self.split_text(self.get_context().current_message.content)
+                session_id=self.session_id, messages=self.split_text(cur_msg.content) if cur_msg else []
             )

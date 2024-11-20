@@ -10,7 +10,8 @@ from typing import Any
 from rich.console import Console
 
 from schwarm.core.schwarm import Schwarm
-from schwarm.models.types import Agent, Result
+from schwarm.models.agent import Agent
+from schwarm.models.types import Result
 from schwarm.provider.litellm_provider import LiteLLMConfig
 from schwarm.provider.models.zep_config import ZepConfig
 from schwarm.utils.settings import APP_SETTINGS
@@ -20,7 +21,9 @@ console.clear()
 APP_SETTINGS.DATA_FOLDER = "examples/07_kg_import_and_query"
 
 
-stephen_king_agent = Agent(name="mr_stephen_king", providers=[LiteLLMConfig(enable_cache=True), ZepConfig()])
+stephen_king_agent = Agent(
+    name="mr_stephen_king", provider_configurations=[LiteLLMConfig(enable_cache=True), ZepConfig()]
+)
 
 
 def instruction_stephen_king_agent(context_variables: dict[str, Any]) -> str:

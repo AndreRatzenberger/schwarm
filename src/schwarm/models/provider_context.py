@@ -18,7 +18,7 @@ class ProviderContext(BaseModel):
     message_history: list[Message] = Field(
         default_factory=list, description="History of all messages in the current conversation"
     )
-    current_message: Message = Field(..., description="The current message being processed")
+    current_message: Message | None = Field(..., description="The current message being processed")
     current_agent: Agent = Field(..., description="The agent currently using this provider")
     available_agents: dict[str, Agent] = Field(default_factory=dict, description="Map of all available agents by name")
     available_tools: list[AgentFunction] = Field(

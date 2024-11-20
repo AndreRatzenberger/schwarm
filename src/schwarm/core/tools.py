@@ -5,9 +5,10 @@ from typing import Any
 
 from litellm import ChatCompletionMessageToolCall
 
+from schwarm.models.agent import Agent, AgentFunction
 from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
-from schwarm.models.types import Agent, AgentFunction, Response, Result
+from schwarm.models.types import Response, Result
 from schwarm.services.display_service import DisplayService
 
 # Constants
