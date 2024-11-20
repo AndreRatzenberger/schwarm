@@ -1,40 +1,48 @@
 """Core types for the Schwarm framework."""
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar
+
+from pydantic import BaseModel, Field, PrivateAttr
 
 from schwarm.core.schwarm import Schwarm
+from schwarm.models.message import Message
 from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.provider.provider_manager import ProviderManager
 
 T = TypeVar("T", bound=BaseProvider)
+AgentFunction = Callable[..., "str | Agent | dict[str, Any] | Result"]
 
 
-@dataclass
-class Result:
-    """Result from an agent function execution."""
-
-    value: Any
-    context_variables: dict[str, Any] | None = None
-    agent: Optional["Agent"] = None
-
-
-@dataclass
-class Agent:
+class Agent(BaseModel):
     """An agent with specific capabilities through providers."""
 
-    name: str
-    provider_configurations: list[BaseProviderConfig]
-    instructions: Callable[[dict[str, Any]], str] | None = None
-    functions: list[Callable] = field(default_factory=list)
-    _providers: dict[str, BaseProvider] = field(default_factory=dict)
+    name: str = Field(default="Agent", description="Identifier name for the agent")
+    model: str = Field(default="gpt-4", description="OpenAI model identifier to use for this agent")
+    description: str = Field(default="", description="Description of the agent")
+    instructions: str | Callable[..., str] = Field(
+        default="You are a helpful agent.",
+        description="Static string or callable returning agent instructions",
+    )
+    functions: list[AgentFunction] = Field(default_factory=list, description="List of functions available to the agent")
+    tool_choice: Literal["none", "auto", "required"] = Field(
+        default="required",
+        description="Specific tool selection strategy. none = no tools get called, auto = llm decides if generating a text or calling a tool, required = tools are forced",
+    )
+    parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
+    provider_configurations: list["BaseProviderConfig"] = Field(
+        default_factory=list, description="List of provider configurations"
+    )
+    _provider_manager: "ProviderManager" = PrivateAttr(
+        default_factory=lambda: __import__("schwarm.provider.provider_manager").ProviderManager()
+    )
 
     def get_typed_provider(self, provider_type: type[T]) -> T:
         """Get a provider with proper type safety."""
-        for provider in self._providers.values():
-            if isinstance(provider, provider_type):
-                return provider
+        provider = self._provider_manager.get_provider_by_class(self.name, provider_type)
+        if provider:
+            return provider
         raise ValueError(f"No provider of type {provider_type.__name__} configured")
 
     def quickstart(
@@ -42,7 +50,7 @@ class Agent:
         input_text: str,
         context_variables: dict[str, Any] | None = None,
         mode: Literal["auto", "interactive"] = "interactive",
-    ) -> Result:
+    ) -> "Result":
         """Quick way to start the agent with minimal configuration.
 
         This method uses Schwarm's quickstart functionality to run the agent.
@@ -66,15 +74,62 @@ class Agent:
 
         # Convert Response to Result
         return Result(
-            value=response.messages[-1].content if response.messages else "",
-            context_variables=response.context_variables,
+            value=response.messages[-1].content
+            if response and response.messages and response.messages[-1].content
+            else "",
             agent=response.agent,
+            context_variables=response.context_variables,
         )
 
     def _setup_providers(self) -> None:
         """Initialize all configured providers."""
         for config in self.provider_configurations:
+            self._provider_manager.initialize_provider(self.name, config)
             provider_class = config.get_provider_class()
             provider = provider_class(config)
             provider.set_up()
             self._providers[config.provider_name] = provider
+
+
+class Response(BaseModel):
+    """Encapsulates the complete response from an agent interaction.
+
+    Attributes:
+        messages: List of message exchanges during the interaction
+        agent: The final agent state after the interaction
+        context_variables: Updated context variables after the interaction
+    """
+
+    messages: list[Message] = Field(
+        default_factory=list,
+        description="List of messages exchanged during the interaction",
+    )
+    agent: "Agent | None" = Field(default=None, description="Final agent state after interaction")
+    context_variables: dict[str, Any] = Field(
+        default_factory=dict, description="Updated context variables after interaction"
+    )
+
+
+class Result(BaseModel):
+    """Encapsulates the return value from an agent function execution.
+
+    Attributes:
+        value: The string result of the function execution
+        agent: Optional new agent to switch to after this result
+        context_variables: Updated context variables from this execution
+    """
+
+    value: str = Field(default="", description="String result of the function execution")
+    agent: "Agent | None" = Field(default=None, description="Optional new agent to switch to")
+    context_variables: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Updated context variables from this execution",
+    )
+
+    class Config:
+        """Pydantic configuration for better error messages."""
+
+        error_msg_templates: ClassVar[dict[str, str]] = {
+            "type_error": "Invalid type for {field_name}: {error_msg}",
+            "value_error": "Invalid value for {field_name}: {error_msg}",
+        }

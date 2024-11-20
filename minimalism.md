@@ -106,13 +106,13 @@ class ImageGenerationProvider(BaseEventHandleProvider):
         # For use in tools
         self.external_use = True
         
-        # For internal event handling
-        self.internal_use: dict[EventType, List[Callable]] = {
-            EventType.START: [self.initialize_model],
+        # For internal event handling - with the possibility to handle priority with a value 1-10
+        self.internal_use: dict[EventType, List[tuple[Callable,int] | Callable,int] = {
+            EventType.START: [(self.initialize_model,9)],
             EventType.TOOL_USE: [self.generate_image]
         }
     
-    def generate_image(self, prompt: str) -> str:
+    def generate_image(self, provider_context: ProviderContext) -> ProviderContext:
         """Generate image from prompt."""
         # Implementation
         pass
@@ -134,12 +134,22 @@ class ImageGenerationConfig(BaseProviderConfig):
             provider_name="image_gen",
             provider_type="generation",
             **data
-        )
+      
+    )
 ```
+
+There are two types of provider: LLM provider (BaseLLMProvider) and BaseEventProvider.
+
+Provider have three types of possible lifecycle options: 
+
+    Singleton (a single instance for all agent)
+    scoped (a single instance per agent)
+    just-in-time (a new instance gets created if the provider is needed, then it is gone again)
 
 ## Running Agents
 
-Start the agent system with any agent
+Start the agent system with any agent by delegating to Schwarm()
+Provider management happens with delegating to ProviderManager (The agent can basically do nothing!)
 
 ```python
 # Simple start

@@ -2,9 +2,9 @@
 
 from abc import ABC
 from collections.abc import Callable
-from typing import Any
 
 from schwarm.events.event_types import EventType
+from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base.base_provider import BaseProvider
 from schwarm.provider.base.base_provider_config import BaseProviderConfig
 
@@ -32,7 +32,7 @@ class BaseEventHandleProvider(BaseProvider, ABC):
         """
         pass
 
-    def handle_event(self, event_type: EventType, *args, **kwargs) -> Any:
+    def handle_event(self, event_type: EventType, provider_context: ProviderContext) -> ProviderContext | None:
         """Handle an internal event.
 
         Args:
@@ -45,7 +45,7 @@ class BaseEventHandleProvider(BaseProvider, ABC):
         """
         if event_type in self.internal_use:
             for handler in self.internal_use[event_type]:
-                result = handler(*args, **kwargs)
+                result = handler(provider_context)
                 if result is not None:
                     return result
         return None

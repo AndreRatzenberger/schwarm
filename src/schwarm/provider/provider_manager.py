@@ -56,19 +56,11 @@ class ProviderManager:
             # {agent_id: {provider_name: provider_instance}}
             self._agent_providers: dict[str, dict[str, BaseProvider]] = {}
 
-            # Maps provider types to their implementations
-            self._provider_registry: dict[str, type[BaseProvider]] = {}
-
             self._initialized = True
-
-    def register_provider_type(self, provider_type: str, provider_class: type[BaseProvider]) -> None:
-        """Register a provider implementation."""
-        self._provider_registry[provider_type] = provider_class
-        logger.info(f"Registered provider type: {provider_type}")
 
     def _create_provider(self, config: BaseProviderConfig, agent_id: str | None = None) -> BaseProvider:
         """Create a new provider instance."""
-        provider_class = self._provider_registry.get(config.provider_type)
+        provider_class = config.get_provider_class()
         if not provider_class:
             raise ProviderInitError(f"No implementation found for provider type: {config.provider_type}")
 
@@ -78,6 +70,13 @@ class ProviderManager:
             return provider
         except Exception as e:
             raise ProviderInitError(f"Failed to initialize provider {config.provider_name}: {e!s}")
+
+    def get_provider_by_class(self, agent_id: str, provider_class: type[P]) -> P:
+        """Get a provider instance by its class."""
+        for provider in self.get_all_providers(agent_id).values():
+            if isinstance(provider, provider_class):
+                return provider
+        raise ValueError(f"No provider of type {provider_class.__name__} found")
 
     def get_provider(self, agent_id: str, provider_name: str) -> BaseProvider | None:
         """Get or create a provider instance based on its scope."""
@@ -129,33 +128,6 @@ class ProviderManager:
             provider = self._create_provider(config, agent_id)
             logger.info(f"Created ephemeral provider: {config.provider_name} " f"for agent: {agent_id}")
             return provider
-
-    def cleanup_agent(self, agent_id: str) -> None:
-        """Clean up all providers for an agent."""
-        if agent_id in self._agent_providers:
-            for provider in self._agent_providers[agent_id].values():
-                try:
-                    provider.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up provider {provider.config.provider_name}: {e}")
-            del self._agent_providers[agent_id]
-            logger.info(f"Cleaned up providers for agent: {agent_id}")
-
-    def cleanup_all(self) -> None:
-        """Clean up all providers."""
-        # Clean up global providers
-        for provider in self._global_providers.values():
-            try:
-                provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up global provider {provider.config.provider_name}: {e}")
-        self._global_providers.clear()
-
-        # Clean up agent providers
-        for agent_id in list(self._agent_providers.keys()):
-            self.cleanup_agent(agent_id)
-
-        logger.info("Cleaned up all providers")
 
     def get_event_providers(self, agent_id: str) -> list[BaseEventHandleProvider]:
         """Get all event handling providers for an agent."""

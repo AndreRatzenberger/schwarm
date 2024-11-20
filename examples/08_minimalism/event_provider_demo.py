@@ -34,7 +34,6 @@ def main():
 
     # Add the art generation function
     art_agent.functions = [create_artwork]
-
     # Run the agent
     result = art_agent.quickstart(
         "Create a surreal landscape with floating islands and crystal waterfalls",

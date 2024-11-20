@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from schwarm.provider.models.base_provider_config import BaseProviderConfig
+from schwarm.provider.base.base_provider_config import BaseProviderConfig
 
 
 class BaseLLMProviderConfig(BaseProviderConfig):
