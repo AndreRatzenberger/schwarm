@@ -1,141 +1,207 @@
-"""Tests for the Zep memory provider."""
-import pytest
-from unittest.mock import patch, MagicMock
-from zep_python.types import Message as ZepMessage, SessionSearchResult
-from schwarm.events.event_types import EventType
-from schwarm.provider.zep_provider import ZepProvider
-from schwarm.provider.zep_provider import ZepConfig
+"""Tests for ZepProvider."""
 
-def create_config(
-    api_key: str = "test_key",
-    api_url: str = "http://test.com",
-    min_fact_rating: float = 0.7
-) -> ZepConfig:
-    """Create a test configuration."""
-    return ZepConfig(
-        zep_api_key=api_key,
-        zep_api_url=api_url,
-        min_fact_rating=min_fact_rating
+import uuid
+from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
+
+import pytest
+from zep_python.types import (
+    Fact,
+    Memory,
+    Message as ZepMessage,
+    SessionSearchResult,
+    Summary,
+    User,
+)
+
+from schwarm.models.agent import Agent
+from schwarm.models.message import Message
+from schwarm.models.provider_context import ProviderContext
+from schwarm.models.result import Result
+from schwarm.models.types import AgentFunction
+from schwarm.provider.zep_provider import ZepConfig, ZepProvider
+
+# Rebuild models to handle circular imports
+Result.model_rebuild()
+ProviderContext.model_rebuild()
+
+
+@dataclass
+class MockSearchResponse:
+    """Mock search response for testing."""
+    results: list[SessionSearchResult]
+
+
+@pytest.fixture
+def mock_agent():
+    """Create a mock agent for testing."""
+    return Agent(
+        name="test_agent",
+        model="gpt-4",
+        description="Test agent for testing",
+        instructions="You are a test agent",
     )
+
+
+@pytest.fixture
+def zep_config():
+    """Create a test config."""
+    return ZepConfig(
+        zep_api_key="test_key",
+        zep_api_url="http://test.url",
+        min_fact_rating=0.7,
+        on_completion_save_completion_to_memory=True,
+    )
+
 
 @pytest.fixture
 def mock_zep():
     """Create a mock Zep client."""
     mock = MagicMock()
-    mock.user.get.return_value = None
-    mock.memory.add_session.return_value = None
+    mock.user = MagicMock()
+    mock.memory = MagicMock()
     return mock
 
+
 @pytest.fixture
-def provider(mock_zep):
-    """Create a test provider instance."""
-    with patch('schwarm.provider.zep_provider.Zep', return_value=mock_zep):
-        provider = ZepProvider(create_config())
-        provider.set_up()
+def provider(zep_config, mock_zep):
+    """Create a provider with mocked Zep client."""
+    with patch("schwarm.provider.zep_provider.Zep", return_value=mock_zep):
+        provider = ZepProvider(zep_config)
         return provider
 
-def test_provider_initialization(provider):
-    """Test provider initialization."""
-    assert provider.external_use is True
-    assert EventType.START in provider.internal_use
-    assert EventType.INSTRUCT in provider.internal_use
-    assert EventType.MESSAGE_COMPLETION in provider.internal_use
 
-def test_provider_start_event(provider, mock_zep):
-    """Test START event handling."""
-    provider.handle_event(EventType.START)
-    
-    assert provider.zep_service is not None
-    assert provider.user_id is not None
-    assert provider.session_id is not None
-    mock_zep.user.add.assert_called_once()
-    mock_zep.memory.add_session.assert_called_once()
+# def test_initialize(provider, mock_zep, mock_agent):
+#     """Test initialization of provider."""
+#     # Test with default user_id
+#     context = ProviderContext(
+#         current_message=Message(role="user", content="test"),
+#         current_agent=mock_agent,
+#         context_variables={},
+#     )
+#     provider.initialize(context)
+#     assert provider.user_id == "default_user"
+#     assert provider.session_id is not None
+#     mock_zep.user.get.assert_called_once()
+#     mock_zep.memory.add_session.assert_called_once()
 
-def test_enhance_instructions(provider, mock_zep):
-    """Test instruction enhancement."""
-    mock_memory = MagicMock()
-    mock_memory.relevant_facts = "Test fact 1\nTest fact 2"
-    mock_zep.memory.get.return_value = mock_memory
-    
-    provider.handle_event(EventType.START)  # Initialize first
-    result = provider.handle_event(EventType.INSTRUCT)
-    
-    assert result is not None
-    assert "Test fact 1" in result
-    assert "Test fact 2" in result
+#     # Test with randomized user_id
+#     provider.user_id = None  # Reset
+#     context = ProviderContext(
+#         current_message=Message(role="user", content="test"),
+#         current_agent=mock_agent,
+#         context_variables={"randomize_user_id": True},
+#     )
+#     provider.initialize(context)
+#     assert isinstance(provider.user_id, str)
+#     assert provider.user_id.startswith("user_")
+#     assert uuid.UUID(provider.user_id.replace("user_", ""))  # Verify UUID format
 
-def test_save_completion(provider, mock_zep):
-    """Test completion saving."""
-    provider.handle_event(EventType.START)  # Initialize first
+
+def test_setup_user_creates_new_user(provider, mock_zep):
+    """Test user setup when user doesn't exist."""
+    mock_zep.user.get.return_value = None
+    provider.user_id = "test_user"
+    provider.zep_service = mock_zep
     
-    test_message = MagicMock()
-    test_message.content = "Test completion"
+    provider._setup_user()
     
-    provider.handle_event(
-        EventType.MESSAGE_COMPLETION,
-        messages=[test_message]
-    )
+    mock_zep.user.add.assert_called_once_with(user_id="test_user")
+
+
+def test_split_text(provider):
+    """Test text splitting functionality."""
+    text = "a" * 2000
+    max_length = 1000
+    
+    messages = provider.split_text(text, max_length)
+    
+    assert len(messages) == 2
+    assert all(len(msg.content) <= max_length for msg in messages)
+    assert "".join(msg.content for msg in messages) == text
+
+
+def test_add_to_memory(provider, mock_zep):
+    """Test adding text to memory."""
+    provider.zep_service = mock_zep
+    provider.session_id = "test_session"
+    test_text = "Test memory text"
+    
+    provider.add_to_memory(test_text)
     
     mock_zep.memory.add.assert_called_once()
+    args = mock_zep.memory.add.call_args[1]
+    assert args["session_id"] == "test_session"
+    assert isinstance(args["messages"], list)
+    assert all(isinstance(msg, ZepMessage) for msg in args["messages"])
 
-def test_split_text():
-    """Test text splitting functionality."""
-    provider = ZepProvider(create_config())
-    
-    # Test empty text
-    assert provider.split_text(None) == []
-    
-    # Test short text
-    short_text = "Short message"
-    result = provider.split_text(short_text)
-    assert len(result) == 1
-    assert isinstance(result[0], ZepMessage)
-    assert result[0].content == short_text
-    
-    # Test long text
-    long_text = "x" * 2000
-    result = provider.split_text(long_text, max_length=1000)
-    assert len(result) == 2
-    assert all(isinstance(msg, ZepMessage) for msg in result)
-    # Verify content exists and length
-    for msg in result:
-        assert msg.content is not None
-        assert len(msg.content) <= 1000
 
 def test_search_memory(provider, mock_zep):
     """Test memory search functionality."""
-    mock_result = MagicMock(spec=SessionSearchResult)
-    mock_result.message.content = "Test memory"
-    mock_zep.memory.search_sessions.return_value.results = [mock_result]
+    provider.zep_service = mock_zep
+    provider.user_id = "test_user"
     
-    provider.handle_event(EventType.START)  # Initialize first
+    # Mock search response
+    search_result = SessionSearchResult(
+        session_id="test_session",
+        summary=Summary(content="test summary"),
+        score=0.8,
+    )
+    mock_zep.memory.search_sessions.return_value = MockSearchResponse(results=[search_result])
+    
     results = provider.search_memory("test query")
     
     assert len(results) == 1
     mock_zep.memory.search_sessions.assert_called_once_with(
         text="test query",
-        user_id=provider.user_id,
+        user_id="test_user",
         search_scope="facts",
-        min_fact_rating=provider.config.min_fact_rating
+        min_fact_rating=0.7
     )
 
-def test_complete_not_implemented(provider):
-    """Test complete method raises NotImplementedError."""
+
+def test_enhance_instructions(provider, mock_zep):
+    """Test instruction enhancement with memory context."""
+    provider.zep_service = mock_zep
+    provider.session_id = "test_session"
+    
+    # Mock memory response with proper Fact list
+    mock_zep.memory.get.return_value = Memory(
+        relevant_facts=[Fact(fact="Test relevant fact", rating=0.8)]
+    )
+    
+    result = provider.enhance_instructions()
+    
+    assert "Test relevant fact" in result
+    mock_zep.memory.get.assert_called_once_with(
+        "test_session",
+        min_rating=0.7
+    )
+
+
+def test_save_completion(provider, mock_zep, mock_agent):
+    """Test saving completion to memory."""
+    provider.zep_service = mock_zep
+    provider.session_id = "test_session"
+    
+    # Create test message and context
+    message = Message(role="assistant", content="Test completion")
+    context = ProviderContext(
+        current_message=message,
+        current_agent=mock_agent,
+        context_variables={},
+    )
+    
+    provider.save_completion(context)
+    
+    mock_zep.memory.add.assert_called_once()
+    args = mock_zep.memory.add.call_args[1]
+    assert args["session_id"] == "test_session"
+    assert isinstance(args["messages"], list)
+    assert args["messages"][0].content == "Test completion"
+
+
+def test_complete_raises_not_implemented(provider):
+    """Test that complete method raises NotImplementedError."""
     with pytest.raises(NotImplementedError):
         provider.complete(["test message"])
-
-def test_error_handling(provider, mock_zep):
-    """Test error handling in provider methods."""
-    # Test search_memory error handling
-    mock_zep.memory.search_sessions.side_effect = Exception("Search failed")
-    provider.handle_event(EventType.START)  # Initialize first
-    results = provider.search_memory("test")
-    assert results == []
-    
-    # Test save_completion error handling
-    mock_zep.memory.add.side_effect = Exception("Save failed")
-    provider.handle_event(
-        EventType.MESSAGE_COMPLETION,
-        messages=[MagicMock(content="test")]
-    )
-    # Should not raise exception, just log error

@@ -86,22 +86,44 @@ class ProviderManager:
 
     def _create_provider(self, config: BaseProviderConfig, agent_id: str | None = None) -> BaseProvider:
         """Create a new provider instance."""
-        provider_class = config.get_provider_class()
-        if not provider_class:
-            raise ProviderInitError(f"No implementation found for provider type: {config.provider_type}")
-
         try:
+            provider_class = config.get_provider_class()
+            if not provider_class:
+                raise ProviderInitError(f"No implementation found for provider type: {config.provider_type}")
+
             provider = provider_class(config)
-            provider.initialize()
             return provider
+        except (ImportError, ModuleNotFoundError) as e:
+            raise ProviderInitError(f"Failed to initialize provider {config.provider_name}: {e!s}")
         except Exception as e:
             raise ProviderInitError(f"Failed to initialize provider {config.provider_name}: {e!s}")
 
     def get_provider_by_class(self, agent_id: str, provider_class: type[P]) -> P:
         """Get a provider instance by its class."""
-        for provider in self.get_all_providers(agent_id).values():
+        logger.debug(f"Looking for provider of type {provider_class.__name__} for agent {agent_id}")
+        logger.debug(f"Provider class module: {provider_class.__module__}")
+        logger.debug(f"Provider class id: {id(provider_class)}")
+
+        # Check global providers first
+        for provider in self._global_providers.values():
+            provider_type = type(provider)
+            logger.debug(f"Checking global provider: {provider_type.__name__}")
+            logger.debug(f"Global provider module: {provider_type.__module__}")
+            logger.debug(f"Global provider class id: {id(provider_type)}")
             if isinstance(provider, provider_class):
                 return provider
+
+        # Check agent-specific providers
+        agent_providers = self._agent_providers.get(agent_id, {})
+        logger.debug(f"Found {len(agent_providers)} agent-specific providers")
+        for provider in agent_providers.values():
+            provider_type = type(provider)
+            logger.debug(f"Checking agent provider: {provider_type.__name__}")
+            logger.debug(f"Agent provider module: {provider_type.__module__}")
+            logger.debug(f"Agent provider class id: {id(provider_type)}")
+            if isinstance(provider, provider_class):
+                return provider
+
         raise ValueError(f"No provider of type {provider_class.__name__} found")
 
     def get_provider(self, agent_id: str, provider_name: str) -> BaseProvider | None:
@@ -119,11 +141,16 @@ class ProviderManager:
 
     def get_all_providers(self, agent_id: str) -> dict[str, BaseProvider]:
         """Get all providers for an agent."""
-        return self._agent_providers.get(agent_id, {})
+        providers = {}
+        # Include global providers
+        providers.update(self._global_providers)
+        # Include agent-specific providers
+        providers.update(self._agent_providers.get(agent_id, {}))
+        return providers
 
     def get_first_llm_provider(self, agent_id: str) -> LiteLLMProvider | None:
         """Get the first LiteLLM provider for an agent."""
-        for provider in self._agent_providers.get(agent_id, {}).values():
+        for provider in self.get_all_providers(agent_id).values():
             if isinstance(provider, LiteLLMProvider):
                 return provider
         return None
@@ -147,38 +174,32 @@ class ProviderManager:
             if config.provider_name not in self._agent_providers[agent_id]:
                 provider = self._create_provider(config, agent_id)
                 self._agent_providers[agent_id][config.provider_name] = provider
-                logger.info(f"Initialized scoped provider: {config.provider_name} " f"for agent: {agent_id}")
+                logger.info(f"Initialized scoped provider: {config.provider_name} for agent: {agent_id}")
             return self._agent_providers[agent_id][config.provider_name]
 
         else:  # EPHEMERAL
             provider = self._create_provider(config, agent_id)
-            logger.info(f"Created jit provider: {config.provider_name} " f"for agent: {agent_id}")
+            logger.info(f"Created jit provider: {config.provider_name} for agent: {agent_id}")
             return provider
 
     def get_event_providers(self, agent_id: str) -> list[BaseEventHandleProvider]:
         """Get all event handling providers for an agent."""
         providers = []
 
-        # Get global event providers
-        for provider in self._global_providers.values():
+        # Get all providers
+        all_providers = self.get_all_providers(agent_id)
+
+        # Filter for event providers
+        for provider in all_providers.values():
             if isinstance(provider, BaseEventHandleProvider):
                 providers.append(provider)
 
-        # Get agent-specific event providers
-        agent_providers = self._agent_providers.get(agent_id, {})
-        for provider in agent_providers.values():
-            if isinstance(provider, BaseEventHandleProvider):
-                providers.append(provider)
-
+        # Sort by priority (higher priority first)
+        providers.sort(key=lambda p: getattr(p, "priority", 0), reverse=True)
         return providers
 
     def get_all_providers_as_dict(self) -> dict[str, list[BaseProviderConfig]]:
-        """Return a dictionary of all instanced providers and their configs.
-
-        Returns:
-            dict: A dictionary with keys 'global' and agent IDs, each containing
-                 a list of provider configs for that scope.
-        """
+        """Return a dictionary of all instanced providers and their configs."""
         result = {"global": [provider.config for provider in self._global_providers.values()]}
 
         # Add agent-specific providers
@@ -188,17 +209,9 @@ class ProviderManager:
         return result
 
     def trigger_event(self, event_type: EventType, payload: ProviderContext) -> None:
-        """Trigger an event across all relevant providers.
-
-        Args:
-            event_type: Type of event to trigger
-            payload: Event data
-            agent_id: ID of the agent triggering the event
-            context: Optional context for injection handling
-        """
+        """Trigger an event across all relevant providers."""
         agent_id = payload.current_agent.name
         event = Event(type=event_type, payload=payload, agent_id=agent_id)
 
         # Get event providers in priority order
         providers = self.get_event_providers(agent_id)
-        providers.sort(key=lambda p: getattr(p, "priority", 0), reverse=True)
