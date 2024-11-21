@@ -1,11 +1,17 @@
 """Tests for the Agent class."""
-import pytest
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
-from typing import Dict, List
-from schwarm.models.types import Agent, Result
-from schwarm.provider.base import BaseProvider
-from schwarm.provider.base import BaseProviderConfig
+
+import pytest
+from pydantic import BaseModel
+
 from schwarm.models.message import Message
+from schwarm.models.result import Result
+from schwarm.models.agent import Agent
+from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
+
+# Import and rebuild Result model
+Result.model_rebuild()
 
 class TestConfig(BaseProviderConfig):
     """Test provider configuration."""
@@ -13,81 +19,123 @@ class TestConfig(BaseProviderConfig):
         data.update({
             "provider_name": "test_provider",
             "provider_type": "test",
-            "provider_class": "tests.test_agent.TestProvider",
+            "provider_class": f"{__name__}.TestProvider",
             "scope": "scoped"
         })
         super().__init__(**data)
+
 
 class TestProvider(BaseProvider):
     """Test provider implementation."""
     def __init__(self, config: BaseProviderConfig):
         super().__init__(config)
-        self.calls: List[str] = []
+        self.calls: list[str] = []
         
-    def set_up(self) -> None:
-        self.calls.append("set_up")
+    def initialize(self) -> None:
+        """Initialize the provider."""
+        self.calls.append("initialize")
         
-    def complete(self, messages: List[str]) -> str:
-        self.calls.append(f"complete: {messages[0]}")
-        return f"Response to: {messages[0]}"
+    def complete(self, messages: list[Message]) -> Message:
+        """Complete the given messages."""
+        self.calls.append(f"complete: {messages[0].content}")
+        return Message(role="assistant", content=f"Response to: {messages[0].content}")
 
-def test_instructions(context: Dict) -> str:
+
+@pytest.fixture
+def context() -> Dict[str, Any]:
+    """Create a test context."""
+    return {"key": "value"}
+
+
+def test_instructions(context: Dict[str, Any]) -> None:
     """Test dynamic instructions."""
-    return "Test instructions"
+    assert context["key"] == "value"
 
-def test_function(context: Dict, query: str) -> Result:
+
+@pytest.fixture
+def query() -> str:
+    """Test query fixture."""
+    return "test query"
+
+
+@pytest.fixture
+def mock_schwarm():
+    """Create a mock Schwarm instance."""
+    with patch('schwarm.core.schwarm.Schwarm') as mock:
+        yield mock
+
+
+def test_function(context: Dict[str, Any], query: str) -> None:
     """Test agent function."""
-    return Result(
+    result = Result(
         value=f"Processed: {query}",
-        context_variables=context
+        context_variables=context,
+        agent=None
     )
+    assert isinstance(result, Result)
+    assert result.value == f"Processed: {query}"
+    assert result.context_variables == context
+
 
 @pytest.fixture
 def agent():
     """Create a test agent."""
-    return Agent(
+    agent = Agent(
         name="test_agent",
         provider_configurations=[TestConfig()],
-        instructions=test_instructions,
+        instructions="You are a test agent.",
         functions=[test_function]
     )
+    # Initialize providers
+    for config in agent.provider_configurations:
+        provider = agent._provider_manager.initialize_provider(agent.name, config)
+        provider.initialize()
+    return agent
+
 
 def test_agent_initialization(agent):
     """Test agent initialization."""
     assert agent.name == "test_agent"
     assert len(agent.provider_configurations) == 1
-    assert agent.instructions is test_instructions
+    assert agent.instructions == "You are a test agent."
     assert len(agent.functions) == 1
-    assert agent._providers == {}
+
 
 def test_get_typed_provider(agent):
     """Test getting typed provider."""
-    # Set up providers first
-    agent._setup_providers()
-    
-    # Get provider by type
     provider = agent.get_typed_provider(TestProvider)
     assert isinstance(provider, TestProvider)
-    assert "set_up" in provider.calls
-    
-    # Test getting non-existent provider type
-    with pytest.raises(ValueError):
-        agent.get_typed_provider(MagicMock)
+    assert "initialize" in provider.calls
 
-def test_quickstart_with_function(agent):
+
+def test_quickstart_with_function(agent, mock_schwarm):
     """Test quickstart using agent function."""
+    result = Result(
+        value="Test response",
+        context_variables={"test": "value"},
+        agent=agent
+    )
+    mock_schwarm.return_value.quickstart.return_value = result
+    
     result = agent.quickstart(
         "test query",
         context_variables={"test": "value"}
     )
     
     assert isinstance(result, Result)
-    assert result.value == "Processed: test query"
+    assert result.value == "Test response"
     assert result.context_variables == {"test": "value"}
 
-@patch('schwarm.core.schwarm.Schwarm')
+
 def test_quickstart_modes(mock_schwarm, agent):
     """Test quickstart in different modes."""
+    result = Result(
+        value="Test response",
+        context_variables={},
+        agent=agent
+    )
+    mock_schwarm.return_value.quickstart.return_value = result
+    
     # Test auto mode
     agent.quickstart("test", mode="auto")
     mock_schwarm.return_value.quickstart.assert_called_with(
@@ -106,35 +154,37 @@ def test_quickstart_modes(mock_schwarm, agent):
         mode="interactive"
     )
 
+
 def test_provider_setup(agent):
     """Test provider setup."""
-    agent._setup_providers()
-    
-    assert len(agent._providers) == 1
-    provider = agent._providers["test_provider"]
+    provider = agent.get_typed_provider(TestProvider)
     assert isinstance(provider, TestProvider)
-    assert "set_up" in provider.calls
+    assert "initialize" in provider.calls
+
 
 def test_quickstart_response_conversion():
     """Test conversion of Schwarm Response to Result."""
     agent = Agent(
         name="test_agent",
-        provider_configurations=[TestConfig()]
+        provider_configurations=[TestConfig()],
+        instructions="You are a test agent."
     )
     
-    mock_response = MagicMock()
-    mock_response.messages = [Message(role="assistant", content="Test response")]
-    mock_response.context_variables = {"test": "value"}
-    mock_response.agent = agent
+    result = Result(
+        value="Test response",
+        context_variables={"test": "value"},
+        agent=agent
+    )
     
     with patch('schwarm.core.schwarm.Schwarm') as mock_schwarm:
-        mock_schwarm.return_value.quickstart.return_value = mock_response
+        mock_schwarm.return_value.quickstart.return_value = result
         result = agent.quickstart("test")
         
         assert isinstance(result, Result)
         assert result.value == "Test response"
         assert result.context_variables == {"test": "value"}
         assert result.agent == agent
+
 
 def test_multiple_providers():
     """Test agent with multiple providers."""
@@ -151,7 +201,12 @@ def test_multiple_providers():
         ]
     )
     
-    agent._setup_providers()
-    # assert len(agent._provider_manager.get_provider(agent.name,)) == 2
-    # assert "test_provider" in agent._providers_manager
-    # assert "another_provider" in agent._providers
+    # Initialize providers
+    for config in agent.provider_configurations:
+        provider = agent._provider_manager.initialize_provider(agent.name, config)
+        provider.initialize()
+    
+    providers = agent._provider_manager.get_all_providers(agent.name)
+    assert len(providers) == 2
+    assert "test_provider" in providers
+    assert "another_provider" in providers

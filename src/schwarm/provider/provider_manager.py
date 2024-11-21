@@ -1,5 +1,9 @@
 """Manages provider lifecycles and access."""
 
+import importlib
+import inspect
+import os
+from pathlib import Path
 from typing import Optional, TypeVar
 
 from loguru import logger
@@ -43,7 +47,42 @@ class ProviderManager:
             # {agent_id: {provider_name: provider_instance}}
             self._agent_providers: dict[str, dict[str, BaseProvider]] = {}
 
+            # Stores registered provider classes and their configs
+            # {config_class: provider_class}
+            self._registered_providers: dict[type[BaseProviderConfig], type[BaseProvider]] = {}
+
+            self._scan_and_register_providers()
             self._initialized = True
+
+    def _scan_and_register_providers(self) -> None:
+        """Scan the project for BaseProvider and BaseProviderConfig implementations."""
+        src_path = Path(__file__).parent.parent
+
+        for root, _, files in os.walk(src_path):
+            for file in files:
+                if file.endswith(".py"):
+                    module_path = os.path.join(root, file)
+                    relative_path = os.path.relpath(module_path, src_path.parent)
+                    module_name = os.path.splitext(relative_path)[0].replace(os.sep, ".")
+
+                    try:
+                        module = importlib.import_module(module_name)
+
+                        # Get all classes defined in the module
+                        for name, obj in inspect.getmembers(module, inspect.isclass):
+                            # Check if it's a provider class
+                            if issubclass(obj, BaseProvider) and obj != BaseProvider:
+                                # Find corresponding config class
+                                for config_name, config_obj in inspect.getmembers(module, inspect.isclass):
+                                    if issubclass(config_obj, BaseProviderConfig) and config_obj != BaseProviderConfig:
+                                        # Register the provider and config pair
+                                        self._registered_providers[config_obj] = obj
+                                        logger.debug(
+                                            f"Registered provider {obj.__name__} with config {config_obj.__name__}"
+                                        )
+
+                    except Exception as e:
+                        logger.warning(f"Failed to load module {module_name}: {e!s}")
 
     def _create_provider(self, config: BaseProviderConfig, agent_id: str | None = None) -> BaseProvider:
         """Create a new provider instance."""
@@ -87,7 +126,7 @@ class ProviderManager:
         for provider in self._agent_providers.get(agent_id, {}).values():
             if isinstance(provider, LiteLLMProvider):
                 return provider
-        return
+        return None
 
     def initialize_provider(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:
         """Initialize a provider based on its scope."""

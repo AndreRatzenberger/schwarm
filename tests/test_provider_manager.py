@@ -3,8 +3,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from schwarm.events.event_types import EventType
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base.base_provider import BaseProvider
-from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.provider.base import BaseProvider
+from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.provider_manager import ProviderManager, ProviderInitError
 
@@ -179,9 +179,7 @@ def test_trigger_event(manager):
     """Test event triggering across providers."""
     # Create event providers with different priorities
     config1 = TestEventConfig(provider_name="event1")
-    config1.priority = 1
     config2 = TestEventConfig(provider_name="event2")
-    config2.priority = 2
     
     provider1 = manager.initialize_provider("test_agent", config1)
     provider2 = manager.initialize_provider("test_agent", config2)

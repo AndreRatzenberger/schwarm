@@ -2,7 +2,7 @@
 from pydantic import ValidationError
 import pytest
 
-from schwarm.provider.base.base_provider_config import BaseProviderConfig
+from schwarm.provider.base.base_provider import BaseProviderConfig
 
 
 class TestProviderConfig(BaseProviderConfig):

@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 from schwarm.events.event_types import EventType
 from schwarm.provider.zep_provider import ZepProvider
-from schwarm.provider.zep_config import ZepConfig
+from schwarm.provider.zep_provider import ZepConfig
 
 def create_config(
     api_key: str = "test_key",

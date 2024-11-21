@@ -13,8 +13,9 @@ from schwarm.provider.litellm_provider import (
     CompletionError,
     LiteLLMConfig,
     LiteLLMProvider,
+    FeatureFlags,
+    EnvironmentConfig
 )
-from schwarm.provider.models.lite_llm_config import FeatureFlags, EnvironmentConfig
 
 
 def create_config(

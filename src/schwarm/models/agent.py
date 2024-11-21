@@ -5,7 +5,6 @@ from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from schwarm.models.result import Result
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
 
@@ -33,9 +32,7 @@ class Agent(BaseModel):
     provider_configurations: list[BaseProviderConfig] = Field(
         default_factory=list, description="List of provider configurations"
     )
-    _provider_manager: ProviderManager = PrivateAttr(
-        default_factory=lambda: __import__("schwarm.provider.provider_manager").ProviderManager()
-    )
+    _provider_manager: ProviderManager = PrivateAttr(default_factory=ProviderManager)
 
     def get_typed_provider(self, provider_type: type[T]) -> T:
         """Get a provider with proper type safety."""
@@ -49,7 +46,7 @@ class Agent(BaseModel):
         input_text: str,
         context_variables: dict[str, Any] | None = None,
         mode: Literal["auto", "interactive"] = "interactive",
-    ) -> Result:
+    ) -> Any:
         """Quick way to start the agent with minimal configuration.
 
         This method uses Schwarm's quickstart functionality to run the agent.
@@ -70,23 +67,11 @@ class Agent(BaseModel):
         schwarm.register_agent(self)
 
         # Run through Schwarm's quickstart
-        response = schwarm.quickstart(
+        return schwarm.quickstart(
             agent=self, input_text=input_text, context_variables=context_variables or {}, mode=mode
-        )
-
-        # Convert Response to Result
-        return Result(
-            value=response.messages[-1].content
-            if response and response.messages and response.messages[-1].content
-            else "",
-            agent=response.agent,
-            context_variables=response.context_variables,
         )
 
     def _setup_providers(self) -> None:
         """Initialize all configured providers."""
         for config in self.provider_configurations:
             self._provider_manager.initialize_provider(self.name, config)
-            provider_class = config.get_provider_class()
-            provider = provider_class(config)
-            provider.set_up()

@@ -31,3 +31,9 @@ class Result(BaseModel):
             "type_error": "Invalid type for {field_name}: {error_msg}",
             "value_error": "Invalid value for {field_name}: {error_msg}",
         }
+
+
+# Import Agent and rebuild model after both classes are defined
+# from schwarm.models.agent import Agent
+
+# Result.model_rebuild()
