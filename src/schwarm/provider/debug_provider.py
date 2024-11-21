@@ -133,27 +133,31 @@ class DebugProvider(BaseEventHandleProvider):
 
     def _ensure_log_directory(self) -> None:
         """Ensure the log directory exists."""
-        log_path = os.path.join(APP_SETTINGS.DATA_FOLDER, "logs")
-        if not os.path.exists(log_path):
-            os.makedirs(log_path, exist_ok=True)
+        log_path = os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs"))
+        os.makedirs(log_path, exist_ok=True)
 
     def _delete_logs(self) -> None:
         """Delete all log files in the logs directory."""
         log_dir = Path(APP_SETTINGS.DATA_FOLDER) / "logs"
         if log_dir.exists():
             for file in log_dir.glob("*.log"):
-                file.unlink()
+                try:
+                    file.unlink(missing_ok=True)
+                except (PermissionError, OSError):
+                    logger.warning(f"Could not delete log file {file}, it may be in use")
             for file in log_dir.glob("*.csv"):
-                file.unlink()
+                try:
+                    file.unlink(missing_ok=True)
+                except (PermissionError, OSError):
+                    logger.warning(f"Could not delete log file {file}, it may be in use")
 
     def _write_to_log(self, filename: str, content: str, mode: str = "a") -> None:
         """Write content to a log file."""
         if not self.config.save_logs:
             return
 
-        log_path = os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", filename)
-        if not os.path.exists(os.path.dirname(log_path)):
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        log_path = os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", filename))
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         content_with_timestamp = f"Timestamp: {timestamp}\n{content}\n"
@@ -163,21 +167,24 @@ class DebugProvider(BaseEventHandleProvider):
             f.write(content_with_timestamp)
 
         # Write to combined log file
-        with open(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", "all.log"), mode, encoding="utf-8") as f:
+        with open(
+            os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", "all.log")), mode, encoding="utf-8"
+        ) as f:
             f.write(content_with_timestamp)
 
     def _show_instructions(self, event: ProviderContext) -> None:
         """Show the instructions to the user."""
         if not self.config.show_instructions:
             return
-        agent_name = event.current_agent
+        agent_name = event.current_agent.name
+        instructions = event.current_agent.instructions
         console.line()
         console.print(Markdown(f"# 📝 Instructing 🤖 {agent_name}"), style="bold orange3")
         console.line()
-        console.print(Markdown(truncate_string(event.current_instruction, self.config.max_length)), style="italic")
+        console.print(Markdown(truncate_string(instructions, self.config.max_length)), style="italic")
 
         # Write to instructions log
-        log_content = f"Agent: {agent_name}\nInstructions:\n{event.current_instruction}\n{'=' * 50}\n"
+        log_content = f"Agent: {agent_name}\nInstructions:\n{instructions}\n{'=' * 50}\n"
         self._write_to_log("instructions.log", log_content)
 
         if self.config.instructions_wait_for_user_input:
@@ -195,14 +202,16 @@ class DebugProvider(BaseEventHandleProvider):
         budget = manager.get_provider_by_id(agent.name, "budget")
 
         console.line()
+        # Initialize log_content with default empty values
+        log_content = f"Agent: {agent.name}\nNo budget information available\n{'=' * 50}\n"
+
         if isinstance(budget, BudgetProvider):
             console.print(Markdown(f"**- Max Spent:** ${budget.config.max_spent:.5f}"), style="italic")
             console.print(Markdown(f"**- Max Tokens:** {budget.config.max_tokens}"), style="italic")
             console.print(Markdown(f"**- Current Spent:** ${budget.config.current_spent:.5f}"), style="italic")
             console.print(Markdown(f"**- Current Tokens:** {budget.config.current_tokens}"), style="italic")
 
-        # Write to budget log
-        if isinstance(budget, BudgetProvider):
+            # Update log_content with budget information
             log_content = (
                 f"Agent: {agent.name}\n"
                 f"Max Spent: ${budget.config.max_spent:.5f}\n"
@@ -211,6 +220,7 @@ class DebugProvider(BaseEventHandleProvider):
                 f"Current Tokens: {budget.config.current_tokens}\n"
                 f"{'=' * 50}\n"
             )
+
         self._write_to_log("budget.log", log_content)
 
     def _show_function(

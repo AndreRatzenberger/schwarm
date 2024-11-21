@@ -1,108 +1,128 @@
 """Tests for the event-based provider system."""
+from datetime import datetime
 from unittest.mock import MagicMock
 import pytest
-from typing import Any, Dict, List
 from schwarm.events.event_data import Event, EventType
-from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base import BaseProviderConfig
-from schwarm.models.provider_context import ProviderContext
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
+from schwarm.provider.provider_context import ProviderContext
 from schwarm.models.message import Message
 
-class TestConfig(BaseProviderConfig):
+
+class TestConfig(BaseEventHandleProviderConfig):
     """Test configuration."""
-    def __init__(self, **data):
-        data.update({
-            "scope": "scoped"
-        })
-        super().__init__(**data)
+    pass
+
 
 class TestEventProvider(BaseEventHandleProvider):
     """Test event-based provider."""
-    async def initialize(self) -> None:
+    
+    def initialize(self) -> None:
         """Initialize the provider."""
         pass
 
-    def __init__(self, config: TestConfig, **data):
-        super().__init__(config, **data)
-        self.event_log: List[str] = []
-        
-    def set_up(self) -> None:
-        """Set up test event handlers."""
-        self.external_use = True
-    
-        
-    def handle_event(self, event: Event) -> Any:
+    def handle_event(self, event: Event) -> ProviderContext | None:
         """Handle an event."""
-        if event in self.internal_use:
-            for handler in self.internal_use[event]:
-                if isinstance(handler, tuple):
-                    result = handler[0](provider_context)
-                else:
-                    result = handler(provider_context)
-                return result
+        super().handle_event(event)  # Log the event
+        
+        # Return None for most events
+        if event.type == EventType.TOOL_EXECUTION:
+            return ProviderContext(
+                current_agent=event.payload.current_agent,
+                message_history=[],
+                context_variables={}
+            )
         return None
-        
-    def on_start(self, provider_context: ProviderContext) -> None:
-        """Handle start event."""
-        self.event_log.append("start")
-        
-    def on_tool(self, provider_context: ProviderContext) -> str:
-        """Handle tool execution event."""
-        self.event_log.append("tool")
-        return "tool_result"
 
-    def complete(self, messages: List[str]) -> str:
-        """Test completion method."""
-        return "test_completion"
 
 @pytest.fixture
-def provider():
+def config():
+    """Create a test configuration."""
+    return TestConfig(scope="scoped")
+
+
+@pytest.fixture
+def provider(config):
     """Create a test provider instance."""
-    config = TestConfig()
-    provider = TestEventProvider(config)
-    provider.set_up()
-    return provider
+    return TestEventProvider(config=config)
+
 
 @pytest.fixture
-def provider_context():
+def mock_context():
     """Create a mock provider context."""
-    mock_context = MagicMock(spec=ProviderContext)
-    mock_agent = MagicMock()
-    mock_agent.name = "test_agent"
-    mock_context.current_agent = mock_agent
-    mock_context.current_message = Message(role="user", content="test message")
-    return mock_context
+    context = MagicMock(spec=ProviderContext)
+    context.current_agent = MagicMock()
+    context.current_agent.name = "test_agent"
+    context.message_history = []
+    context.context_variables = {}
+    return context
 
-def test_provider_initialization(provider):
+
+def test_provider_initialization(provider, config):
     """Test provider initialization."""
-    assert provider.external_use is True
-    assert EventType.START in provider.internal_use
-    assert EventType.TOOL_EXECUTION in provider.internal_use
-    assert len(provider.internal_use) == 2
-
-def test_event_handling(provider, provider_context):
-    """Test event handling."""
-    # Test START event
-    provider.handle_event(EventType.START)
-    assert provider.event_log == ["start"]
-    
-    # Test TOOL_EXECUTION event
-    result = provider.handle_event(EventType.TOOL_EXECUTION, provider_context)
-    assert result == "tool_result"
-    assert provider.event_log == ["start", "tool"]
-
-def test_unknown_event(provider, provider_context):
-    """Test handling of unknown event."""
-    result = provider.handle_event(EventType.MESSAGE_COMPLETION, provider_context)
-    assert result is None
+    assert isinstance(provider.config, BaseEventHandleProviderConfig)
+    assert provider.config.scope == "scoped"
     assert provider.event_log == []
 
-def test_external_use(provider):
-    """Test external use through complete method."""
-    result = provider.complete(["test message"])
-    assert result == "test_completion"
+
+def test_event_logging(provider, mock_context):
+    """Test that events are properly logged."""
+    # Create test events
+    start_event = Event(
+        type=EventType.START,
+        payload=mock_context,
+        agent_id="test_agent",
+        datetime=datetime.now().isoformat()
+    )
+    
+    tool_event = Event(
+        type=EventType.TOOL_EXECUTION,
+        payload=mock_context,
+        agent_id="test_agent",
+        datetime=datetime.now().isoformat()
+    )
+    
+    # Handle events
+    provider.handle_event(start_event)
+    provider.handle_event(tool_event)
+    
+    # Verify events were logged
+    assert len(provider.event_log) == 2
+    assert provider.event_log[0] == start_event
+    assert provider.event_log[1] == tool_event
+
+
+def test_tool_execution_return_value(provider, mock_context):
+    """Test that tool execution returns a context."""
+    event = Event(
+        type=EventType.TOOL_EXECUTION,
+        payload=mock_context,
+        agent_id="test_agent",
+        datetime=datetime.now().isoformat()
+    )
+    
+    result = provider.handle_event(event)
+    
+    assert isinstance(result, ProviderContext)
+    assert result.current_agent == mock_context.current_agent
+
+
+def test_non_tool_execution_return_value(provider, mock_context):
+    """Test that non-tool events return None."""
+    event = Event(
+        type=EventType.START,
+        payload=mock_context,
+        agent_id="test_agent",
+        datetime=datetime.now().isoformat()
+    )
+    
+    result = provider.handle_event(event)
+    
+    assert result is None
+    assert len(provider.event_log) == 1
+
 
 def test_provider_config():
     """Test provider configuration."""
-    config = TestConfig()
+    config = TestConfig(scope="scoped")
     assert config.scope == "scoped"
+    assert isinstance(config, BaseEventHandleProviderConfig)

@@ -70,9 +70,6 @@ def test_provider_initialization(provider, config):
 def test_handle_instructions(mock_console, provider, mock_context):
     """Test instruction handling and display."""
     mock_context.current_agent.instructions = "Test instructions"
-    
-    
-    
     provider.handle_start(mock_context)
     mock_console.print.assert_called()
 
@@ -166,7 +163,8 @@ def test_log_file_management(mock_path, mock_makedirs, provider):
         provider._delete_logs()
     
         # Verify makedirs was called with the correct path
-        mock_makedirs.assert_called_with("/test/path/logs", exist_ok=True)
+        expected_path = os.path.normpath("/test/path/logs")
+        mock_makedirs.assert_called_with(expected_path, exist_ok=True)
 
 
 @patch('schwarm.provider.debug_provider.console')
@@ -176,16 +174,9 @@ def test_disabled_features(mock_console, provider):
     provider.config.show_function_calls = False
     provider.config.show_budget = False
     
-    # event = InstructionData(
-    #     agent_name="test_agent",
-    #     instructions="Test instructions",
-    #     variables={"test": "value"}
-    # )
-    
     # Set instructions directly on the mock agent
     provider.context.current_agent.instructions = "Test instructions"
     
-    #provider.handle_start(event)
     provider.handle_tool_execution()
     provider.handle_message_completion()
     
@@ -205,11 +196,6 @@ def test_handle_missing_context(provider):
     provider.context = None
     
     # Should not raise errors when context is missing
-    # provider.handle_start(InstructionData(
-    #     agent_name="test",
-    #     instructions="test",
-    #     variables={"test": "value"}
-    # ))
     provider.handle_message_completion()
     provider.handle_tool_execution()
     provider.handle_post_tool_execution()
@@ -230,8 +216,6 @@ def test_truncated_display(mock_console, provider):
     provider.config.max_length = 10
     long_text = "x" * 20
     
-    ##event = Event()
-    # Set instructions directly on the mock agent
     provider.context.current_agent.instructions = long_text
     
     provider.handle_start(provider.context)
