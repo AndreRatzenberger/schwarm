@@ -10,9 +10,10 @@ from loguru import logger
 from schwarm.core.logging import log_function_call
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event_types import EventType
-from schwarm.models.provider_context import ProviderContext
-from schwarm.models.types import Agent, Message, Response
+from schwarm.models.message import Message
+from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -84,7 +85,7 @@ class Schwarm:
                 model_override=model_override,
                 max_turns=100,
                 execute_tools=True,
-                show_logs=False,
+                show_logs=True,
             )
         else:
             return self.run(
@@ -94,7 +95,7 @@ class Schwarm:
                 model_override=model_override,
                 max_turns=100,
                 execute_tools=True,
-                show_logs=False,
+                show_logs=True,
             )
 
     @log_function_call(log_level="debug")
@@ -202,8 +203,6 @@ class Schwarm:
             agent=active_agent,
             context_variables=context_variables,
         )
-
-        # Clean up agent-specific providers
 
     @log_function_call(log_level="DEBUG")
     def _complete_agent_request(

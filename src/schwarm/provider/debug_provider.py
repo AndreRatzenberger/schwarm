@@ -12,7 +12,8 @@ from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
 from schwarm.events.event_data import InstructionData
-from schwarm.models.types import Agent, Result
+from schwarm.models.agent import Agent
+from schwarm.models.result import Result
 from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.budget_provider import BudgetProvider
 from schwarm.provider.provider_manager import ProviderManager

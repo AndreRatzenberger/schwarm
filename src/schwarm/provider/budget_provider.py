@@ -9,8 +9,8 @@ from loguru import logger
 from pydantic import Field
 
 from schwarm.events.event_data import Event
+from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContext
-from schwarm.models.types import Message
 from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 

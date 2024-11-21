@@ -54,6 +54,10 @@ class ProviderManager:
             self._scan_and_register_providers()
             self._initialized = True
 
+    def register_provider(self, config_class: type[BaseProviderConfig], provider_class: type[BaseProvider]) -> None:
+        """Register a provider class and its config class."""
+        self._registered_providers[config_class] = provider_class
+
     def _scan_and_register_providers(self) -> None:
         """Scan the project for BaseProvider and BaseProviderConfig implementations."""
         src_path = Path(__file__).parent.parent
@@ -87,7 +91,7 @@ class ProviderManager:
     def _create_provider(self, config: BaseProviderConfig, agent_id: str | None = None) -> BaseProvider:
         """Create a new provider instance."""
         try:
-            provider_class = config.get_provider_class()
+            provider_class = self._registered_providers.get(type(config))
             if not provider_class:
                 raise ProviderInitError(f"No implementation found for provider type: {config.provider_type}")
 

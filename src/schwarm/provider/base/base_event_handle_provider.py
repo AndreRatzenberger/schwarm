@@ -1,71 +1,61 @@
-"""Base class for event-based providers."""
+"""Base class for event handle providers."""
 
-from abc import ABC
 from collections.abc import Callable
-
-from pydantic import Field
+from typing import Any
 
 from schwarm.events.event_types import EventType
-from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
+from schwarm.provider.provider_context import ProviderContext
 
 
 class BaseEventHandleProviderConfig(BaseProviderConfig):
-    """Configuration for a provider.
+    """Configuration for event handle providers."""
 
-    Attributes:
-        provider_id: The provider id.
-    """
+    def __init__(self, **data):
+        """Initialize the event handle provider configuration."""
+        super().__init__(
+            provider_type="event",
+            provider_name="base_event_handle",
+            scope="scoped",
+            **data,
+        )
 
-    external_use: bool = Field(default=False, description="Whether the provider can be used in tools")
-    internal_use: dict[EventType, list[Callable]] = {}
 
+class BaseEventHandleProvider(BaseProvider):
+    """Base class for event handle providers."""
 
-class BaseEventHandleProvider(BaseProvider, ABC):
-    """Base class for providers that handle internal events.
+    config: BaseEventHandleProviderConfig
+    context: ProviderContext | None = None
+    internal_use: dict[EventType, list[tuple[Callable, int] | Callable]] = {}
 
-    Event-based providers can be used both externally (in tools) and internally
-    (responding to system events). They must define which events they handle
-    and provide appropriate handlers.
-    """
+    def set_context(self, context: ProviderContext) -> None:
+        """Set the provider context."""
+        self.context = context
 
-    def __init__(self, config: BaseProviderConfig):
-        """Initialize the provider."""
-        super().__init__(config)
-        self.external_use: bool = False
-        self.internal_use: dict[EventType, list[Callable]] = {}
-
-    def set_up(self) -> None:
-        """Set up event handlers and external use flag.
-
-        Subclasses should override this to configure:
-        - self.external_use: Whether the provider can be used in tools
-        - self.internal_use: Map of events to handler functions
-        """
+    def handle_start(self, event: Any = None) -> None:
+        """Handle agent start."""
         pass
 
-    def handle_event(self, event_type: EventType, provider_context: ProviderContext) -> ProviderContext | None:
-        """Handle an internal event.
+    def handle_instruct(self, event: Any = None) -> None:
+        """Handle agent instructions."""
+        pass
 
-        Args:
-            event_type: The type of event to handle
-            args: Positional arguments for the handler
-            kwargs: Keyword arguments for the handler
+    def handle_message_completion(self, event: Any = None) -> None:
+        """Handle message completion."""
+        pass
 
-        Returns:
-            Any result from the event handlers
-        """
-        if event_type in self.internal_use:
-            for handler in self.internal_use[event_type]:
-                result = handler(provider_context)
-                if result is not None:
-                    return result
-        return None
+    def handle_tool_execution(self, event: Any = None) -> None:
+        """Handle tool execution."""
+        pass
 
-    def complete(self, messages: list[str]) -> str:
-        """Default implementation for providers that don't need completion.
+    def handle_post_tool_execution(self, event: Any = None) -> None:
+        """Handle post tool execution."""
+        pass
 
-        Event-based providers may not need completion functionality if they're
-        primarily used for internal event handling.
-        """
-        raise NotImplementedError("This provider does not support completion")
+    def handle_handoff(self, event: Any = None) -> None:
+        """Handle agent handoff."""
+        pass
+
+    def handle_error(self, event: Any = None) -> None:
+        """Handle error."""
+        pass

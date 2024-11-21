@@ -13,7 +13,7 @@ from schwarm.provider.base import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
 
 if TYPE_CHECKING:
-    from schwarm.models.types import Agent
+    pass
 
 
 class EnvironmentConfig(BaseModel):
@@ -30,20 +30,6 @@ class EnvironmentConfig(BaseModel):
     )
 
 
-class FeatureFlags(BaseModel):
-    """Feature flags for LiteLLM provider.
-
-    Attributes:
-        cache: Whether to enable response caching
-        debug: Whether to enable debug mode
-        mocking: Whether to enable mock responses
-    """
-
-    cache: bool = Field(default=False, description="Enables response caching for improved performance")
-    debug: bool = Field(default=False, description="Enables debug mode for detailed logging")
-    mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
-
-
 class LiteLLMConfig(BaseLLMProviderConfig):
     """Configuration for the LiteLLM provider.
 
@@ -54,13 +40,26 @@ class LiteLLMConfig(BaseLLMProviderConfig):
 
     Attributes:
         environment: Environment variable configuration
-        features: Feature flag configuration
+        enable_cache: Whether to enable response caching
+        enable_debug: Whether to enable debug mode
+        enable_mocking: Whether to enable mock responses
     """
 
     environment: EnvironmentConfig = Field(
         default_factory=EnvironmentConfig, description="Environment variable configuration"
     )
-    features: FeatureFlags = Field(default_factory=FeatureFlags, description="Feature flag configuration")
+    enable_cache: bool = Field(default=False, description="Enables response caching for improved performance")
+    enable_debug: bool = Field(default=False, description="Enables debug mode for detailed logging")
+    enable_mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
+
+    def __init__(self, **data: Any) -> None:
+        """Initialize the LiteLLM provider configuration."""
+        super().__init__(**data)
+
+        self.provider_name = "lite_llm"
+        self.provider_type = "llm"
+        self.llm_model_id = "gpt-4o-mini"
+        self.scope = "scoped"
 
 
 class LiteLLMError(Exception):
@@ -125,11 +124,7 @@ class LiteLLMProvider(BaseLLMProvider):
 
     provider_name: str = "lite_llm"
 
-    def __init__(
-        self,
-        config: LiteLLMConfig,
-        agent: "Agent | None" = None,
-    ) -> None:
+    def __init__(self, config: LiteLLMConfig) -> None:
         """Initialize the Lite LLM provider.
 
         Args:
@@ -139,11 +134,14 @@ class LiteLLMProvider(BaseLLMProvider):
         Raises:
             ConfigurationError: If the configuration is invalid
         """
-        super().__init__(config) if agent else None
+        super().__init__(config)
+        if config.enable_cache:
+            self._setup_caching()
         self.config = cast(LiteLLMConfig, config)
         litellm.drop_params = True
+        self.initialize()
 
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """Initialize the provider.
 
         This method sets up caching, logging, and debugging based on configuration.
@@ -158,10 +156,8 @@ class LiteLLMProvider(BaseLLMProvider):
                 raise ConfigurationError("Failed to connect to LLM service")
 
             config = cast(LiteLLMConfig, self.config)
-            if config.features.cache:
-                self._setup_caching()
 
-            if config.features.debug:
+            if config.enable_debug:
                 litellm.set_verbose = True  # type: ignore
                 logger.info("Debug mode enabled for LiteLLM provider")
 
@@ -287,7 +283,7 @@ class LiteLLMProvider(BaseLLMProvider):
             completion_kwargs = {
                 "model": model,
                 "messages": message_list,
-                "caching": config.features.cache,
+                "caching": config.enable_cache,
             }
             if tools:
                 completion_kwargs.update(
