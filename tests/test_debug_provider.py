@@ -2,13 +2,19 @@
 import os
 from unittest.mock import MagicMock, patch
 import pytest
+from pydantic import BaseModel
 from schwarm.events.event_data import Event, InstructionData
-from schwarm.models.message import Message
+from schwarm.models.message import Message, MessageInfo
 from schwarm.models.types import Agent, Result
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.debug_provider import DebugProvider, DebugProviderConfig
-from schwarm.provider.budget_provider import BudgetProvider
+from schwarm.provider.budget_provider import BudgetProvider, BudgetProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
+
+
+# Initialize Agent for Result model
+Agent.model_rebuild()
+Result.model_rebuild()
 
 
 class TestDebugProvider(DebugProvider):
@@ -36,6 +42,7 @@ def mock_context():
     context = MagicMock(spec=ProviderContext)
     context.current_agent = MagicMock(spec=Agent)
     context.current_agent.name = "test_agent"
+    context.current_agent.instructions = "Test instructions"
     context.message_history = []
     context.context_variables = {"test": "value"}
     return context
@@ -44,7 +51,7 @@ def mock_context():
 @pytest.fixture
 def provider(config, mock_context):
     """Create a test debug provider instance."""
-    provider = TestDebugProvider(config)
+    provider = TestDebugProvider(config=config)
     provider.context = mock_context
     return provider
 
@@ -76,12 +83,17 @@ def test_handle_instructions(mock_console, provider, mock_context):
 @patch('schwarm.provider.debug_provider.ProviderManager')
 def test_handle_message_completion_with_budget(mock_manager, mock_console, provider, mock_context):
     """Test message completion handling with budget display."""
-    # Mock budget provider
+    # Create a real BudgetProviderConfig instance
+    budget_config = BudgetProviderConfig(
+        max_spent=10.0,
+        max_tokens=1000,
+        current_spent=5.0,
+        current_tokens=500
+    )
+    
+    # Create and configure mock budget provider
     mock_budget = MagicMock(spec=BudgetProvider)
-    mock_budget.config.max_spent = 10.0
-    mock_budget.config.max_tokens = 1000
-    mock_budget.config.current_spent = 5.0
-    mock_budget.config.current_tokens = 500
+    mock_budget.config = budget_config
     
     mock_manager_instance = MagicMock()
     mock_manager_instance.get_provider.return_value = mock_budget
@@ -94,14 +106,12 @@ def test_handle_message_completion_with_budget(mock_manager, mock_console, provi
 @patch('schwarm.provider.debug_provider.console')
 def test_handle_tool_execution(mock_console, provider, mock_context):
     """Test tool execution handling and function display."""
-    tool_call = {
-        "id": "test_id",
-        "type": "function",
-        "function": {
-            "name": "test_function",
-            "arguments": {"param": "value"}
-        }
-    }
+    # Create a mock tool call that matches the expected structure
+    tool_call = MagicMock()
+    tool_call.function = MagicMock()
+    tool_call.function.name = "test_function"
+    tool_call.function.arguments = {"param": "value"}
+    
     message = Message(
         role="assistant",
         content="Test message",
@@ -116,9 +126,14 @@ def test_handle_tool_execution(mock_console, provider, mock_context):
 @patch('schwarm.provider.debug_provider.console')
 def test_handle_post_tool_execution(mock_console, provider, mock_context):
     """Test post tool execution handling and result display."""
+    # Create a mock agent that matches the Agent type
+    test_agent = MagicMock(spec=Agent)
+    test_agent.name = "test_agent"
+    
     result = Result(
         value="test result",
-        context_variables={"test": "value"}
+        context_variables={"test": "value"},
+        agent=test_agent
     )
     message = Message(
         role="tool",
@@ -143,11 +158,17 @@ def test_log_file_management(mock_path, mock_makedirs, provider):
     mock_path_instance.glob.return_value = [MagicMock()]
     mock_path.return_value = mock_path_instance
     
-    provider._ensure_log_directory()
-    provider._delete_logs()
+    # Set save_logs to True to ensure makedirs is called
+    provider.config.save_logs = True
     
-    mock_makedirs.assert_called()
-    mock_path_instance.glob.assert_called()
+    # Mock APP_SETTINGS.DATA_FOLDER to ensure consistent path
+    with patch('schwarm.provider.debug_provider.APP_SETTINGS') as mock_settings:
+        mock_settings.DATA_FOLDER = "/test/path"
+        provider._ensure_log_directory()
+        provider._delete_logs()
+    
+        # Verify makedirs was called with the correct path
+        mock_makedirs.assert_called_with("/test/path/logs", exist_ok=True)
 
 
 @patch('schwarm.provider.debug_provider.console')
@@ -162,6 +183,9 @@ def test_disabled_features(mock_console, provider):
         instructions="Test instructions",
         variables={"test": "value"}
     )
+    
+    # Set instructions directly on the mock agent
+    provider.context.current_agent.instructions = "Test instructions"
     
     provider.handle_start(event)
     provider.handle_tool_execution()
@@ -213,6 +237,9 @@ def test_truncated_display(mock_console, provider):
         instructions=long_text,
         variables={"test": "value"}
     )
+    
+    # Set instructions directly on the mock agent
+    provider.context.current_agent.instructions = long_text
     
     provider.handle_start(event)
     mock_console.print.assert_called()

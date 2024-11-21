@@ -139,7 +139,7 @@ class DebugProvider(BaseEventHandleProvider):
         """Ensure the log directory exists."""
         log_path = os.path.join(APP_SETTINGS.DATA_FOLDER, "logs")
         if not os.path.exists(log_path):
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            os.makedirs(log_path, exist_ok=True)
 
     def _delete_logs(self) -> None:
         """Delete all log files in the logs directory."""
@@ -156,7 +156,7 @@ class DebugProvider(BaseEventHandleProvider):
             return
 
         log_path = os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", filename)
-        if not os.path.exists(log_path):
+        if not os.path.exists(os.path.dirname(log_path)):
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

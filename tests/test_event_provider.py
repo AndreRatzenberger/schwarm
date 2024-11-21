@@ -1,9 +1,12 @@
 """Tests for the event-based provider system."""
+from unittest.mock import MagicMock
 import pytest
 from typing import Any, Dict, List
 from schwarm.events.event_types import EventType
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base import BaseProviderConfig
+from schwarm.models.provider_context import ProviderContext
+from schwarm.models.message import Message
 
 class TestConfig(BaseProviderConfig):
     """Test configuration."""
@@ -17,11 +20,11 @@ class TestConfig(BaseProviderConfig):
         super().__init__(**data)
 
 class TestEventProvider(BaseEventHandleProvider):
-
+    """Test event-based provider."""
     async def initialize(self) -> None:
         """Initialize the provider."""
         pass
-    """Test event-based provider."""
+
     def __init__(self, config: TestConfig):
         super().__init__(config)
         self.event_log: List[str] = []
@@ -34,11 +37,11 @@ class TestEventProvider(BaseEventHandleProvider):
             EventType.TOOL_EXECUTION: [self.on_tool]
         }
         
-    def on_start(self, **kwargs: Dict[str, Any]) -> None:
+    def on_start(self, provider_context: ProviderContext) -> None:
         """Handle start event."""
         self.event_log.append("start")
         
-    def on_tool(self, **kwargs: Dict[str, Any]) -> str:
+    def on_tool(self, provider_context: ProviderContext) -> str:
         """Handle tool execution event."""
         self.event_log.append("tool")
         return "tool_result"
@@ -55,6 +58,16 @@ def provider():
     provider.set_up()
     return provider
 
+@pytest.fixture
+def provider_context():
+    """Create a mock provider context."""
+    mock_context = MagicMock(spec=ProviderContext)
+    mock_agent = MagicMock()
+    mock_agent.name = "test_agent"
+    mock_context.current_agent = mock_agent
+    mock_context.current_message = Message(role="user", content="test message")
+    return mock_context
+
 def test_provider_initialization(provider):
     """Test provider initialization."""
     assert provider.external_use is True
@@ -62,20 +75,20 @@ def test_provider_initialization(provider):
     assert EventType.TOOL_EXECUTION in provider.internal_use
     assert len(provider.internal_use) == 2
 
-def test_event_handling(provider):
+def test_event_handling(provider, provider_context):
     """Test event handling."""
     # Test START event
-    provider.handle_event(EventType.START)
+    provider.handle_event(EventType.START, provider_context)
     assert provider.event_log == ["start"]
     
     # Test TOOL_EXECUTION event
-    result = provider.handle_event(EventType.TOOL_EXECUTION)
+    result = provider.handle_event(EventType.TOOL_EXECUTION, provider_context)
     assert result == "tool_result"
     assert provider.event_log == ["start", "tool"]
 
-def test_unknown_event(provider):
+def test_unknown_event(provider, provider_context):
     """Test handling of unknown event."""
-    result = provider.handle_event(EventType.MESSAGE_COMPLETION)
+    result = provider.handle_event(EventType.MESSAGE_COMPLETION, provider_context)
     assert result is None
     assert provider.event_log == []
 

@@ -41,7 +41,7 @@ def config():
 @pytest.fixture
 def provider(config, mock_context):
     """Create a test budget provider instance."""
-    provider = TestBudgetProvider(config)
+    provider = TestBudgetProvider(config=config)
     provider.context = mock_context
     return provider
 

@@ -52,9 +52,11 @@ class BudgetProvider(BaseEventHandleProvider):
 
     config: BudgetProviderConfig
 
-    # Budget tracking state
-    current_spent: float = Field(default=0.0, description="Current amount spent")
-    current_tokens: int = Field(default=0, description="Current tokens used")
+    def __init__(self, **data):
+        """Initialize the budget provider with tracking state."""
+        super().__init__(**data)
+        self.current_spent = self.config.current_spent
+        self.current_tokens = self.config.current_tokens
 
     def handle_start(self) -> None:
         """Handle agent start by initializing budget tracking."""
