@@ -10,9 +10,8 @@ from loguru import logger
 from schwarm.core.logging import log_function_call
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event_types import EventType
-from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContext
-from schwarm.models.types import Agent, Response
+from schwarm.models.types import Agent, Message, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.function import function_to_json

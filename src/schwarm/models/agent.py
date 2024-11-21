@@ -43,7 +43,7 @@ class Agent(BaseModel):
 
     def quickstart(
         self,
-        input_text: str,
+        input_text: str = "",
         context_variables: dict[str, Any] | None = None,
         mode: Literal["auto", "interactive"] = "interactive",
     ) -> Any:

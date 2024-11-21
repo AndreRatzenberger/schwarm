@@ -5,8 +5,7 @@ from typing import Any
 
 from litellm import ChatCompletionMessageToolCall
 
-from schwarm.models.message import Message
-from schwarm.models.types import Agent, AgentFunction, Response, Result
+from schwarm.models.types import Agent, AgentFunction, Message, Response, Result
 
 # Constants
 CONTEXT_VARS_KEY = "context_variables"
