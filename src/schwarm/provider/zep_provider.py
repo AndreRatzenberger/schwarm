@@ -7,6 +7,7 @@ from pydantic import Field
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
+from schwarm.events.event_data import Event
 from schwarm.events.event_types import EventType
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseEventHandleProvider, BaseProviderConfig
@@ -166,3 +167,8 @@ class ZepProvider(BaseEventHandleProvider):
     def complete(self, messages: list[str]) -> str:
         """Not implemented as this is primarily an event-based provider."""
         raise NotImplementedError("ZepProvider does not support direct completion")
+
+    def handle_event(self, event: Event) -> ProviderContext | None:
+        """Handle an event."""
+        if self.context:
+            return self.context

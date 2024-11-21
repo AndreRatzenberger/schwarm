@@ -88,7 +88,7 @@ def agent():
     )
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = agent._provider_manager.initialize_provider(agent.name, config)
+        provider = agent._provider_manager.create_provider_and_register(agent.name, config)
         provider.initialize()
     return agent
 
@@ -203,10 +203,10 @@ def test_multiple_providers():
     
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = agent._provider_manager.initialize_provider(agent.name, config)
+        provider = agent._provider_manager.create_provider_and_register(agent.name, config)
         provider.initialize()
     
-    providers = agent._provider_manager.get_all_providers(agent.name)
+    providers = agent._provider_manager.get_all_providers_to_scope(agent.name)
     assert len(providers) == 2
     assert "test_provider" in providers
     assert "another_provider" in providers

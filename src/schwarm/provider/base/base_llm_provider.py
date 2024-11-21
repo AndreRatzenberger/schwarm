@@ -16,7 +16,7 @@ class BaseLLMProviderConfig(BaseProviderConfig):
         llm_model_id: The model identifier
     """
 
-    llm_model_id: str = Field(default="", description="The model identifier")
+    llm_model_id: str = Field(default="gpt-4o-mini", description="The model identifier")
 
 
 class BaseLLMProvider(BaseProvider):

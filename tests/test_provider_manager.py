@@ -83,27 +83,27 @@ class TestEventConfig(BaseProviderConfig):
 @pytest.fixture
 def manager():
     """Create a fresh provider manager instance."""
-    # Reset the singleton instance
+    # Reset the global instance
     ProviderManager._instance = None
     return ProviderManager()
 
 
-def test_singleton_pattern():
-    """Test provider manager singleton pattern."""
+def test_global_pattern():
+    """Test provider manager global pattern."""
     manager1 = ProviderManager()
     manager2 = ProviderManager()
     assert manager1 is manager2
 
 
 @pytest.mark.asyncio
-async def test_initialize_singleton_provider(manager):
-    """Test initialization of singleton provider."""
-    config = TestConfig(scope="singleton")
+async def test_initialize_global_provider(manager):
+    """Test initialization of global provider."""
+    config = TestConfig(scope="global")
     provider = manager.initialize_provider("test_agent", config)
     await provider.initialize()  # Properly await initialization
     
     assert provider.config == config
-    assert manager._global_providers[config.provider_name] is provider
+    assert provider in manager._providers["global"]
     
     # Should return same instance for different agent
     provider2 = manager.initialize_provider("other_agent", config)
@@ -118,7 +118,7 @@ async def test_initialize_scoped_provider(manager):
     await provider.initialize()  # Properly await initialization
     
     assert provider.config == config
-    assert manager._agent_providers["test_agent"][config.provider_name] is provider
+    assert provider in manager._providers["test_agent"]
     
     # Should create new instance for different agent
     provider2 = manager.initialize_provider("other_agent", config)
@@ -143,11 +143,11 @@ async def test_initialize_ephemeral_provider(manager):
 async def test_get_provider(manager):
     """Test provider retrieval."""
     config = TestConfig()
-    provider = manager.initialize_provider("test_agent", config)
+    provider = manager.create_provider_and_register("test_agent", config)
     await provider.initialize()  # Properly await initialization
     
     # Should find provider by name
-    assert manager.get_provider("test_agent", config.provider_name) is provider
+    assert manager.get_provider_by_id("test_agent", provider._provider_id) is provider
     
     # Should return None for non-existent provider
     assert manager.get_provider("test_agent", "non_existent") is None
@@ -190,8 +190,8 @@ def test_provider_init_error(manager):
 async def test_get_event_providers(manager):
     """Test retrieval of event providers."""
     # Create both regular and event providers
-    regular_config = TestConfig(scope="singleton")
-    event_config = TestEventConfig(scope="singleton")
+    regular_config = TestConfig(scope="global")
+    event_config = TestEventConfig(scope="global")
     
     regular_provider = manager.initialize_provider("test_agent", regular_config)
     await regular_provider.initialize()  # Properly await initialization
@@ -207,11 +207,11 @@ async def test_get_event_providers(manager):
 async def test_get_all_providers_as_dict(manager):
     """Test provider dictionary generation."""
     # Create providers with different scopes
-    singleton_config = TestConfig(scope="singleton", provider_name="singleton_provider")
+    global_config = TestConfig(scope="global", provider_name="global_provider")
     scoped_config = TestConfig(scope="scoped", provider_name="scoped_provider")
     
-    singleton_provider = manager.initialize_provider("test_agent", singleton_config)
-    await singleton_provider.initialize()  # Properly await initialization
+    global_provider = manager.initialize_provider("test_agent", global_config)
+    await global_provider.initialize()  # Properly await initialization
     scoped_provider = manager.initialize_provider("test_agent", scoped_config)
     await scoped_provider.initialize()  # Properly await initialization
     
@@ -221,7 +221,7 @@ async def test_get_all_providers_as_dict(manager):
     assert "test_agent" in providers_dict
     assert len(providers_dict["global"]) == 1
     assert len(providers_dict["test_agent"]) == 1
-    assert providers_dict["global"][0].provider_name == "singleton_provider"
+    assert providers_dict["global"][0].provider_name == "global_provider"
     assert providers_dict["test_agent"][0].provider_name == "scoped_provider"
 
 

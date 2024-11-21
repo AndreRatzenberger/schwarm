@@ -22,7 +22,7 @@ from schwarm.utils.settings import APP_SETTINGS
 console = Console()
 
 
-class DebugProviderConfig(BaseEventHandleProviderConfig):
+class DebugConfig(BaseEventHandleProviderConfig):
     """Configuration for the debug provider.
 
     This configuration includes all display and logging settings,
@@ -44,15 +44,6 @@ class DebugProviderConfig(BaseEventHandleProviderConfig):
     max_length: int = Field(default=-1, description="Maximum length for displayed text (-1 for no limit)")
     save_logs: bool = Field(default=True, description="Whether to save logs to files")
 
-    def __init__(self, **data):
-        """Initialize the debug provider configuration."""
-        super().__init__(
-            provider_type="event",  # Debug provider is an event handler
-            provider_name="debug",
-            scope="singleton",
-            **data,
-        )
-
 
 class DebugProvider(BaseEventHandleProvider):
     """Debug provider that handles display and logging functionality.
@@ -65,7 +56,12 @@ class DebugProvider(BaseEventHandleProvider):
     - General debug information
     """
 
-    config: DebugProviderConfig
+    config: DebugConfig
+
+    def initialize(self):
+        """Initialize the debug provider by ensuring the log directory exists."""
+        self._ensure_log_directory()
+        return super().initialize()
 
     def handle_start(self, event: InstructionData) -> None:
         """Handle agent start by initializing logging and showing instructions."""
@@ -197,7 +193,7 @@ class DebugProvider(BaseEventHandleProvider):
         console.line()
         console.print(Markdown(f"# 💰 Budget - {agent.name}"), style="bold orange3")
         manager = ProviderManager()
-        budget = manager.get_provider(agent.name, "budget")
+        budget = manager.get_provider_by_id(agent.name, "budget")
 
         console.line()
         if isinstance(budget, BudgetProvider):

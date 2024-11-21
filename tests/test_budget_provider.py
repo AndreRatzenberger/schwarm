@@ -7,14 +7,16 @@ from schwarm.events.event_types import EventType
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Agent
-from schwarm.provider.budget_provider import BudgetProvider, BudgetProviderConfig
+from schwarm.provider.budget_provider import BudgetConfig, BudgetProvider
 
 
 class TestBudgetProvider(BudgetProvider):
     """Test implementation of BudgetProvider."""
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """Initialize the provider."""
         pass
+    def handle_event(self, event):
+        return None
 
 
 @pytest.fixture
@@ -30,7 +32,7 @@ def mock_context():
 @pytest.fixture
 def config():
     """Create a test budget provider config."""
-    return BudgetProviderConfig(
+    return BudgetConfig(
         max_spent=10.0,
         max_tokens=1000,
         save_budget=True,
@@ -147,7 +149,7 @@ def test_handle_handoff(provider, mock_context):
     # Create next agent with budget provider
     next_agent = MagicMock(spec=Agent)
     next_agent.name = "next_agent"
-    next_budget_config = BudgetProviderConfig()
+    next_budget_config = BudgetConfig()
     next_agent.provider_configurations = [next_budget_config]
 
     # Create handoff event

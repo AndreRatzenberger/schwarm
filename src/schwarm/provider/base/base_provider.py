@@ -2,22 +2,23 @@
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import Literal
 
 from litellm import BaseModel
 from loguru import logger
 from pydantic import Field
 
 from schwarm.models.provider_context import ProviderContext
+from schwarm.provider.base import Scope
+
+# Type aliases
 
 
 class BaseProviderConfig(BaseModel):
     """Base configuration for all providers."""
 
-    provider_name: str = Field(default="", description="Unique identifier for the provider")
-    provider_type: str = Field(default="", description="Type of provider (e.g., 'llm', 'memory', etc.)")
-
-    scope: Literal["singleton", "scoped", "jit"] = Field(default="scoped", description="Provider lifecycle scope")
+    # provider_name: str = Field(default="", description="Unique identifier for the provider")
+    # provider_type: ProviderType = Field(default="", description="Type of provider (e.g., 'llm', 'memory', etc.)")
+    scope: Scope = Field(default="scoped", description="Provider lifecycle scope")
     enabled: bool = Field(default=True, description="Whether this provider is enabled")
 
     class Config:
@@ -29,16 +30,24 @@ class BaseProviderConfig(BaseModel):
 class BaseProvider(ABC):
     """Base class for all providers."""
 
-    def __init__(self, config: BaseProviderConfig):
+    _provider_id: str
+    scope: str
+    config: BaseProviderConfig
+    context: ProviderContext
+
+    def __init__(self, config: BaseProviderConfig, id: str = ""):
         """Initialize the provider."""
         self.config = config
-        self.provider_name = self.config.provider_name
-        self.provider_id = self.provider_name + str(uuid.uuid4())
+        self.context
+        if not id:
+            self._provider_id = f"{self.__class__.__name__}_{uuid.uuid4()}"
+        else:
+            self._provider_id = id
 
     @abstractmethod
     def initialize(self) -> None:
         """Run when an agent is started."""
-        logger.info(f"Initializing {self.provider_name} ({self.provider_id}) provider")
+        logger.info(f"Initializing {self._provider_id} ({self._provider_id}) provider")
 
     def update_context(self, context: ProviderContext) -> None:
         """Updates the provider's context with new data.

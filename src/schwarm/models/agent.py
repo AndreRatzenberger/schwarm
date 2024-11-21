@@ -34,9 +34,9 @@ class Agent(BaseModel):
     )
     _provider_manager: ProviderManager = PrivateAttr(default_factory=ProviderManager)
 
-    def get_typed_provider(self, provider_type: type[T]) -> T:
+    def get_typed_provider(self, provider_type: type[T]) -> list[T]:
         """Get a provider with proper type safety."""
-        provider = self._provider_manager.get_provider_by_class(self.name, provider_type)
+        provider = self._provider_manager.get_provider_to_agent_name_by_class(self.name, provider_type)
         if provider:
             return provider
         raise ValueError(f"No provider of type {provider_type.__name__} configured")
@@ -74,4 +74,4 @@ class Agent(BaseModel):
     def _setup_providers(self) -> None:
         """Initialize all configured providers."""
         for config in self.provider_configurations:
-            self._provider_manager.initialize_provider(self.name, config)
+            self._provider_manager.create_provider_and_register(self.name, config)

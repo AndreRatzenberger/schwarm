@@ -52,15 +52,6 @@ class LiteLLMConfig(BaseLLMProviderConfig):
     enable_debug: bool = Field(default=False, description="Enables debug mode for detailed logging")
     enable_mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
 
-    def __init__(self, **data: Any) -> None:
-        """Initialize the LiteLLM provider configuration."""
-        super().__init__(**data)
-
-        self.provider_name = "lite_llm"
-        self.provider_type = "llm"
-        self.llm_model_id = "gpt-4o-mini"
-        self.scope = "scoped"
-
 
 class LiteLLMError(Exception):
     """Base exception for LiteLLM provider errors."""

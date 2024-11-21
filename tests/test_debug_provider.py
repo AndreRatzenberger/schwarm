@@ -7,8 +7,8 @@ from schwarm.events.event_data import Event, InstructionData
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.types import Agent, Result
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.debug_provider import DebugProvider, DebugProviderConfig
-from schwarm.provider.budget_provider import BudgetProvider, BudgetProviderConfig
+from schwarm.provider.debug_provider import DebugProvider, DebugConfig
+from schwarm.provider.budget_provider import BudgetConfig, BudgetProvider
 from schwarm.provider.provider_manager import ProviderManager
 
 
@@ -19,15 +19,17 @@ Result.model_rebuild()
 
 class TestDebugProvider(DebugProvider):
     """Test implementation of DebugProvider."""
-    async def initialize(self) -> None:
+    def initialize(self) -> None:
         """Initialize the provider."""
         pass
+    def handle_event(self, event):
+        return None
 
 
 @pytest.fixture
 def config():
     """Create a test debug provider config."""
-    return DebugProviderConfig(
+    return DebugConfig(
         show_instructions=True,
         show_function_calls=True,
         show_budget=True,
@@ -84,7 +86,7 @@ def test_handle_instructions(mock_console, provider, mock_context):
 def test_handle_message_completion_with_budget(mock_manager, mock_console, provider, mock_context):
     """Test message completion handling with budget display."""
     # Create a real BudgetProviderConfig instance
-    budget_config = BudgetProviderConfig(
+    budget_config = BudgetConfig(
         max_spent=10.0,
         max_tokens=1000,
         current_spent=5.0,

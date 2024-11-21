@@ -142,7 +142,7 @@ There are two types of provider: LLM provider (BaseLLMProvider) and BaseEventPro
 
 Provider have three types of possible lifecycle options: 
 
-    Singleton (a single instance for all agent)
+    global (a single instance for all agent)
     scoped (a single instance per agent)
     just-in-time (a new instance gets created if the provider is needed, then it is gone again)
 

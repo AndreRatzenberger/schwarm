@@ -146,12 +146,12 @@ class Schwarm:
             context_variables=context_variables,
             available_agents=self._agents,
             available_tools=agent.functions,
-            available_providers=self._manager.get_all_providers_as_dict(),
+            available_providers=self._manager.get_all_provider_cfgs_as_dict(),
         )
 
         for config in agent.provider_configurations:
             if config.enabled:
-                self._manager.initialize_provider(agent.name, config)
+                self._manager.create_provider_and_register(agent.name, config)
 
         self._manager.trigger_event(EventType.START, self._provider_context)
 

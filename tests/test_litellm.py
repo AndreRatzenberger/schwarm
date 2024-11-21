@@ -13,7 +13,6 @@ from schwarm.provider.litellm_provider import (
     CompletionError,
     LiteLLMConfig,
     LiteLLMProvider,
-    FeatureFlags,
     EnvironmentConfig
 )
 
@@ -25,15 +24,10 @@ def create_config(
 ) -> LiteLLMConfig:
     """Create a LiteLLMConfig with the given parameters."""
     return LiteLLMConfig(
-        provider_name="lite_llm",
-        provider_type="llm",
-        provider_class="schwarm.provider.litellm_provider.LiteLLMProvider",
         llm_model_id=llm_model_id,
-        features=FeatureFlags(
-            cache=enable_cache,
-            debug=enable_debug,
-            mocking=False
-        ),
+        enable_cache=True,
+        enable_debug=enable_debug,
+        enable_mocking=False,
         environment=EnvironmentConfig(
             override=False,
             variables={}
@@ -58,7 +52,7 @@ def create_mock_completion_response(content: str = "Test response") -> MagicMock
     return mock_response
 
 
-@pytest.mark.asyncio
+@pytest.fixture
 async def test_provider_initialization():
     """Test basic provider initialization."""
     config = create_config()
@@ -69,27 +63,26 @@ async def test_provider_initialization():
 
 
 
-@pytest.mark.asyncio
+@pytest.fixture
 async def test_provider_initialization_with_debug():
     """Test provider initialization with debug mode."""
     config = create_config(enable_debug=True)
     provider = LiteLLMProvider(config)
-    await provider.initialize()
+    provider.initialize()
     # Debug mode should be enabled
     assert hasattr(provider, 'config')
     config = cast(LiteLLMConfig, provider.config)
-    assert config.features.debug is True
+    assert config.enable_debug is True
 
-
-@pytest.mark.asyncio
-async def test_provider_completion_success():
+@pytest.fixture
+def test_provider_completion_success():
     """Test successful completion request."""
     expected_response = "Hello, world!"
     mock_response = create_mock_completion_response(expected_response)
 
     with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
-        await provider.initialize()
+        provider.initialize()
 
         msg = Message(role="user", content="Test message")
         result = provider.complete([msg])
@@ -99,15 +92,15 @@ async def test_provider_completion_success():
         assert result.name == "gpt-4"
 
 
-@pytest.mark.asyncio
-async def test_provider_completion_with_tools():
+@pytest.fixture
+def test_provider_completion_with_tools():
     """Test completion with tools enabled."""
     expected_response = "Tool response"
     mock_response = create_mock_completion_response(expected_response)
 
     with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
-        await provider.initialize()
+        provider.initialize()
 
         msg = Message(role="user", content="Use tool")
         tools = [{"type": "function", "function": {"name": "test_tool"}}]
@@ -117,29 +110,28 @@ async def test_provider_completion_with_tools():
         assert result.role == "assistant"
 
 
-@pytest.mark.asyncio
-async def test_provider_completion_error():
+@pytest.fixture
+def test_provider_completion_error():
     """Test completion error handling."""
     with patch('schwarm.provider.litellm_provider.completion', side_effect=Exception("API Error")):
         provider = LiteLLMProvider(create_config())
         with pytest.raises(ConnectionError):
-            await provider.initialize()
+            provider.initialize()
 
 
 
 
-@pytest.mark.asyncio
-async def test_provider_empty_messages():
+@pytest.fixture
+def test_provider_empty_messages():
     """Test handling of empty message list."""
     provider = LiteLLMProvider(create_config())
-    await provider.initialize()
+    provider.initialize()
 
     with pytest.raises(ValueError):
         provider.complete([])
 
-
-@pytest.mark.asyncio
-async def test_provider_with_environment_override():
+@pytest.fixture
+def test_provider_with_environment_override():
     """Test provider with environment variable override."""
     expected_response = "Environment test"
     mock_response = create_mock_completion_response(expected_response)
@@ -150,7 +142,7 @@ async def test_provider_with_environment_override():
 
     with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(config)
-        await provider.initialize()
+        provider.initialize()
 
         msg = Message(role="user", content="Test message")
         result = provider.complete([msg])
@@ -158,18 +150,18 @@ async def test_provider_with_environment_override():
         assert result.content == expected_response
 
 
-@pytest.mark.asyncio
-async def test_provider_connection_error():
+@pytest.fixture
+def test_provider_connection_error():
     """Test provider connection error handling."""
     with patch('schwarm.provider.litellm_provider.completion', side_effect=Exception("Connection failed")):
         provider = LiteLLMProvider(create_config())
         
         with pytest.raises(ConnectionError):
-            await provider.initialize()
+            provider.initialize()
 
 
-@pytest.mark.asyncio
-async def test_provider_completion_invalid_response():
+@pytest.fixture
+def test_provider_completion_invalid_response():
     """Test handling of invalid completion response."""
     mock_response = MagicMock()
     mock_response.choices = []  # Invalid response format
@@ -177,23 +169,23 @@ async def test_provider_completion_invalid_response():
     with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
         with pytest.raises(ConnectionError, match="Failed to initialize provider: Failed to connect to LLM service"):
-            await provider.initialize()
+            provider.initialize()
 
 
 
 
-@pytest.mark.asyncio
-async def test_provider_async_complete():
+@pytest.fixture
+def test_provider_async_complete():
     """Test async_complete method."""
     expected_response = "Async response"
     mock_response = create_mock_completion_response(expected_response)
 
     with patch('schwarm.provider.litellm_provider.completion', return_value=mock_response):
         provider = LiteLLMProvider(create_config())
-        await provider.initialize()
+        provider.initialize()
 
         msg = Message(role="user", content="Test message")
-        result = await provider.async_complete([msg])
+        result =  provider.complete([msg])
 
         assert result.content == expected_response
         assert result.role == "assistant"
