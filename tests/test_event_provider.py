@@ -2,7 +2,7 @@
 from unittest.mock import MagicMock
 import pytest
 from typing import Any, Dict, List
-from schwarm.events.event_types import EventType
+from schwarm.events.event_data import Event, EventType
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base import BaseProviderConfig
 from schwarm.models.provider_context import ProviderContext
@@ -12,9 +12,6 @@ class TestConfig(BaseProviderConfig):
     """Test configuration."""
     def __init__(self, **data):
         data.update({
-            "provider_name": "test_provider",
-            "provider_type": "test",
-            "provider_class": "tests.test_event_provider.TestEventProvider",
             "scope": "scoped"
         })
         super().__init__(**data)
@@ -25,19 +22,16 @@ class TestEventProvider(BaseEventHandleProvider):
         """Initialize the provider."""
         pass
 
-    def __init__(self, config: TestConfig):
-        super().__init__(config)
+    def __init__(self, config: TestConfig, **data):
+        super().__init__(config, **data)
         self.event_log: List[str] = []
         
     def set_up(self) -> None:
         """Set up test event handlers."""
         self.external_use = True
-        self.internal_use = {
-            EventType.START: [self.on_start],
-            EventType.TOOL_EXECUTION: [self.on_tool]
-        }
+    
         
-    def handle_event(self, event: EventType, provider_context: ProviderContext) -> Any:
+    def handle_event(self, event: Event) -> Any:
         """Handle an event."""
         if event in self.internal_use:
             for handler in self.internal_use[event]:
@@ -89,7 +83,7 @@ def test_provider_initialization(provider):
 def test_event_handling(provider, provider_context):
     """Test event handling."""
     # Test START event
-    provider.handle_event(EventType.START, provider_context)
+    provider.handle_event(EventType.START)
     assert provider.event_log == ["start"]
     
     # Test TOOL_EXECUTION event

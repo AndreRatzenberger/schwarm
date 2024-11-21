@@ -1,15 +1,26 @@
 """Data classes for event payloads and injections."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
-
-from schwarm.events.event_types import EventType
+from enum import Enum
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
-    from schwarm.models.message import Message
-    from schwarm.models.types import Agent
+    pass
 
 T = TypeVar("T")
+
+
+class EventType(Enum):
+    """Core system events."""
+
+    START = "on_start"
+    HANDOFF = "on_handoff"
+    MESSAGE_COMPLETION = "on_message_completion"
+    POST_MESSAGE_COMPLETION = "on_post_message_completion"
+    TOOL_EXECUTION = "on_tool_execution"
+    POST_TOOL_EXECUTION = "on_post_tool_execution"
+    INSTRUCT = "on_instruct"
+    POST_INSTRUCT = "on_post_instruct"
 
 
 @dataclass
@@ -19,40 +30,4 @@ class Event(Generic[T]):
     type: EventType
     payload: T
     agent_id: str
-
-
-# Event-specific data types
-@dataclass
-class HandoffData:
-    """Data for agent handoff events."""
-
-    current_agent: "Agent"
-    next_agent: "Agent"
-    context_variables: dict[str, Any]
-
-
-@dataclass
-class MessageCompletionData:
-    """Data for message completion events."""
-
-    messages: list["Message"]
-    context_variables: dict[str, Any]
-    model_override: str | None = None
-
-
-@dataclass
-class ToolExecutionData:
-    """Data for tool execution events."""
-
-    tool_name: str
-    tool_args: dict[str, Any]
-    context_variables: dict[str, Any]
-
-
-@dataclass
-class InstructionData:
-    """Data for instruction events."""
-
-    agent_name: str
-    instructions: str
-    variables: dict[str, Any]
+    datetime: str

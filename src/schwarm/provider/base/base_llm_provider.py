@@ -1,6 +1,7 @@
 """Base class for LLM providers."""
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import Field
@@ -19,7 +20,8 @@ class BaseLLMProviderConfig(BaseProviderConfig):
     llm_model_id: str = Field(default="gpt-4o-mini", description="The model identifier")
 
 
-class BaseLLMProvider(BaseProvider):
+@dataclass(init=True)
+class BaseLLMProvider(BaseProvider, ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod

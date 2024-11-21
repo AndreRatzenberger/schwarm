@@ -3,7 +3,7 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 from schwarm.events.event_data import Event
-from schwarm.events.event_types import EventType
+from schwarm.events import EventType
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Agent
@@ -156,7 +156,8 @@ def test_handle_handoff(provider, mock_context):
     event = Event(
         type=EventType.HANDOFF,
         payload={"next_agent": next_agent},
-        agent_id="test_agent"
+        agent_id="test_agent",
+        datetime="2021-01-01T00:00:00Z"
     )
 
     # Handle handoff

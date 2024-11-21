@@ -7,8 +7,7 @@ from pydantic import Field
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
-from schwarm.events.event_data import Event
-from schwarm.events.event_types import EventType
+from schwarm.events import Event, EventType
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseEventHandleProvider, BaseProviderConfig
 
@@ -23,25 +22,13 @@ class ZepConfig(BaseProviderConfig):
         default=True, description="Whether to save completions to memory"
     )
 
-    def __init__(self, **data):
-        """Initialize with defaults."""
-        data.update(
-            {
-                "provider_name": "zep",
-                "provider_type": "memory",
-                "provider_class": "schwarm.provider.zep_provider.ZepProvider",
-                "scope": "scoped",
-            }
-        )
-        super().__init__(**data)
-
 
 class ZepProvider(BaseEventHandleProvider):
     """Knowledge graph provider with infinite memory."""
 
-    def __init__(self, config: ZepConfig):
+    def __init__(self, config: ZepConfig, **data):
         """Initialize the provider."""
-        super().__init__(config)
+        super().__init__(config, **data)
         self.config: ZepConfig = config
         self.zep_service: Zep | None = None
         self.user_id: str | None = None

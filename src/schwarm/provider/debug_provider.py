@@ -11,11 +11,12 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
-from schwarm.events.event_data import InstructionData
+from schwarm.events.event_data import Event, EventType
 from schwarm.models.agent import Agent
 from schwarm.models.result import Result
 from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.budget_provider import BudgetProvider
+from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -61,9 +62,13 @@ class DebugProvider(BaseEventHandleProvider):
     def initialize(self):
         """Initialize the debug provider by ensuring the log directory exists."""
         self._ensure_log_directory()
-        return super().initialize()
 
-    def handle_start(self, event: InstructionData) -> None:
+    def handle_event(self, event: Event) -> ProviderContext | None:
+        """Handle events by showing relevant information."""
+        if event.type == EventType.START:
+            self.handle_start(event.payload)
+
+    def handle_start(self, payload: ProviderContext) -> ProviderContext | None:
         """Handle agent start by initializing logging and showing instructions."""
         if self.config.save_logs:
             self._ensure_log_directory()
@@ -73,13 +78,7 @@ class DebugProvider(BaseEventHandleProvider):
             logger.warning("No context available for debug provider")
             return
 
-        # Show initial instructions
-        instructions = (
-            self.context.current_agent.instructions(self.context.context_variables)
-            if callable(self.context.current_agent.instructions)
-            else self.context.current_agent.instructions
-        )
-        self._show_instructions(event)
+        self._show_instructions(payload)
 
     def handle_message_completion(self) -> None:
         """Handle message completion to show relevant information."""
@@ -167,18 +166,18 @@ class DebugProvider(BaseEventHandleProvider):
         with open(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", "all.log"), mode, encoding="utf-8") as f:
             f.write(content_with_timestamp)
 
-    def _show_instructions(self, event: InstructionData) -> None:
+    def _show_instructions(self, event: ProviderContext) -> None:
         """Show the instructions to the user."""
         if not self.config.show_instructions:
             return
-        agent_name = event.agent_name
+        agent_name = event.current_agent
         console.line()
         console.print(Markdown(f"# 📝 Instructing 🤖 {agent_name}"), style="bold orange3")
         console.line()
-        console.print(Markdown(truncate_string(event.instructions, self.config.max_length)), style="italic")
+        console.print(Markdown(truncate_string(event.current_instruction, self.config.max_length)), style="italic")
 
         # Write to instructions log
-        log_content = f"Agent: {agent_name}\nInstructions:\n{event.instructions}\n{'=' * 50}\n"
+        log_content = f"Agent: {agent_name}\nInstructions:\n{event.current_instruction}\n{'=' * 50}\n"
         self._write_to_log("instructions.log", log_content)
 
         if self.config.instructions_wait_for_user_input:

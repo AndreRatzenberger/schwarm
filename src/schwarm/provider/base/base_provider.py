@@ -1,25 +1,25 @@
 """Base provider implementation."""
 
-import uuid
-from abc import ABC, abstractmethod
+from abc import ABC
+from dataclasses import dataclass, field
+from typing import Literal
+from uuid import uuid4
 
 from litellm import BaseModel
-from loguru import logger
 from pydantic import Field
 
 from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import Scope
 
 # Type aliases
+Scope = Literal["global", "scoped", "jit"]
+ProviderType = Literal["event", "llm"]
 
 
 class BaseProviderConfig(BaseModel):
     """Base configuration for all providers."""
 
-    # provider_name: str = Field(default="", description="Unique identifier for the provider")
-    # provider_type: ProviderType = Field(default="", description="Type of provider (e.g., 'llm', 'memory', etc.)")
     scope: Scope = Field(default="scoped", description="Provider lifecycle scope")
-    enabled: bool = Field(default=True, description="Whether this provider is enabled")
+    enabled: bool = Field(default=True, description="Provider enabled status")
 
     class Config:
         """Pydantic configuration."""
@@ -27,44 +27,31 @@ class BaseProviderConfig(BaseModel):
         validate_assignment = True
 
 
+@dataclass
 class BaseProvider(ABC):
     """Base class for all providers."""
 
-    _provider_id: str
-    scope: str
     config: BaseProviderConfig
-    context: ProviderContext
+    _provider_id: str = field(default_factory=lambda: f"provider_{uuid4()}")
+    context: ProviderContext = field(default_factory=ProviderContext)
+    is_enabled: bool = True
 
-    def __init__(self, config: BaseProviderConfig, id: str = ""):
-        """Initialize the provider."""
-        self.config = config
-        self.context
-        if not id:
-            self._provider_id = f"{self.__class__.__name__}_{uuid.uuid4()}"
-        else:
-            self._provider_id = id
-
-    @abstractmethod
-    def initialize(self) -> None:
-        """Run when an agent is started."""
-        logger.info(f"Initializing {self._provider_id} ({self._provider_id}) provider")
+    # def __init__(self, *args, **kwargs):
+    #     """Initializes the provider."""
+    #     raise RuntimeError("Use ProviderManager to create provider instances")
 
     def update_context(self, context: ProviderContext) -> None:
-        """Updates the provider's context with new data.
-
-        Args:
-            context: New context data
-        """
+        """Updates the provider's context with new data."""
         self.context = context
 
     def get_context(self) -> ProviderContext:
         """Gets the provider's current context.
 
         Returns:
-            Current context or raises ValueError if context not set
+            ProviderContext: Current context or raises ValueError if context is not set.
 
         Raises:
-            ValueError: If context has not been set
+            ValueError: If context has not been set.
         """
         if not self.context:
             raise ValueError("Provider context has not been set")

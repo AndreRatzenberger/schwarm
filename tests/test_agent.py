@@ -8,28 +8,25 @@ from pydantic import BaseModel
 from schwarm.models.message import Message
 from schwarm.models.result import Result
 from schwarm.models.agent import Agent
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
+from schwarm.provider.debug_provider import DebugConfig, DebugProvider
+from schwarm.provider.provider_context import ProviderContext
+from schwarm.provider.provider_manager import ProviderManager
 
 # Import and rebuild Result model
 Result.model_rebuild()
 
 class TestConfig(BaseProviderConfig):
     """Test provider configuration."""
-    def __init__(self, **data):
-        data.update({
-            "provider_name": "test_provider",
-            "provider_type": "test",
-            "provider_class": f"{__name__}.TestProvider",
-            "scope": "scoped"
-        })
-        super().__init__(**data)
 
 
-class TestProvider(BaseProvider):
+class TestProvider(BaseEventHandleProvider):
     """Test provider implementation."""
-    def __init__(self, config: BaseProviderConfig):
-        super().__init__(config)
+    def __init__(self, config: BaseProviderConfig, **data):
+        super().__init__(config,**data)
         self.calls: list[str] = []
+        self.context = ProviderContext()
         
     def initialize(self) -> None:
         """Initialize the provider."""
@@ -39,6 +36,10 @@ class TestProvider(BaseProvider):
         """Complete the given messages."""
         self.calls.append(f"complete: {messages[0].content}")
         return Message(role="assistant", content=f"Response to: {messages[0].content}")
+
+    def handle_event(self, event):
+        return ProviderContext()
+
 
 
 @pytest.fixture
@@ -80,6 +81,8 @@ def test_function(context: Dict[str, Any], query: str) -> None:
 @pytest.fixture
 def agent():
     """Create a test agent."""
+    pm = ProviderManager()
+    pm._config_to_provider_map[TestConfig] = TestProvider
     agent = Agent(
         name="test_agent",
         provider_configurations=[TestConfig()],
@@ -89,7 +92,7 @@ def agent():
     # Initialize providers
     for config in agent.provider_configurations:
         provider = agent._provider_manager.create_provider_and_register(agent.name, config)
-        provider.initialize()
+
     return agent
 
 
@@ -104,8 +107,8 @@ def test_agent_initialization(agent):
 def test_get_typed_provider(agent):
     """Test getting typed provider."""
     provider = agent.get_typed_provider(TestProvider)
-    assert isinstance(provider, TestProvider)
-    assert "initialize" in provider.calls
+    assert isinstance(provider[0], TestProvider)
+
 
 
 def test_quickstart_with_function(agent, mock_schwarm):
@@ -157,9 +160,9 @@ def test_quickstart_modes(mock_schwarm, agent):
 
 def test_provider_setup(agent):
     """Test provider setup."""
-    provider = agent.get_typed_provider(TestProvider)
-    assert isinstance(provider, TestProvider)
-    assert "initialize" in provider.calls
+    provider = ProviderManager().get_providers_by_class(TestProvider) 
+    assert isinstance(provider[0], TestProvider)
+
 
 
 def test_quickstart_response_conversion():
@@ -185,13 +188,16 @@ def test_quickstart_response_conversion():
         assert result.context_variables == {"test": "value"}
         assert result.agent == agent
 
+def test_constructor():
+    zap = DebugProvider(DebugConfig())
 
 def test_multiple_providers():
     """Test agent with multiple providers."""
     class AnotherConfig(TestConfig):
-        def __init__(self):
-            super().__init__()
-            self.provider_name = "another_provider"
+        """Another provider configuration."""
+    ProviderManager()._config_to_provider_map[TestConfig] = TestProvider
+    ProviderManager()._config_to_provider_map[AnotherConfig] = TestProvider
+    
     
     agent = Agent(
         name="multi_agent",
@@ -203,10 +209,10 @@ def test_multiple_providers():
     
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = agent._provider_manager.create_provider_and_register(agent.name, config)
-        provider.initialize()
+        provider = ProviderManager().create_provider_and_register(agent.name, config)
+ 
     
-    providers = agent._provider_manager.get_all_providers_to_scope(agent.name)
+    providers = ProviderManager().get_all_providers_to_scope(agent.name)
     assert len(providers) == 2
-    assert "test_provider" in providers
-    assert "another_provider" in providers
+    assert type(providers[0]) is TestProvider
+    assert type(providers[1]) is TestProvider

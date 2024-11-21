@@ -1,10 +1,9 @@
 """Base class for event handle providers."""
 
-from abc import abstractmethod
-from collections.abc import Callable
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 from schwarm.events.event_data import Event
-from schwarm.events.event_types import EventType
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.provider_context import ProviderContext
 
@@ -13,18 +12,22 @@ class BaseEventHandleProviderConfig(BaseProviderConfig):
     """Configuration for event handle providers."""
 
 
-class BaseEventHandleProvider(BaseProvider):
+@dataclass
+class BaseEventHandleProvider(BaseProvider, ABC):
     """Base class for event handle providers."""
 
-    config: BaseEventHandleProviderConfig
-    context: ProviderContext | None = None
-    internal_use: dict[EventType, list[tuple[Callable, int] | Callable]] = {}
+    event_log: list[Event] = field(default_factory=list)
 
-    def set_context(self, context: ProviderContext) -> None:
-        """Set the provider context."""
-        self.context = context
+    # def __init__(self, *args, **kwargs):
+    #     """Initializes the provider."""
+    #     raise RuntimeError("Use ProviderManager to create provider instances")
 
     @abstractmethod
     def handle_event(self, event: Event) -> ProviderContext:
         """Handle an event."""
-        raise NotImplementedError
+        self.event_log.append(event)
+
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the provider."""
+        pass

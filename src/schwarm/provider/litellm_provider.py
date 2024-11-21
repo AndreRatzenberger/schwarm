@@ -115,7 +115,7 @@ class LiteLLMProvider(BaseLLMProvider):
 
     provider_name: str = "lite_llm"
 
-    def __init__(self, config: LiteLLMConfig) -> None:
+    def __init__(self, config: LiteLLMConfig, **data) -> None:
         """Initialize the Lite LLM provider.
 
         Args:
@@ -125,7 +125,7 @@ class LiteLLMProvider(BaseLLMProvider):
         Raises:
             ConfigurationError: If the configuration is invalid
         """
-        super().__init__(config)
+        super().__init__(config, **data)
         if config.enable_cache:
             self._setup_caching()
         self.config = cast(LiteLLMConfig, config)

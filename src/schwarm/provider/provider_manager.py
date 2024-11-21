@@ -3,13 +3,13 @@
 import importlib
 import inspect
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, TypeVar
 
 from loguru import logger
 
-from schwarm.events.event_data import Event
-from schwarm.events.event_types import EventType
+from schwarm.events import Event, EventType
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
@@ -86,7 +86,7 @@ class ProviderManager:
                     except Exception as e:
                         logger.warning(f"Failed to load module {module_name}: {e!s}")
 
-    def _create_provider(self, config: BaseProviderConfig, agent_id: str | None = None) -> BaseProvider:
+    def _create_provider(self, config: BaseProviderConfig, scope: str) -> BaseProvider:
         """Create a new provider instance."""
         try:
             provider_class = self._config_to_provider_map.get(type(config))
@@ -95,7 +95,8 @@ class ProviderManager:
                     f"No provider implementation found for config type: {config.__class__.__name__}"
                 )
 
-            provider = provider_class(config)
+            provider = provider_class(config=config)
+
             return provider
         except (ImportError, ModuleNotFoundError) as e:
             raise ProviderInitError(
@@ -106,15 +107,14 @@ class ProviderManager:
                 f"Failed to initialize provider for config type: {config.__class__.__name__}: {e!s}"
             )
 
-    def get_provider_by_class(self, provider_class: type[P]) -> list[P]:
+    def get_providers_by_class(self, provider_class: type[P]) -> list[P]:
         """Get a provider instance by its class."""
-        logger.debug(f"Looking for provider of type {provider_class.__name__}")
-        logger.debug(f"Provider class module: {provider_class.__module__}")
-        logger.debug(f"Provider class id: {id(provider_class)}")
+        logger.debug(f"Provider class: {provider_class}")
         result = []
         for p in self._providers.values():
-            if isinstance(p, provider_class):
-                result.append(p)
+            for provider in p:
+                if isinstance(provider, provider_class):
+                    result.append(provider)
 
         logger.debug(f"Found provider: {len(result)}")
         return result
@@ -151,12 +151,8 @@ class ProviderManager:
             return None
 
     def get_all_providers_to_scope(self, scope: str) -> list[BaseProvider]:
-        """Get all providers for an agent."""
-        providers = []
-        global_providers = self._providers.get(scope, [])
-        providers.append(global_providers)
-
-        return providers
+        """Get all providers for an scope."""
+        return self._providers.get(scope, [])
 
     def get_first_llm_provider(self, scope: str) -> BaseLLMProvider | None:
         """Get the first LiteLLM provider for an agent."""
@@ -168,24 +164,20 @@ class ProviderManager:
     def create_provider_and_register(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:
         """Creates a provider instance based on its configuration, and registers it."""
         # Handle based on scope
-        if config.scope == "global" or config.scope == "global":
-            global_providers = self._providers.get(config.scope, [])
-            p_temp = None
-            if global_providers:
-                for provider in global_providers:
-                    if self._config_to_provider_map[type(provider.config)] is type(provider):
-                        p_temp = provider
-            else:
-                self._providers[config.scope] = global_providers
 
-            if p_temp:
-                raise ProviderInitError(f"provider already exists: {p_temp._provider_id}")
+        if config.scope == "global" or config.scope == "scoped":
+            scope = agent_id
+            if config.scope == "global":
+                scope = "global"
+
+            provider = self._create_provider(config, agent_id)
+
+            if scope in self._providers:
+                self._providers[scope].append(provider)
             else:
-                provider = self._create_provider(config, agent_id)
-                global_providers.append(provider)
-                self._providers["global"] = global_providers
-                logger.info(f"Created global provider: {provider._provider_id}")
-                return provider
+                self._providers[scope] = [provider]
+            logger.info(f"Created global provider: {provider._provider_id}")
+            return provider
 
         else:
             provider = self._create_provider(config, agent_id)
@@ -216,13 +208,17 @@ class ProviderManager:
 
         return result
 
-    def trigger_event(self, event_type: EventType, payload: ProviderContext) -> None:
+    def trigger_event(self, event_type: EventType, payload: ProviderContext) -> list[ProviderContext]:
         """Trigger an event across all relevant providers."""
         agent_id = payload.current_agent.name
-        event = Event(type=event_type, payload=payload, agent_id=agent_id)
+        event = Event(type=event_type, payload=payload, agent_id=agent_id, datetime=datetime.now().isoformat())
         # Get event providers in priority order
         providers = self.get_event_providers(agent_id)
         providers.extend(self.get_event_providers("global"))
 
+        result = []
         for provider in providers:
-            provider.handle_event(event)
+            event_result = provider.handle_event(event)
+            result.append(event_result)
+
+        return result

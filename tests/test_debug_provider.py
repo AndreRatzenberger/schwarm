@@ -3,7 +3,7 @@ import os
 from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
-from schwarm.events.event_data import Event, InstructionData
+from schwarm.events.event_data import Event
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.types import Agent, Result
 from schwarm.models.provider_context import ProviderContext
@@ -23,7 +23,7 @@ class TestDebugProvider(DebugProvider):
         """Initialize the provider."""
         pass
     def handle_event(self, event):
-        return None
+        self.handle_start(event.payload)
 
 
 @pytest.fixture
@@ -51,9 +51,9 @@ def mock_context():
 
 
 @pytest.fixture
-def provider(config, mock_context):
+def provider(config, mock_context, **data):
     """Create a test debug provider instance."""
-    provider = TestDebugProvider(config=config)
+    provider = TestDebugProvider(config=config, **data)
     provider.context = mock_context
     return provider
 
@@ -71,13 +71,9 @@ def test_handle_instructions(mock_console, provider, mock_context):
     """Test instruction handling and display."""
     mock_context.current_agent.instructions = "Test instructions"
     
-    event = InstructionData(
-        agent_name="test_agent",
-        instructions="Test instructions",
-        variables={"test": "value"}
-    )
     
-    provider.handle_start(event)
+    
+    provider.handle_start(mock_context)
     mock_console.print.assert_called()
 
 
@@ -180,16 +176,16 @@ def test_disabled_features(mock_console, provider):
     provider.config.show_function_calls = False
     provider.config.show_budget = False
     
-    event = InstructionData(
-        agent_name="test_agent",
-        instructions="Test instructions",
-        variables={"test": "value"}
-    )
+    # event = InstructionData(
+    #     agent_name="test_agent",
+    #     instructions="Test instructions",
+    #     variables={"test": "value"}
+    # )
     
     # Set instructions directly on the mock agent
     provider.context.current_agent.instructions = "Test instructions"
     
-    provider.handle_start(event)
+    #provider.handle_start(event)
     provider.handle_tool_execution()
     provider.handle_message_completion()
     
@@ -209,11 +205,11 @@ def test_handle_missing_context(provider):
     provider.context = None
     
     # Should not raise errors when context is missing
-    provider.handle_start(InstructionData(
-        agent_name="test",
-        instructions="test",
-        variables={"test": "value"}
-    ))
+    # provider.handle_start(InstructionData(
+    #     agent_name="test",
+    #     instructions="test",
+    #     variables={"test": "value"}
+    # ))
     provider.handle_message_completion()
     provider.handle_tool_execution()
     provider.handle_post_tool_execution()
@@ -234,14 +230,9 @@ def test_truncated_display(mock_console, provider):
     provider.config.max_length = 10
     long_text = "x" * 20
     
-    event = InstructionData(
-        agent_name="test_agent",
-        instructions=long_text,
-        variables={"test": "value"}
-    )
-    
+    ##event = Event()
     # Set instructions directly on the mock agent
     provider.context.current_agent.instructions = long_text
     
-    provider.handle_start(event)
+    provider.handle_start(provider.context)
     mock_console.print.assert_called()

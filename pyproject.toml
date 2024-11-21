@@ -53,7 +53,7 @@ ignore = [
     "**/settings.json",
 ] # ignore means that it will be scanned but not checked
 defineConstant = { DEBUG = true }
-reportMissingImports = "warning"
+reportMissingImports = "error"
 reportMissingTypeStubs = false
 typeCheckingMode = "basic"
 
