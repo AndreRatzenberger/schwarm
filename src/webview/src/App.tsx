@@ -1,35 +1,25 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { ChakraProvider } from '@chakra-ui/react';
+import { useEffect } from 'react';
+import Layout from './components/Layout.tsx';
+import { wsService } from './services/websocket.ts';
+import { system } from './theme.ts';
 
 function App() {
-  const [count, setCount] = useState(0)
+  useEffect(() => {
+    // Connect to WebSocket when app starts
+    wsService.connect('ws://localhost:8000/ws');
+
+    // Cleanup on unmount
+    return () => {
+      wsService.disconnect();
+    };
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <ChakraProvider value={system}>
+      <Layout />
+    </ChakraProvider>
+  );
 }
 
-export default App
+export default App;

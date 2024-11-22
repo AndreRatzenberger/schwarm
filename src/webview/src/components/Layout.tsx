@@ -1,17 +1,14 @@
-import { Box, Container, Grid, GridItem, useColorModeValue } from '@chakra-ui/react';
-import Header from './Header';
-import AgentGraph from './AgentGraph';
-import EventTimeline from './EventTimeline';
-import BudgetPanel from './BudgetPanel';
+import { Box, Container, Grid } from '@chakra-ui/react';
+import Header from './Header.tsx';
+import AgentGraph from './AgentGraph.tsx';
+import EventTimeline from './EventTimeline.tsx';
+import BudgetPanel from './BudgetPanel.tsx';
 
 export default function Layout() {
-  const bg = useColorModeValue('gray.50', 'gray.900');
-  const panelBg = useColorModeValue('white', 'gray.800');
-
   return (
-    <Box minH="100vh" bg={bg}>
+    <Box minH="100vh" bg="bg">
       <Header />
-      <Container maxW="container.xl" py={6}>
+      <Container maxW="container" py={6}>
         <Grid
           templateColumns="repeat(2, 1fr)"
           gap={6}
@@ -20,38 +17,38 @@ export default function Layout() {
             "budget budget"
           `}
         >
-          <GridItem
-            area="graph"
-            bg={panelBg}
+          <Box
+            gridArea="graph"
+            bg="surface"
             p={6}
-            rounded="lg"
-            shadow="sm"
+            borderRadius="md"
+            boxShadow="sm"
             minH="400px"
           >
             <AgentGraph />
-          </GridItem>
+          </Box>
 
-          <GridItem
-            area="timeline"
-            bg={panelBg}
+          <Box
+            gridArea="timeline"
+            bg="surface"
             p={6}
-            rounded="lg"
-            shadow="sm"
+            borderRadius="md"
+            boxShadow="sm"
             minH="400px"
           >
             <EventTimeline />
-          </GridItem>
+          </Box>
 
-          <GridItem
-            area="budget"
-            bg={panelBg}
+          <Box
+            gridArea="budget"
+            bg="surface"
             p={6}
-            rounded="lg"
-            shadow="sm"
+            borderRadius="md"
+            boxShadow="sm"
             minH="200px"
           >
             <BudgetPanel />
-          </GridItem>
+          </Box>
         </Grid>
       </Container>
     </Box>
