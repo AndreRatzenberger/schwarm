@@ -3,12 +3,11 @@
 import csv
 import os
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from loguru import logger
 from pydantic import Field
 
-from schwarm.events.event_data import Event
 from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
@@ -49,7 +48,18 @@ class BudgetProvider(BaseEventHandleProvider):
         self.current_spent = self.config.current_spent
         self.current_tokens = self.config.current_tokens
 
-    def handle_start(self) -> None:
+    def handle_event(self, event):
+        """Handle an event by updating budget tracking and enforcing limits."""
+        if event.type == "start":
+            self.handle_start(event.payload)
+        elif event.type == "post_message_completion":
+            self.handle_post_message_completion(event.payload)
+        elif event.type == "handoff":
+            return self.handle_handoff(event.payload)
+
+        return super().handle_event(event.payload)
+
+    def handle_start(self, context=ProviderContext) -> None:
         """Handle agent start by initializing budget tracking."""
         # Create logs directory if it doesn't exist
         if self.config.save_budget:
@@ -88,7 +98,7 @@ class BudgetProvider(BaseEventHandleProvider):
             # Check if we've exceeded any limits
             self._check_limits()
 
-    def handle_handoff(self, event: Event[dict[str, Any]]) -> None:
+    def handle_handoff(self, event: ProviderContext) -> None:
         """Handle agent handoff to transfer budget state.
 
         This handler ensures budget tracking continues across agent handoffs
@@ -100,7 +110,7 @@ class BudgetProvider(BaseEventHandleProvider):
         Returns:
             The next agent with updated budget state, or None to veto handoff
         """
-        next_agent = event.payload.get("next_agent")
+        next_agent = event.available_agents[-1]("next_agent")
         if not next_agent:
             return None
 

@@ -26,8 +26,3 @@ class BaseEventHandleProvider(BaseProvider, ABC):
     def handle_event(self, event: Event) -> ProviderContext:
         """Handle an event."""
         self.event_log.append(event)
-
-    @abstractmethod
-    def initialize(self) -> None:
-        """Initialize the provider."""
-        pass

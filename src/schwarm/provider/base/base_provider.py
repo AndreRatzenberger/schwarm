@@ -36,10 +36,6 @@ class BaseProvider(ABC):
     context: ProviderContext = field(default_factory=ProviderContext)
     is_enabled: bool = True
 
-    # def __init__(self, *args, **kwargs):
-    #     """Initializes the provider."""
-    #     raise RuntimeError("Use ProviderManager to create provider instances")
-
     def update_context(self, context: ProviderContext) -> None:
         """Updates the provider's context with new data."""
         self.context = context
