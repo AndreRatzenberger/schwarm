@@ -27,9 +27,9 @@ import arxiv
 from rich.console import Console
 
 from schwarm.core.schwarm import Schwarm
-from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, ContextVariables, Result
+from schwarm.provider.debug_provider import DebugConfig
 from schwarm.provider.litellm_provider import LiteLLMConfig
 from schwarm.utils.file import save_dictionary_list, save_text_to_file
 from schwarm.utils.settings import APP_SETTINGS
@@ -47,10 +47,59 @@ os.makedirs(APP_SETTINGS.DATA_FOLDER)
 #### AGENTS ####
 
 
-google_search_agent = Agent(name="google_search_agent", provider_config=LiteLLMConfig(enable_cache=True))
-arxiv_search_agent = Agent(name="arxiv_search_agent", provider_config=LiteLLMConfig(enable_cache=True))
-report_agent = Agent(name="report_agent", provider_config=LiteLLMConfig(enable_cache=True))
-user_agent = Agent(name="user_agent", tool_choice="none", provider_config=LiteLLMConfig(enable_cache=True))
+google_search_agent = Agent(
+    name="google_search_agent",
+    provider_configurations=[
+        LiteLLMConfig(enable_cache=True),
+        DebugConfig(
+            show_function_calls=True,
+            function_calls_wait_for_user_input=True,
+            show_instructions=True,
+            instructions_wait_for_user_input=True,
+            max_length=-1,
+        ),
+    ],
+)
+arxiv_search_agent = Agent(
+    name="arxiv_search_agent",
+    provider_configurations=[
+        LiteLLMConfig(enable_cache=True),
+        DebugConfig(
+            show_function_calls=True,
+            function_calls_wait_for_user_input=True,
+            show_instructions=True,
+            instructions_wait_for_user_input=True,
+            max_length=-1,
+        ),
+    ],
+)
+report_agent = Agent(
+    name="report_agent",
+    provider_configurations=[
+        LiteLLMConfig(enable_cache=True),
+        DebugConfig(
+            show_function_calls=True,
+            function_calls_wait_for_user_input=True,
+            show_instructions=True,
+            instructions_wait_for_user_input=True,
+            max_length=-1,
+        ),
+    ],
+)
+user_agent = Agent(
+    name="user_agent",
+    tool_choice="none",
+    provider_configurations=[
+        LiteLLMConfig(enable_cache=True),
+        DebugConfig(
+            show_function_calls=True,
+            function_calls_wait_for_user_input=True,
+            show_instructions=True,
+            instructions_wait_for_user_input=True,
+            max_length=-1,
+        ),
+    ],
+)
 
 ### Instructions ###
 
@@ -152,12 +201,14 @@ def google_search(
     enriched_results = []
     for item in results:
         body = get_page_content(item["link"])
-        enriched_results.append({  # type: ignore
-            "title": item["title"],
-            "link": item["link"],
-            "snippet": item["snippet"],
-            "body": body,
-        })
+        enriched_results.append(
+            {  # type: ignore
+                "title": item["title"],
+                "link": item["link"],
+                "snippet": item["snippet"],
+                "body": body,
+            }
+        )
         time.sleep(1)  # Be respectful to the servers
 
     save_dictionary_list("google_results.json", enriched_results)  # type: ignore
@@ -174,13 +225,15 @@ def arxiv_search(context_variables: ContextVariables, query: str, max_results: i
 
     results = []
     for paper in client.results(search):
-        results.append({  # type: ignore
-            "title": paper.title,
-            "authors": [author.name for author in paper.authors],
-            "published": paper.published.strftime("%Y-%m-%d"),
-            "abstract": paper.summary,
-            "pdf_url": paper.pdf_url,
-        })
+        results.append(
+            {  # type: ignore
+                "title": paper.title,
+                "authors": [author.name for author in paper.authors],
+                "published": paper.published.strftime("%Y-%m-%d"),
+                "abstract": paper.summary,
+                "pdf_url": paper.pdf_url,
+            }
+        )
 
     # # Write results to a file
     # with open('arxiv_search_results.json', 'w') as f:
@@ -229,15 +282,7 @@ response = Schwarm().run(
     google_search_agent,
     messages=[Message(role="user", content=input)],
     context_variables={},
-    model_override="ollama_chat/qwen2.5:7b-instruct-q8_0",
     max_turns=100,
     execute_tools=True,
-    display_config=DisplayConfig(
-        show_function_calls=True,
-        function_calls_wait_for_user_input=True,
-        show_instructions=True,
-        instructions_wait_for_user_input=True,
-        max_length=-1,
-    ),
     show_logs=False,
 )

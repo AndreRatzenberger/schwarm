@@ -1,5 +1,6 @@
 """Defines the context available to providers."""
 
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -27,6 +28,8 @@ class ProviderContext(BaseModel):
         default_factory=dict, description="Map of all available providers by name"
     )
     context_variables: dict[str, Any] = Field(default_factory=dict, description="Current context variables")
-    current_instruction: str = Field(default="", description="Current instruction being processed")
-
+    instruction_func: Callable[..., str] | None = Field(
+        default=None, description="Current instruction being processed (always text)"
+    )
+    instruction_str: str | None = Field(default=None, description="Resolved instruction (always text)")
     model_config = {"arbitrary_types_allowed": True}

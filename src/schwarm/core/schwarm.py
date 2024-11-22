@@ -29,7 +29,6 @@ class Schwarm:
 
     def __init__(self, agent_list: list[Agent] = []):
         """Initialize the orchestrator."""
-        self.display_service = None
         # Remove default handler to control logging output
         logger.remove()
         # Add a default handler that we can control
@@ -69,7 +68,7 @@ class Schwarm:
     def quickstart(
         self,
         agent: Agent,
-        input_text: str,
+        input_text: str = "",
         context_variables: ContextVariables | None = None,
         model_override: str = "",
         mode: Literal["auto", "interactive"] = "interactive",
@@ -118,7 +117,6 @@ class Schwarm:
             model_override: Model to override the default one.
             max_turns: Maximum number of turns in the conversation.
             execute_tools: Whether to execute tools.
-            display_config: Display configuration.
             show_logs: Whether to show loguru logs in the console.
 
         Returns:
@@ -211,20 +209,25 @@ class Schwarm:
         """Complete an agent request."""
         context_variables = defaultdict(str, context_variables)
 
-        # Get the agent instructions to set system prompt
-        instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
+        if callable(agent.instructions):
+            self._provider_context.instruction_func = agent.instructions
+            self._provider_context.instruction_str = agent.instructions(context_variables)
+        else:
+            self._provider_context.instruction_func = None
+            self._provider_context.instruction_str = agent.instructions
 
-        self._provider_context.current_instruction = instructions
         self._provider_context.current_message = history[-1]
         self._provider_context.context_variables = context_variables
         self._provider_context.current_agent = agent
         self._manager.trigger_event(EventType.INSTRUCT, self._provider_context)
 
-        logger.debug(f"Generated instructions for agent '{agent.name}'")
+        # Get the agent instructions to set system prompt
+        instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
 
-        if self.display_service:
-            logger.debug("Showing instructions in display service")
-            self.display_service.show_instructions(agent.name, instructions)
+        self._provider_context.current_instruction = instructions
+        self._manager.trigger_event(EventType.POST_INSTRUCT, self._provider_context)
+
+        logger.debug(f"Generated instructions for agent '{agent.name}'")
 
         # Set the system prompt and add history
         system_msg = Message(role="system", content=instructions)

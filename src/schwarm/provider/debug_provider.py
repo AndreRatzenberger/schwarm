@@ -73,7 +73,7 @@ class DebugProvider(BaseEventHandleProvider):
         """Initialize the debug provider by ensuring the log directory exists."""
         self._ensure_log_directory()
 
-    def handle_event(self, event: Event) -> ProviderContext | None:
+    def handle_event(self, event: Event[ProviderContext]) -> ProviderContext | None:
         """Handle events by showing relevant information."""
         if event.type == EventType.START:
             self.handle_start(event.payload)
@@ -194,6 +194,8 @@ class DebugProvider(BaseEventHandleProvider):
             return
         agent_name = event.current_agent.name
         instructions = event.current_agent.instructions
+        if callable(instructions):
+            instructions = event.current_instruction
         console.line()
         console.print(Markdown(f"# 📝 Instructing 🤖 {agent_name}"), style="bold orange3")
         console.line()
