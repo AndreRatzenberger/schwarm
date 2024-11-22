@@ -1,165 +1,64 @@
-import { useEffect, useRef } from 'react';
-import { Box, Heading } from '@chakra-ui/react';
-import * as d3 from 'd3';
+import { useRef, useCallback, useMemo } from 'react';
+import { Typography, Box } from '@mui/material';
+import ForceGraph2D from 'react-force-graph-2d';
 import { useDebugStore } from '../store/debugStore';
 
-interface Node extends d3.SimulationNodeDatum {
+type NodeData = {
   id: string;
   name: string;
   model: string;
-  active: boolean;
-}
+  val: number;
+};
 
-interface Link extends d3.SimulationLinkDatum<Node> {
-  source: Node;
-  target: Node;
-}
+type LinkData = {
+  source: string;
+  target: string;
+};
 
 export default function AgentGraph() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const { agents, activeAgent, connections } = useDebugStore();
+  const fgRef = useRef();
+  const agents = useDebugStore((state) => state.agents);
+  const connections = useDebugStore((state) => state.connections);
+  const activeAgent = useDebugStore((state) => state.activeAgent);
 
-  useEffect(() => {
-    if (!svgRef.current) return;
-
-    // Clear previous graph
-    d3.select(svgRef.current).selectAll('*').remove();
-
-    // Convert agents to nodes
-    const nodes: Node[] = Array.from(agents.entries()).map(([name, agent]) => ({
-      id: name,
-      name,
+  const graphData = useMemo(() => {
+    const nodes = Array.from(agents.values()).map(agent => ({
+      id: agent.name,
+      name: agent.name,
       model: agent.model,
-      active: name === activeAgent,
+      val: 20
     }));
 
-    // Create a map for quick node lookup
-    const nodeMap = new Map(nodes.map(node => [node.id, node]));
+    const links = connections.map(conn => ({
+      source: conn.from,
+      target: conn.to
+    }));
 
-    // Convert connections to links
-    const links: Link[] = connections
-      .map(({ from, to }) => {
-        const sourceNode = nodeMap.get(from);
-        const targetNode = nodeMap.get(to);
-        if (!sourceNode || !targetNode) return null;
-        return {
-          source: sourceNode,
-          target: targetNode,
-        };
-      })
-      .filter((link): link is Link => link !== null);
+    return { nodes, links };
+  }, [agents, connections]);
 
-    // Set up SVG
-    const width = svgRef.current.clientWidth;
-    const height = svgRef.current.clientHeight;
-    const svg = d3.select(svgRef.current);
-
-    // Create arrow marker for links
-    svg.append('defs')
-      .append('marker')
-      .attr('id', 'arrowhead')
-      .attr('viewBox', '-10 -10 20 20')
-      .attr('refX', 20)
-      .attr('refY', 0)
-      .attr('markerWidth', 8)
-      .attr('markerHeight', 8)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('d', 'M -10,-5 L 0,0 L -10,5')
-      .attr('fill', '#718096');
-
-    // Create simulation
-    const simulation = d3.forceSimulation<Node>(nodes)
-      .force('link', d3.forceLink<Node, Link>(links).id(d => d.id).distance(100))
-      .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(width / 2, height / 2));
-
-    // Create links
-    const link = svg.append('g')
-      .selectAll('line')
-      .data(links)
-      .join('line')
-      .attr('stroke', '#718096')
-      .attr('stroke-width', 2)
-      .attr('marker-end', 'url(#arrowhead)');
-
-    // Create nodes
-    const node = svg.append('g')
-      .selectAll<SVGGElement, Node>('g')
-      .data(nodes)
-      .join('g');
-
-    // Add drag behavior
-    const drag = d3.drag<SVGGElement, Node>()
-      .on('start', dragStarted)
-      .on('drag', dragged)
-      .on('end', dragEnded);
-
-    node.call(drag as d3.DragBehavior<SVGGElement, Node, Node>);
-
-    // Add circles to nodes
-    node.append('circle')
-      .attr('r', 25)
-      .attr('fill', d => d.active ? '#4299E1' : '#A0AEC0')
-      .attr('stroke', '#2C5282')
-      .attr('stroke-width', 2);
-
-    // Add text to nodes
-    node.append('text')
-      .text(d => d.name)
-      .attr('text-anchor', 'middle')
-      .attr('dy', '.3em')
-      .attr('fill', 'white')
-      .style('font-size', '12px');
-
-    // Add tooltips
-    node.append('title')
-      .text(d => `${d.name}\nModel: ${d.model}`);
-
-    // Update positions on simulation tick
-    simulation.on('tick', () => {
-      link
-        .attr('x1', d => (d.source as Node).x!)
-        .attr('y1', d => (d.source as Node).y!)
-        .attr('x2', d => (d.target as Node).x!)
-        .attr('y2', d => (d.target as Node).y!);
-
-      node
-        .attr('transform', d => `translate(${d.x},${d.y})`);
-    });
-
-    // Drag functions
-    function dragStarted(event: d3.D3DragEvent<SVGGElement, Node, Node>) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      event.subject.fx = event.subject.x;
-      event.subject.fy = event.subject.y;
-    }
-
-    function dragged(event: d3.D3DragEvent<SVGGElement, Node, Node>) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragEnded(event: d3.D3DragEvent<SVGGElement, Node, Node>) {
-      if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
-    }
-
-    return () => {
-      simulation.stop();
-    };
-  }, [agents, activeAgent, connections]);
+  const getNodeColor = useCallback((node: NodeData) => {
+    return node.id === activeAgent ? '#90caf9' : '#64b5f6';
+  }, [activeAgent]);
 
   return (
-    <Box>
-      <Heading size="md" mb={4}>Agent Interaction Graph</Heading>
-      <Box position="relative" width="100%" height="320px">
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="100%"
-          style={{ overflow: 'visible' }}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Typography variant="h6" gutterBottom>
+        Agent Interaction Graph
+      </Typography>
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <ForceGraph2D
+          ref={fgRef}
+          graphData={graphData}
+          nodeLabel={(node: NodeData) => `${node.name}\nModel: ${node.model}`}
+          nodeColor={getNodeColor}
+          nodeRelSize={6}
+          linkDirectionalParticles={2}
+          linkDirectionalParticleSpeed={0.005}
+          linkColor={() => '#666'}
+          backgroundColor="transparent"
+          width={600}
+          height={320}
         />
       </Box>
     </Box>

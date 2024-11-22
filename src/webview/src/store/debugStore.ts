@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { Agent, Message, BudgetData, Event } from '../types/events';
 
 interface DebugStore {
+    // Connection Status
+    isConnected: boolean;
+    setConnected: (status: boolean) => void;
+
     // Agents
     agents: Map<string, Agent>;
     activeAgent: string | null;
@@ -27,6 +31,10 @@ interface DebugStore {
 }
 
 export const useDebugStore = create<DebugStore>((set) => ({
+    // Connection Status
+    isConnected: false,
+    setConnected: (status) => set({ isConnected: status }),
+
     // Agents
     agents: new Map(),
     activeAgent: null,

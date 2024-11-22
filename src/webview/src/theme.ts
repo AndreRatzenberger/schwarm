@@ -1,28 +1,51 @@
-import { createSystem, defineConfig } from '@chakra-ui/react';
+import { createTheme } from '@mui/material/styles';
 
-const config = defineConfig({
-    cssVarsRoot: ':where(:root, :host)',
-    theme: {
-        tokens: {
-            colors: {
-                bg: { value: '#F7FAFC' },
-                surface: { value: '#FFFFFF' },
-                primary: { value: '#4299E1' },
-                secondary: { value: '#A0AEC0' },
-                success: { value: '#48BB78' },
-                warning: { value: '#ECC94B' },
-                error: { value: '#F56565' },
-                text: { value: '#2D3748' },
-                muted: { value: '#718096' },
-                border: { value: '#E2E8F0' }
+export const theme = createTheme({
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#90caf9',
+            light: '#e3f2fd',
+            dark: '#42a5f5',
+        },
+        secondary: {
+            main: '#ce93d8',
+            light: '#f3e5f5',
+            dark: '#ab47bc',
+        },
+        background: {
+            default: '#121212',
+            paper: '#1e1e1e',
+        },
+        error: {
+            main: '#f44336',
+        },
+        warning: {
+            main: '#ffa726',
+        },
+        info: {
+            main: '#29b6f6',
+        },
+        success: {
+            main: '#66bb6a',
+        },
+    },
+    components: {
+        MuiPaper: {
+            styleOverrides: {
+                root: {
+                    backgroundImage: 'none',
+                },
             },
-            sizes: {
-                container: { value: '80rem' },
-                header: { value: '4rem' },
-                sidebar: { value: '16rem' }
-            }
-        }
-    }
+        },
+        MuiAppBar: {
+            styleOverrides: {
+                root: {
+                    backgroundImage: 'none',
+                },
+            },
+        },
+    },
 });
 
-export const system = createSystem(config);
+export default theme;

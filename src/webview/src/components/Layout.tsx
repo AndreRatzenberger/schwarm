@@ -1,56 +1,61 @@
-import { Box, Container, Grid } from '@chakra-ui/react';
-import Header from './Header.tsx';
-import AgentGraph from './AgentGraph.tsx';
-import EventTimeline from './EventTimeline.tsx';
-import BudgetPanel from './BudgetPanel.tsx';
+import { Container, Grid, Paper } from '@mui/material';
+import Header from './Header';
+import AgentGraph from './AgentGraph';
+import EventTimeline from './EventTimeline';
+import BudgetPanel from './BudgetPanel';
 
 export default function Layout() {
   return (
-    <Box minH="100vh" bg="bg">
+    <div style={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
       <Header />
-      <Container maxW="container" py={6}>
-        <Grid
-          templateColumns="repeat(2, 1fr)"
-          gap={6}
-          templateAreas={`
-            "graph timeline"
-            "budget budget"
-          `}
-        >
-          <Box
-            gridArea="graph"
-            bg="surface"
-            p={6}
-            borderRadius="md"
-            boxShadow="sm"
-            minH="400px"
-          >
-            <AgentGraph />
-          </Box>
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Grid container spacing={3}>
+          {/* Agent Graph */}
+          <Grid item xs={12} md={6}>
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                p: 2, 
+                height: '400px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <AgentGraph />
+            </Paper>
+          </Grid>
 
-          <Box
-            gridArea="timeline"
-            bg="surface"
-            p={6}
-            borderRadius="md"
-            boxShadow="sm"
-            minH="400px"
-          >
-            <EventTimeline />
-          </Box>
+          {/* Event Timeline */}
+          <Grid item xs={12} md={6}>
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                p: 2, 
+                height: '400px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <EventTimeline />
+            </Paper>
+          </Grid>
 
-          <Box
-            gridArea="budget"
-            bg="surface"
-            p={6}
-            borderRadius="md"
-            boxShadow="sm"
-            minH="200px"
-          >
-            <BudgetPanel />
-          </Box>
+          {/* Budget Panel */}
+          <Grid item xs={12}>
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                p: 2, 
+                height: '200px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              <BudgetPanel />
+            </Paper>
+          </Grid>
         </Grid>
       </Container>
-    </Box>
+    </div>
   );
 }

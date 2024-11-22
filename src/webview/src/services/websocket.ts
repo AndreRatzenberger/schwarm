@@ -1,5 +1,5 @@
 import { useDebugStore } from '../store/debugStore';
-import { Event, EventType, EventPayload, Agent, Message, BudgetData } from '../types/events';
+import { Event, EventType, EventPayload, BudgetData, Agent, Message } from '../types/events';
 
 interface WebSocketMessage {
     type: 'history';
@@ -13,6 +13,23 @@ interface WebSocketEvent {
 }
 
 type WebSocketResponse = WebSocketMessage | WebSocketEvent;
+
+// Type guards
+const isAgentStartData = (data: EventPayload): data is { agent: Agent } => {
+    return 'agent' in data && typeof data.agent === 'object';
+};
+
+const isMessageCompletionData = (data: EventPayload): data is { agent: string; message: Message } => {
+    return 'agent' in data && 'message' in data;
+};
+
+const isHandoffData = (data: EventPayload): data is { from: string; to: string; message: Message } => {
+    return 'from' in data && 'to' in data;
+};
+
+const isBudgetData = (data: EventPayload): data is BudgetData => {
+    return 'max_spent' in data && 'current_spent' in data;
+};
 
 class WebSocketService {
     private socket: WebSocket | null = null;
@@ -36,15 +53,18 @@ class WebSocketService {
         this.socket.onopen = () => {
             console.log('WebSocket connected');
             this.reconnectAttempts = 0;
+            useDebugStore.getState().setConnected(true);
         };
 
         this.socket.onclose = () => {
             console.log('WebSocket disconnected');
+            useDebugStore.getState().setConnected(false);
             this.handleReconnect();
         };
 
         this.socket.onerror = (error) => {
             console.error('WebSocket error:', error);
+            useDebugStore.getState().setConnected(false);
         };
 
         this.socket.onmessage = (event) => {
@@ -59,52 +79,56 @@ class WebSocketService {
 
     private handleMessage(data: WebSocketResponse): void {
         // Handle initial history load
-        if (data.type === 'history') {
+        if ('type' in data && data.type === 'history') {
             data.data.forEach((event) => this.processEvent(event));
             return;
         }
 
         // Handle individual events
-        this.processEvent({
-            type: data.type,
-            data: data.data,
-            timestamp: data.timestamp
-        });
+        this.processEvent(data as WebSocketEvent);
     }
 
     private processEvent(event: Event): void {
         const store = useDebugStore.getState();
+
+        // Add event to history
         store.addEvent(event);
 
+        // Process specific event types
         switch (event.type) {
             case 'agent_start': {
-                const agentData = event.data as { agent: Agent };
-                store.addAgent(agentData.agent);
+                if (isAgentStartData(event.data)) {
+                    store.addAgent(event.data.agent);
+                }
                 break;
             }
 
             case 'message_completion': {
-                const messageData = event.data as { agent: string; message: Message };
-                store.addMessage(messageData.message);
+                if (isMessageCompletionData(event.data)) {
+                    store.addMessage(event.data.message);
+                }
                 break;
             }
 
             case 'handoff': {
-                const handoffData = event.data as { from: string; to: string; message: Message };
-                store.addConnection(handoffData.from, handoffData.to);
-                store.setActiveAgent(handoffData.to);
+                if (isHandoffData(event.data)) {
+                    store.addConnection(event.data.from, event.data.to);
+                    store.setActiveAgent(event.data.to);
+                }
                 break;
             }
 
             case 'budget_update': {
-                const budgetData = event.data as BudgetData;
-                store.updateBudget(budgetData);
+                if (isBudgetData(event.data)) {
+                    store.updateBudget(event.data);
+                }
                 break;
             }
 
-            case 'reset':
+            case 'reset': {
                 store.clearEvents();
                 break;
+            }
         }
     }
 
@@ -129,6 +153,7 @@ class WebSocketService {
         if (this.socket) {
             this.socket.close();
             this.socket = null;
+            useDebugStore.getState().setConnected(false);
         }
     }
 }

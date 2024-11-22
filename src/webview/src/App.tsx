@@ -1,13 +1,30 @@
-import { ChakraProvider } from '@chakra-ui/react';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { createTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
 import Layout from './components/Layout.tsx';
 import { wsService } from './services/websocket.ts';
-import { system } from './theme.ts';
+
+// Create a dark theme by default
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#90caf9',
+    },
+    secondary: {
+      main: '#f48fb1',
+    },
+    background: {
+      default: '#121212',
+      paper: '#1e1e1e',
+    },
+  },
+});
 
 function App() {
   useEffect(() => {
     // Connect to WebSocket when app starts
-    wsService.connect('ws://localhost:8000/ws');
+    wsService.connect('ws://localhost:8001/ws');
 
     // Cleanup on unmount
     return () => {
@@ -16,9 +33,10 @@ function App() {
   }, []);
 
   return (
-    <ChakraProvider value={system}>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <Layout />
-    </ChakraProvider>
+    </ThemeProvider>
   );
 }
 

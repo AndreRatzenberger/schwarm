@@ -1,79 +1,98 @@
-import { Box, Heading, SimpleGrid, Text } from '@chakra-ui/react';
+import { Box, Typography, LinearProgress, Stack, Paper } from '@mui/material';
+import { AttachMoney, Token } from '@mui/icons-material';
 import { useDebugStore } from '../store/debugStore';
 
-function ResourceBar({ value, max, label }: { value: number; max: number; label: string }) {
-  const percentage = (value / max) * 100;
-  const color = percentage > 90 ? 'red.500' : percentage > 70 ? 'yellow.500' : 'green.500';
-
-  return (
-    <Box mb={6}>
-      <Text fontWeight="medium" mb={1}>{label}</Text>
-      <Text fontSize="2xl" fontWeight="bold" mb={1}>
-        {label === 'Cost' ? `$${value.toFixed(2)}` : value.toLocaleString()}
-        <Text as="span" fontSize="sm" color="gray.500" ml={1}>
-          of {label === 'Cost' ? `$${max.toFixed(2)}` : max.toLocaleString()}
-        </Text>
-      </Text>
-      <Box
-        w="100%"
-        h="8px"
-        bg="gray.100"
-        borderRadius="full"
-        overflow="hidden"
-        _dark={{ bg: 'gray.700' }}
-      >
-        <Box
-          h="100%"
-          w={`${Math.min(percentage, 100)}%`}
-          bg={color}
-          transition="width 0.3s ease-in-out"
-          borderRadius="full"
-          {...(percentage > 70 && {
-            animation: 'pulse 2s infinite',
-            '@keyframes pulse': {
-              '0%': { opacity: 1 },
-              '50%': { opacity: 0.7 },
-              '100%': { opacity: 1 },
-            },
-          })}
-        />
-      </Box>
-      <Text fontSize="sm" color="gray.500" mt={1}>
-        {percentage.toFixed(1)}% utilized
-      </Text>
-    </Box>
-  );
-}
-
 export default function BudgetPanel() {
-  const { budget } = useDebugStore();
+  const budget = useDebugStore((state) => state.budget);
 
   if (!budget) {
     return (
-      <Box>
-        <Heading size="md" mb={4}>Resource Usage</Heading>
-        <Box p={4} textAlign="center" color="gray.500">
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography color="text.secondary">
           No budget data available
-        </Box>
+        </Typography>
       </Box>
     );
   }
 
+  const spentPercentage = (budget.current_spent / budget.max_spent) * 100;
+  const tokenPercentage = (budget.current_tokens / budget.max_tokens) * 100;
+
   return (
-    <Box>
-      <Heading size="md" mb={4}>Resource Usage</Heading>
-      <SimpleGrid columns={[1, null, 2]} gap={6}>
-        <ResourceBar
-          value={budget.current_spent}
-          max={budget.max_spent}
-          label="Cost"
-        />
-        <ResourceBar
-          value={budget.current_tokens}
-          max={budget.max_tokens}
-          label="Tokens"
-        />
-      </SimpleGrid>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h6" gutterBottom>
+        Resource Usage
+      </Typography>
+
+      <Stack spacing={3} sx={{ flex: 1 }}>
+        {/* Cost Usage */}
+        <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Stack spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <AttachMoney color="primary" />
+              <Typography variant="subtitle1">
+                Cost Usage
+              </Typography>
+            </Stack>
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={1}>
+                <Typography variant="body2" color="text.secondary">
+                  ${budget.current_spent.toFixed(2)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  ${budget.max_spent.toFixed(2)}
+                </Typography>
+              </Stack>
+              <LinearProgress 
+                variant="determinate" 
+                value={Math.min(spentPercentage, 100)}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: 'rgba(144, 202, 249, 0.2)',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: spentPercentage > 90 ? 'error.main' : 'primary.main',
+                  },
+                }}
+              />
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Token Usage */}
+        <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Stack spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Token color="primary" />
+              <Typography variant="subtitle1">
+                Token Usage
+              </Typography>
+            </Stack>
+            <Box>
+              <Stack direction="row" justifyContent="space-between" mb={1}>
+                <Typography variant="body2" color="text.secondary">
+                  {budget.current_tokens.toLocaleString()}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {budget.max_tokens.toLocaleString()}
+                </Typography>
+              </Stack>
+              <LinearProgress 
+                variant="determinate" 
+                value={Math.min(tokenPercentage, 100)}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: 'rgba(144, 202, 249, 0.2)',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: tokenPercentage > 90 ? 'error.main' : 'primary.main',
+                  },
+                }}
+              />
+            </Box>
+          </Stack>
+        </Paper>
+      </Stack>
     </Box>
   );
 }

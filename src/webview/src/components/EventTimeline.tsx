@@ -1,139 +1,113 @@
-import { useEffect, useRef } from 'react';
-import { Box, Heading, Stack, Text, Badge, Flex } from '@chakra-ui/react';
+import { useMemo } from 'react';
+import { Box, Typography } from '@mui/material';
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+} from '@mui/lab';
+import {
+  Message as MessageIcon,
+  Code as CodeIcon,
+  Person as PersonIcon,
+  SwapHoriz as SwapIcon,
+  Error as ErrorIcon,
+} from '@mui/icons-material';
 import { useDebugStore } from '../store/debugStore';
-import { Event, EventType, Message, BudgetData } from '../types/events';
+import { Event, EventType, EventPayload } from '../types/events';
 
-const eventTypeColors: Record<EventType, string> = {
-  agent_start: 'green',
-  message_completion: 'blue',
-  tool_execution: 'purple',
-  tool_result: 'cyan',
-  handoff: 'orange',
-  budget_update: 'yellow',
-  reset: 'red',
+const getEventIcon = (type: EventType) => {
+  switch (type) {
+    case 'agent_start':
+      return <PersonIcon />;
+    case 'message_completion':
+      return <MessageIcon />;
+    case 'tool_execution':
+      return <CodeIcon />;
+    case 'handoff':
+      return <SwapIcon />;
+    default:
+      return <ErrorIcon />;
+  }
 };
 
-const eventTypeLabels: Record<EventType, string> = {
-  agent_start: 'Agent Started',
-  message_completion: 'Message',
-  tool_execution: 'Tool Call',
-  tool_result: 'Tool Result',
-  handoff: 'Agent Handoff',
-  budget_update: 'Budget Update',
-  reset: 'Reset',
+const getEventColor = (type: EventType) => {
+  switch (type) {
+    case 'agent_start':
+      return 'primary.main';
+    case 'message_completion':
+      return 'success.main';
+    case 'tool_execution':
+      return 'info.main';
+    case 'handoff':
+      return 'warning.main';
+    default:
+      return 'error.main';
+  }
 };
 
-interface ToolCall {
-  name: string;
-  arguments: Record<string, unknown>;
-}
-
-function formatEventContent(event: Event): string {
+const formatEventContent = (event: Event) => {
+  const data = event.data as any; // Temporary type assertion for development
+  
   switch (event.type) {
-    case 'agent_start': {
-      type AgentStartPayload = { agent: { name: string } };
-      const data = event.data as AgentStartPayload;
-      return `Agent ${data.agent.name} initialized`;
-    }
-    
-    case 'message_completion': {
-      type MessageCompletionPayload = { agent: string; message: Message };
-      const data = event.data as MessageCompletionPayload;
-      return data.message.content;
-    }
-    
+    case 'agent_start':
+      return `Agent ${data.agent?.name || 'Unknown'} started`;
+    case 'message_completion':
+      return `Message from ${data.agent || 'Unknown'}`;
     case 'tool_execution': {
-      const tools = event.data as ToolCall[];
-      return tools
-        .map((tool) => `${tool.name}(${JSON.stringify(tool.arguments)})`)
-        .join(', ');
+      const tools = Array.isArray(data) ? data : [];
+      return `Tool executed: ${tools[0]?.name || 'Unknown tool'}`;
     }
-    
-    case 'tool_result': {
-      const messages = event.data as Message[];
-      return messages
-        .map((msg) => msg.content)
-        .join('\n');
-    }
-    
-    case 'handoff': {
-      type HandoffPayload = { from: string; to: string; message: Message };
-      const data = event.data as HandoffPayload;
-      return `From ${data.from} to ${data.to}`;
-    }
-    
-    case 'budget_update': {
-      const data = event.data as BudgetData;
-      return `Spent: $${data.current_spent.toFixed(2)} / $${data.max_spent.toFixed(2)}`;
-    }
-    
+    case 'handoff':
+      return `Handoff from ${data.from || 'Unknown'} to ${data.to || 'Unknown'}`;
+    case 'tool_result':
+      return `Tool result received`;
+    case 'budget_update':
+      return `Budget: ${data.current_spent?.toFixed(2) || 0}/${data.max_spent?.toFixed(2) || 0}`;
     case 'reset':
       return 'System reset';
-    
     default:
       return 'Unknown event';
   }
-}
+};
 
 export default function EventTimeline() {
-  const { eventHistory } = useDebugStore();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const events = useDebugStore((state) => state.eventHistory);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [eventHistory]);
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [events]);
 
   return (
-    <Box>
-      <Heading size="md" mb={4}>Event Timeline</Heading>
-      <Box
-        ref={scrollRef}
-        height="320px"
-        overflowY="auto"
-        css={{
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'var(--chakra-colors-gray-100)',
-            borderRadius: '4px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: 'var(--chakra-colors-gray-300)',
-            borderRadius: '4px',
-          },
-        }}
-      >
-        <Stack gap={3}>
-          {eventHistory.map((event, index) => (
-            <Box
-              key={index}
-              p={3}
-              bg="var(--chakra-colors-white)"
-              borderRadius="md"
-              borderLeft="4px solid"
-              borderLeftColor={`${eventTypeColors[event.type]}.500`}
-              boxShadow="sm"
-              _dark={{
-                bg: 'var(--chakra-colors-gray-800)',
-              }}
-            >
-              <Flex justify="space-between" align="center" mb={2}>
-                <Badge colorScheme={eventTypeColors[event.type]}>
-                  {eventTypeLabels[event.type]}
-                </Badge>
-                <Text fontSize="sm" color="gray.500">
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Typography variant="h6" gutterBottom>
+        Event Timeline
+      </Typography>
+      <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Timeline>
+          {sortedEvents.map((event, index) => (
+            <TimelineItem key={`${event.timestamp}-${index}`}>
+              <TimelineSeparator>
+                <TimelineDot sx={{ bgcolor: getEventColor(event.type) }}>
+                  {getEventIcon(event.type)}
+                </TimelineDot>
+                {index < events.length - 1 && <TimelineConnector />}
+              </TimelineSeparator>
+              <TimelineContent>
+                <Typography variant="body1">
+                  {formatEventContent(event)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
                   {new Date(event.timestamp).toLocaleTimeString()}
-                </Text>
-              </Flex>
-              <Text fontSize="sm" whiteSpace="pre-wrap">
-                {formatEventContent(event)}
-              </Text>
-            </Box>
+                </Typography>
+              </TimelineContent>
+            </TimelineItem>
           ))}
-        </Stack>
+        </Timeline>
       </Box>
     </Box>
   );
