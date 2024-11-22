@@ -13,7 +13,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -43,11 +43,63 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 debug_provider = WebDebugProvider(
     config=WebDebugConfig(
         host="localhost",
-        port=8001,
+        port=8000,  # Changed to 8000 to match our frontend config
         save_history=True,
         show_budget=True
     )
 )
+
+def _make_serializable(obj: Any) -> Any:
+    """Convert non-serializable objects to serializable format.
+    
+    Args:
+        obj: Any Python object that needs to be made serializable
+        
+    Returns:
+        A serializable version of the object
+    """
+    if isinstance(obj, dict):
+        return {k: _make_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_make_serializable(v) for v in obj]
+    elif isinstance(obj, (str, int, float, bool)):
+        return obj
+    elif obj is None:
+        return None
+    else:
+        # Convert any other type to string representation
+        return str(obj)
+
+def send_event(event: Event[ProviderContext]) -> None:
+    """Send an event to the web debug interface.
+    
+    This function takes any Event[ProviderContext] and ensures it can be properly
+    serialized before sending it to the web debug interface. It handles conversion
+    of non-serializable fields to strings if necessary.
+    
+    Args:
+        event: The event to send, containing a ProviderContext payload
+    """
+    # Ensure datetime is serializable
+    if isinstance(event.datetime, datetime):
+        event.datetime = event.datetime.isoformat()
+    
+    # Make context variables serializable
+    if event.payload and event.payload.context_variables:
+        event.payload.context_variables = _make_serializable(event.payload.context_variables)
+    
+    # Make message history serializable
+    if event.payload and event.payload.message_history:
+        for message in event.payload.message_history:
+            if message.additional_info:
+                message.additional_info = _make_serializable(message.additional_info)
+            if message.tool_calls:
+                message.tool_calls = _make_serializable(message.tool_calls)
+            if message.info:
+                message.info = _make_serializable(message.info)
+    
+    # Send event through debug provider
+    debug_provider.handle_event(event)
 
 # Demo control panel HTML
 DEMO_CONTROLS = """
@@ -56,17 +108,31 @@ DEMO_CONTROLS = """
 <head>
     <title>Web Debug UI Demo Controls</title>
     <style>
-        body { font-family: Arial; padding: 20px; }
+        body { 
+            font-family: Arial; 
+            margin: 0;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
         .control-panel { 
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 300px;
             background: #fff;
             padding: 20px;
             border: 1px solid #ccc;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            height: calc(100vh - 40px);
+        }
+        .preview-panel {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            overflow: hidden;
+            height: calc(100vh - 40px);
+            background: #1e1e1e;
         }
         .button {
             display: block;
@@ -86,6 +152,11 @@ DEMO_CONTROLS = """
             margin-top: 20px;
             background: #f8f9fa;
             border-radius: 3px;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
     </style>
 </head>
@@ -126,6 +197,10 @@ DEMO_CONTROLS = """
         <div class="status" id="status">Status: Ready</div>
     </div>
 
+    <div class="preview-panel">
+        <iframe src="http://localhost:5173"></iframe>
+    </div>
+
     <script>
         function triggerEvent(eventType) {
             const status = document.getElementById('status');
@@ -135,6 +210,12 @@ DEMO_CONTROLS = """
                 .then(response => response.json())
                 .then(data => {
                     status.textContent = `Status: ${data.event} completed`;
+                    setTimeout(() => {
+                        status.textContent = 'Status: Ready';
+                    }, 2000);
+                })
+                .catch(error => {
+                    status.textContent = `Status: Error - ${error.message}`;
                     setTimeout(() => {
                         status.textContent = 'Status: Ready';
                     }, 2000);
@@ -202,10 +283,15 @@ async def simulate_agent_start():
         datetime=datetime.now().isoformat()
     )
     
-    debug_provider.handle_event(event)
+    send_event(event)
 
 async def simulate_message():
     """Simulate message exchange."""
+    # Ensure we have an active agent
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     messages = [
         "Hello, this is a test message!",
         "Can you help me with something?",
@@ -220,7 +306,7 @@ async def simulate_message():
     )
     
     context = debug_provider.context
-    if context:
+    if context and context.current_agent:
         context.message_history.append(message)
         
         event = Event(
@@ -230,10 +316,15 @@ async def simulate_message():
             datetime=datetime.now().isoformat()
         )
         
-        debug_provider.handle_event(event)
+        send_event(event)
 
 async def simulate_tool_call():
     """Simulate tool execution."""
+    # Ensure we have an active agent
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     tools = [
         {"name": "search_web", "args": {"query": "test query"}},
         {"name": "calculate", "args": {"expression": "2 + 2"}},
@@ -242,7 +333,7 @@ async def simulate_tool_call():
     ]
     
     context = debug_provider.context
-    if context:
+    if context and context.current_agent:
         tool = tools[int(time.time()) % len(tools)]
         message = Message(
             role="assistant",
@@ -264,7 +355,7 @@ async def simulate_tool_call():
             datetime=datetime.now().isoformat()
         )
         
-        debug_provider.handle_event(event)
+        send_event(event)
 
 async def simulate_new_agent():
     """Simulate adding a new agent."""
@@ -296,7 +387,7 @@ async def simulate_new_agent():
         datetime=datetime.now().isoformat()
     )
     
-    debug_provider.handle_event(event)
+    send_event(event)
 
 async def simulate_handoff():
     """Simulate agent handoff."""
@@ -305,7 +396,7 @@ async def simulate_handoff():
         await asyncio.sleep(1)
     
     context = debug_provider.context
-    if context:
+    if context and context.current_agent:
         # Create handoff message
         message = Message(
             role="assistant",
@@ -330,10 +421,14 @@ async def simulate_handoff():
             datetime=datetime.now().isoformat()
         )
         
-        debug_provider.handle_event(event)
+        send_event(event)
 
 async def simulate_budget_update():
     """Simulate budget changes."""
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     if debug_provider.context:
         budget_data = {
             "max_spent": 10.0,
@@ -348,6 +443,10 @@ async def simulate_budget_update():
 
 async def simulate_token_spike():
     """Simulate sudden increase in token usage."""
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     if debug_provider.context:
         # Simulate rapid token usage increase
         for _ in range(5):
@@ -365,8 +464,12 @@ async def simulate_token_spike():
 
 async def simulate_tool_error():
     """Simulate tool execution error."""
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     context = debug_provider.context
-    if context:
+    if context and context.current_agent:
         error_message = Message(
             role="tool",
             content="Error executing tool",
@@ -386,12 +489,16 @@ async def simulate_tool_error():
             datetime=datetime.now().isoformat()
         )
         
-        debug_provider.handle_event(event)
+        send_event(event)
 
 async def simulate_agent_error():
     """Simulate agent error."""
+    if not debug_provider.context or not debug_provider.context.current_agent:
+        await simulate_agent_start()
+        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
+    
     context = debug_provider.context
-    if context:
+    if context and context.current_agent:
         error_message = Message(
             role="assistant",
             content="Error in agent execution",
@@ -411,7 +518,7 @@ async def simulate_agent_error():
             datetime=datetime.now().isoformat()
         )
         
-        debug_provider.handle_event(event)
+        send_event(event)
 
 async def reset_demo():
     """Reset the demo state."""
@@ -422,16 +529,16 @@ def run_demo():
     """Run the demo server.
     
     This starts:
-    1. The web debug interface at http://localhost:8001
-    2. The demo control panel at http://localhost:8000/demo
+    1. The web debug interface at http://localhost:8000
+    2. The demo control panel with embedded visualization at http://localhost:8002/demo
     
     Usage:
     1. Start the demo:
-       uv run tests/test_web_debug_visual.py
+       python tests/test_web_debug_visual.py
        
-    2. Open two browser windows:
-       - http://localhost:8001 (Debug Interface)
-       - http://localhost:8000/demo (Control Panel)
+    2. Open http://localhost:8002/demo in your browser to see:
+       - The debug interface embedded on the right
+       - Control panel with test scenarios on the left
        
     3. Use the control panel buttons to:
        - Start agents
@@ -450,16 +557,13 @@ def run_demo():
        - Feature verification
     """
     logger.info("Starting Web Debug UI Demo")
-    logger.info("1. Open http://localhost:8001 to see the debug interface")
-    logger.info("2. Open http://localhost:8000/demo to access demo controls")
-    logger.info("3. Use the control panel to trigger different scenarios")
-    logger.info("4. Watch the debug interface update in real-time")
+    logger.info("Open http://localhost:8002/demo to access the demo interface")
     
     # Initialize providers
     debug_provider.initialize()
     
     # Run demo control server
-    uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host="localhost", port=8002)  # Changed to port 8002
 
 if __name__ == "__main__":
     run_demo()

@@ -1,61 +1,92 @@
-import { Container, Grid, Paper } from '@mui/material';
+import { Box, Container, Tab, Tabs } from '@mui/material';
+import { useState, SyntheticEvent } from 'react';
 import Header from './Header';
 import AgentGraph from './AgentGraph';
-import EventTimeline from './EventTimeline';
+import EventTable from './EventTable';
 import BudgetPanel from './BudgetPanel';
 
-export default function Layout() {
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      <Header />
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Grid container spacing={3}>
-          {/* Agent Graph */}
-          <Grid item xs={12} md={6}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 2, 
-                height: '400px',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <AgentGraph />
-            </Paper>
-          </Grid>
-
-          {/* Event Timeline */}
-          <Grid item xs={12} md={6}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 2, 
-                height: '400px',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <EventTimeline />
-            </Paper>
-          </Grid>
-
-          {/* Budget Panel */}
-          <Grid item xs={12}>
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 2, 
-                height: '200px',
-                display: 'flex',
-                flexDirection: 'column'
-              }}
-            >
-              <BudgetPanel />
-            </Paper>
-          </Grid>
-        </Grid>
-      </Container>
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
+      style={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ height: '100%' }}>
+          {children}
+        </Box>
+      )}
     </div>
+  );
+}
+
+export default function Layout() {
+  const [currentTab, setCurrentTab] = useState(0);
+
+  const handleTabChange = (_event: SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
+  };
+
+  return (
+    <Box sx={{ 
+      minHeight: '100vh', 
+      backgroundColor: 'background.default',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <Header />
+      
+      <Box sx={{ 
+        borderBottom: 1, 
+        borderColor: 'divider',
+        backgroundColor: 'background.paper' 
+      }}>
+        <Container maxWidth={false}>
+          <Tabs 
+            value={currentTab} 
+            onChange={handleTabChange} 
+            aria-label="debug interface tabs"
+          >
+            <Tab label="Events" id="tab-0" aria-controls="tabpanel-0" />
+            <Tab label="Agent Graph" id="tab-1" aria-controls="tabpanel-1" />
+            <Tab label="Budget" id="tab-2" aria-controls="tabpanel-2" />
+          </Tabs>
+        </Container>
+      </Box>
+
+      <Container 
+        maxWidth={false} 
+        sx={{ 
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 112px)'  // Subtract header height and tabs height
+        }}
+      >
+        <TabPanel value={currentTab} index={0}>
+          <EventTable />
+        </TabPanel>
+
+        <TabPanel value={currentTab} index={1}>
+          <AgentGraph />
+        </TabPanel>
+
+        <TabPanel value={currentTab} index={2}>
+          <BudgetPanel />
+        </TabPanel>
+      </Container>
+    </Box>
   );
 }

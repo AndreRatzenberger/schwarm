@@ -8,7 +8,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, WebSocket
-from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from pydantic import Field
@@ -60,20 +60,23 @@ class WebDebugProvider(BaseEventHandleProvider):
         self._active_connections = []
         self._event_history = []
         self._loop = None
+        self._setup_cors()
         self._setup_routes()
         self._setup_static_files()
 
-    def initialize(self) -> None:
-        """Initialize the web debug provider and start the web server."""
-        self._start_server()
+    def _setup_cors(self) -> None:
+        """Set up CORS middleware for the FastAPI app."""
+        self._app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # In production, this should be restricted to specific origins
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     def _setup_routes(self) -> None:
         """Set up FastAPI routes for the web interface."""
         app = self._app
-
-        @app.get("/", response_class=HTMLResponse)
-        async def get_dashboard() -> str:
-            return self._get_dashboard_html()
 
         @app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket) -> None:
@@ -100,7 +103,14 @@ class WebDebugProvider(BaseEventHandleProvider):
         def run_server() -> None:
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
-            config = uvicorn.Config(app=self._app, host=self.config.host, port=self.config.port, loop="asyncio")
+            config = uvicorn.Config(
+                app=self._app,
+                host=self.config.host,
+                port=self.config.port,
+                loop="asyncio",
+                ws_ping_interval=20,  # Send ping frames every 20 seconds
+                ws_ping_timeout=30,  # Wait 30 seconds for pong response
+            )
             server = uvicorn.Server(config)
             self._loop.run_until_complete(server.serve())
 
@@ -109,6 +119,10 @@ class WebDebugProvider(BaseEventHandleProvider):
         thread = threading.Thread(target=run_server, daemon=True)
         thread.start()
         logger.info(f"Web debug interface available at http://{self.config.host}:{self.config.port}")
+
+    def initialize(self) -> None:
+        """Initialize the web debug provider and start the web server."""
+        self._start_server()
 
     async def _broadcast_event(self, event_type: str, data: Any) -> None:
         """Broadcast an event to all connected clients."""
@@ -127,92 +141,6 @@ class WebDebugProvider(BaseEventHandleProvider):
         """Run a coroutine in the event loop."""
         if self._loop and self._loop.is_running():
             asyncio.run_coroutine_threadsafe(coroutine, self._loop)
-
-    def _get_dashboard_html(self) -> str:
-        """Generate the HTML for the dashboard."""
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Schwarm Debug Dashboard</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
-        .container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
-        .panel {{ border: 1px solid #ccc; padding: 15px; border-radius: 5px; }}
-        #agent-graph {{ height: 400px; }}
-        #event-timeline {{ height: 300px; overflow-y: auto; }}
-        #budget-panel {{ grid-column: span 2; }}
-        .event {{ margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="panel">
-            <h2>Agent Interaction Graph</h2>
-            <div id="agent-graph"></div>
-        </div>
-        <div class="panel">
-            <h2>Event Timeline</h2>
-            <div id="event-timeline"></div>
-        </div>
-        <div id="budget-panel" class="panel">
-            <h2>Budget Overview</h2>
-            <div id="budget-visualization"></div>
-        </div>
-    </div>
-    <script>
-        const ws = new WebSocket(`ws://${{window.location.hostname}}:{self.config.port}/ws`);
-        let eventHistory = [];
-        
-        ws.onmessage = (event) => {{
-            const data = JSON.parse(event.data);
-            if (data.type === 'history') {{
-                eventHistory = data.data;
-                updateVisualization();
-            }} else {{
-                eventHistory.push(data);
-                updateVisualization();
-            }}
-        }};
-
-        function updateVisualization() {{
-            updateAgentGraph();
-            updateEventTimeline();
-            updateBudgetVisualization();
-        }}
-
-        function updateAgentGraph() {{
-            // D3.js force-directed graph implementation
-            const nodes = [];
-            const links = [];
-            // Extract nodes and links from event history
-            // Implementation details...
-        }}
-
-        function updateEventTimeline() {{
-            const timeline = d3.select('#event-timeline');
-            timeline.html('');
-            eventHistory.forEach(event => {{
-                timeline.append('div')
-                    .attr('class', 'event')
-                    .html(`
-                        <strong>${{new Date(event.timestamp).toLocaleTimeString()}}</strong>
-                        <br/>
-                        ${{event.type}}: ${{JSON.stringify(event.data)}}
-                    `);
-            }});
-        }}
-
-        function updateBudgetVisualization() {{
-            // D3.js budget visualization implementation
-            // Implementation details...
-        }}
-    </script>
-</body>
-</html>
-        """
 
     def handle_event(self, event: Event) -> ProviderContext | None:
         """Handle events by updating the web visualization."""

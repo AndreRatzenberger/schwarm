@@ -6,16 +6,50 @@ export interface Agent {
 }
 
 export interface Message {
-    role: 'user' | 'assistant' | 'tool';
-    content: string;
-    sender?: string;
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
+    sender?: string | null;
+    name?: string | null;
     tool_calls?: Array<{
         function: {
             name: string;
             arguments: Record<string, unknown>;
         };
-    }>;
-    additional_info?: Record<string, unknown>;
+    }> | null;
+    tool_call_id?: string | null;
+    info?: {
+        token_counter: number;
+        completion_cost: number;
+    } | null;
+    additional_info: Record<string, unknown>;
+}
+
+export interface ProviderContext {
+    message_history: Message[];
+    current_message: Message | null;
+    current_agent: Agent | null;
+    available_agents: Agent[];
+    available_tools: any[];  // TODO: Define tool type if needed
+    available_providers: Record<string, any>;  // TODO: Define provider type if needed
+    context_variables: Record<string, unknown>;
+    instruction_str: string | null;
+}
+
+export enum EventType {
+    START = "on_start",
+    HANDOFF = "on_handoff",
+    MESSAGE_COMPLETION = "on_message_completion",
+    POST_MESSAGE_COMPLETION = "on_post_message_completion",
+    TOOL_EXECUTION = "on_tool_execution",
+    POST_TOOL_EXECUTION = "on_post_tool_execution",
+    INSTRUCT = "on_instruct"
+}
+
+export interface Event {
+    type: EventType;
+    payload: ProviderContext;
+    agent_id: string;
+    datetime: string;
 }
 
 export interface BudgetData {
@@ -24,40 +58,3 @@ export interface BudgetData {
     current_spent: number;
     current_tokens: number;
 }
-
-export interface Event {
-    timestamp: string;
-    type: EventType;
-    data: EventPayload;
-}
-
-export type EventType =
-    | 'agent_start'
-    | 'message_completion'
-    | 'tool_execution'
-    | 'tool_result'
-    | 'handoff'
-    | 'budget_update'
-    | 'reset';
-
-export type EventPayload = {
-    agent_start: {
-        agent: Agent;
-    };
-    message_completion: {
-        agent: string;
-        message: Message;
-    };
-    tool_execution: Array<{
-        name: string;
-        arguments: Record<string, unknown>;
-    }>;
-    tool_result: Array<Message>;
-    handoff: {
-        from: string;
-        to: string;
-        message: Message;
-    };
-    budget_update: BudgetData;
-    reset: Record<string, never>;
-}[EventType];

@@ -24,7 +24,12 @@ const theme = createTheme({
 function App() {
   useEffect(() => {
     // Connect to WebSocket when app starts
-    wsService.connect('ws://localhost:8001/ws');
+    const wsUrl = import.meta.env.VITE_WS_URL;
+    if (!wsUrl) {
+      console.error('WebSocket URL not configured. Please set VITE_WS_URL in .env file.');
+      return;
+    }
+    wsService.connect(wsUrl);
 
     // Cleanup on unmount
     return () => {
