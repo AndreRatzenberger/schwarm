@@ -111,47 +111,69 @@ DEMO_CONTROLS = """
         body { 
             font-family: Arial; 
             margin: 0;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
             height: 100vh;
             box-sizing: border-box;
         }
         .control-panel { 
-            background: #fff;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            height: calc(100vh - 40px);
+            background: #1e1e1e;
+            padding: 15px;
+            border-bottom: 1px solid #333;
+            color: white;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            height: auto;
+            overflow-x: auto;
         }
         .preview-panel {
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            flex: 1;
+            border: none;
             overflow: hidden;
-            height: calc(100vh - 40px);
             background: #1e1e1e;
         }
         .button {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            background: #007bff;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 12px;
+            background: #2d2d2d;
             color: white;
-            border: none;
-            border-radius: 3px;
+            border: 1px solid #404040;
+            border-radius: 4px;
             cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+            white-space: nowrap;
         }
-        .button:hover { background: #0056b3; }
-        .scenario { margin: 20px 0; }
+        .button:hover { 
+            background: #404040; 
+        }
+        .scenario { 
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            padding: 0 10px;
+            border-right: 1px solid #404040;
+        }
+        .scenario:last-child {
+            border-right: none;
+        }
+        .scenario h3 {
+            font-size: 13px;
+            margin: 0;
+            color: #888;
+            white-space: nowrap;
+        }
         .status { 
-            padding: 10px;
-            margin-top: 20px;
-            background: #f8f9fa;
-            border-radius: 3px;
+            margin-left: auto;
+            padding: 5px 10px;
+            background: #2d2d2d;
+            border-radius: 4px;
+            font-size: 13px;
         }
         iframe {
             width: 100%;
@@ -162,36 +184,34 @@ DEMO_CONTROLS = """
 </head>
 <body>
     <div class="control-panel">
-        <h2>UI Demo Controls</h2>
-        
         <div class="scenario">
-            <h3>1. Basic Agent Interaction</h3>
-            <button class="button" onclick="triggerEvent('start_agent')">Start Agent</button>
-            <button class="button" onclick="triggerEvent('send_message')">Send Message</button>
-            <button class="button" onclick="triggerEvent('tool_call')">Execute Tool</button>
+            <h3>Agent Interaction</h3>
+            <button class="button" onclick="triggerEvent('start_agent')">▶️ Start Agent</button>
+            <button class="button" onclick="triggerEvent('send_message')">💬 Send Message</button>
+            <button class="button" onclick="triggerEvent('tool_call')">🔧 Execute Tool</button>
         </div>
 
         <div class="scenario">
-            <h3>2. Multi-Agent Scenario</h3>
-            <button class="button" onclick="triggerEvent('add_agent')">Add New Agent</button>
-            <button class="button" onclick="triggerEvent('agent_handoff')">Agent Handoff</button>
+            <h3>Multi-Agent</h3>
+            <button class="button" onclick="triggerEvent('add_agent')">➕ Add Agent</button>
+            <button class="button" onclick="triggerEvent('agent_handoff')">🔄 Agent Handoff</button>
         </div>
 
         <div class="scenario">
-            <h3>3. Resource Usage</h3>
-            <button class="button" onclick="triggerEvent('update_budget')">Update Budget</button>
-            <button class="button" onclick="triggerEvent('token_spike')">Simulate Token Spike</button>
+            <h3>Resources</h3>
+            <button class="button" onclick="triggerEvent('update_budget')">💰 Update Budget</button>
+            <button class="button" onclick="triggerEvent('token_spike')">📈 Token Spike</button>
         </div>
 
         <div class="scenario">
-            <h3>4. Error Scenarios</h3>
-            <button class="button" onclick="triggerEvent('tool_error')">Tool Error</button>
-            <button class="button" onclick="triggerEvent('agent_error')">Agent Error</button>
+            <h3>Errors</h3>
+            <button class="button" onclick="triggerEvent('tool_error')">⚠️ Tool Error</button>
+            <button class="button" onclick="triggerEvent('agent_error')">❌ Agent Error</button>
         </div>
 
         <div class="scenario">
-            <h3>5. Reset</h3>
-            <button class="button" onclick="triggerEvent('reset')" style="background: #dc3545;">Reset Demo</button>
+            <h3>Reset</h3>
+            <button class="button" onclick="triggerEvent('reset')" style="background: #442222;">🔄 Reset Demo</button>
         </div>
 
         <div class="status" id="status">Status: Ready</div>
