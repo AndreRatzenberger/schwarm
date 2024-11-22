@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Debug UI Demo Controls</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .control-panel { 
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .button:hover { background: #0056b3; }
+        .scenario { margin: 20px 0; }
+        .status { 
+            padding: 10px;
+            margin-top: 20px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <h2>UI Demo Controls</h2>
+        
+        <div class="scenario">
+            <h3>1. Basic Agent Interaction</h3>
+            <button class="button" onclick="triggerEvent('start_agent')">Start Agent</button>
+            <button class="button" onclick="triggerEvent('send_message')">Send Message</button>
+            <button class="button" onclick="triggerEvent('tool_call')">Execute Tool</button>
+        </div>
+
+        <div class="scenario">
+            <h3>2. Multi-Agent Scenario</h3>
+            <button class="button" onclick="triggerEvent('add_agent')">Add New Agent</button>
+            <button class="button" onclick="triggerEvent('agent_handoff')">Agent Handoff</button>
+        </div>
+
+        <div class="scenario">
+            <h3>3. Resource Usage</h3>
+            <button class="button" onclick="triggerEvent('update_budget')">Update Budget</button>
+            <button class="button" onclick="triggerEvent('token_spike')">Simulate Token Spike</button>
+        </div>
+
+        <div class="scenario">
+            <h3>4. Error Scenarios</h3>
+            <button class="button" onclick="triggerEvent('tool_error')">Tool Error</button>
+            <button class="button" onclick="triggerEvent('agent_error')">Agent Error</button>
+        </div>
+
+        <div class="scenario">
+            <h3>5. Reset</h3>
+            <button class="button" onclick="triggerEvent('reset')" style="background: #dc3545;">Reset Demo</button>
+        </div>
+
+        <div class="status" id="status">Status: Ready</div>
+    </div>
+
+    <script>
+        function triggerEvent(eventType) {
+            const status = document.getElementById('status');
+            status.textContent = `Status: Triggering ${eventType}...`;
+            
+            fetch(`/trigger/${eventType}`, {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    status.textContent = `Status: ${data.event} completed`;
+                    setTimeout(() => {
+                        status.textContent = 'Status: Ready';
+                    }, 2000);
+                });
+        }
+    </script>
+</body>
+</html>
