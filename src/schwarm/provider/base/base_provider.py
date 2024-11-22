@@ -3,7 +3,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from typing import Literal
-from uuid import uuid4
 
 from litellm import BaseModel
 from pydantic import Field
@@ -32,7 +31,7 @@ class BaseProvider(ABC):
     """Base class for all providers."""
 
     config: BaseProviderConfig
-    _provider_id: str = field(default_factory=lambda: f"provider_{uuid4()}")
+    _provider_id: str = field(default="", init=False)
     context: ProviderContext = field(default_factory=ProviderContext)
     is_enabled: bool = True
 

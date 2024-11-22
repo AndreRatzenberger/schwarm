@@ -86,7 +86,7 @@ class ProviderManager:
                     except Exception as e:
                         logger.warning(f"Failed to load module {module_name}: {e!s}")
 
-    def _create_provider(self, config: BaseProviderConfig, scope: str) -> BaseProvider:
+    def _create_provider(self, config: BaseProviderConfig) -> BaseProvider:
         """Create a new provider instance."""
         try:
             provider_class = self._config_to_provider_map.get(type(config))
@@ -170,17 +170,17 @@ class ProviderManager:
             if config.scope == "global":
                 scope = "global"
 
-            provider = self._create_provider(config, agent_id)
+            provider = self._create_provider(config)
 
             if scope in self._providers:
                 self._providers[scope].append(provider)
             else:
                 self._providers[scope] = [provider]
-            logger.info(f"Created global provider: {provider._provider_id}")
+            logger.info(f"Created {scope} scoped {provider.__class__.__name__}: {provider._provider_id}")
             return provider
 
         else:
-            provider = self._create_provider(config, agent_id)
+            provider = self._create_provider(config)
             logger.info(f"Created jit provider: {provider._provider_id} for agent: {agent_id}")
             return provider
 

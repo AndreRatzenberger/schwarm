@@ -41,6 +41,7 @@ class BudgetProvider(BaseEventHandleProvider):
     """
 
     config: BudgetConfig
+    _provider_id: str = Field(default="budget", description="Provider ID")
 
     def __init__(self, **data):
         """Initialize the budget provider with tracking state."""

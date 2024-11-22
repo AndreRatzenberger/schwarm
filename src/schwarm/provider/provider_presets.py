@@ -8,6 +8,12 @@ DEFAULT = [LiteLLMConfig(enable_cache=True, enable_debug=True), DebugConfig(), B
 
 DEFAULT_JUPYTER = [
     LiteLLMConfig(enable_cache=True, enable_debug=True),
-    DebugConfig(instructions_wait_for_user_input=False, function_calls_wait_for_user_input=False),
+    DebugConfig(
+        show_budget=False,
+        show_function_calls=False,
+        show_instructions=False,
+        instructions_wait_for_user_input=False,
+        function_calls_wait_for_user_input=False,
+    ),
     BudgetConfig(),
 ]

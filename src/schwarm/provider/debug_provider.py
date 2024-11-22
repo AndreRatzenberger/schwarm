@@ -1,10 +1,13 @@
 """Debug provider for displaying and logging system information."""
 
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+import ipywidgets as widgets
+from IPython.display import clear_output, display
 from loguru import logger
 from pydantic import Field
 from rich.console import Console
@@ -19,6 +22,8 @@ from schwarm.provider.budget_provider import BudgetProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.utils.settings import APP_SETTINGS
+
+continue_event = threading.Event()
 
 console = Console()
 
@@ -41,9 +46,13 @@ class DebugConfig(BaseEventHandleProviderConfig):
     function_calls_print_context_variables: bool = Field(
         default=True, description="Whether to print context variables with function calls"
     )
+    application_frame: Literal["cli", "jupyter"] = Field(
+        default="cli", description="Whether the application is running in a CLI or Jupyter environment"
+    )
     show_budget: bool = Field(default=True, description="Whether to show budget information")
     max_length: int = Field(default=-1, description="Maximum length for displayed text (-1 for no limit)")
     save_logs: bool = Field(default=True, description="Whether to save logs to files")
+    provider_id: str = Field(default="debug", description="Provider ID")
 
 
 class DebugProvider(BaseEventHandleProvider):
@@ -58,6 +67,7 @@ class DebugProvider(BaseEventHandleProvider):
     """
 
     config: DebugConfig
+    _provider_id: str = Field(default="debug", description="Provider ID")
 
     def initialize(self):
         """Initialize the debug provider by ensuring the log directory exists."""
@@ -67,6 +77,12 @@ class DebugProvider(BaseEventHandleProvider):
         """Handle events by showing relevant information."""
         if event.type == EventType.START:
             self.handle_start(event.payload)
+        elif event.type == EventType.MESSAGE_COMPLETION:
+            self.handle_message_completion()
+        elif event.type == EventType.TOOL_EXECUTION:
+            self.handle_tool_execution()
+        elif event.type == EventType.POST_TOOL_EXECUTION:
+            self.handle_post_tool_execution()
 
     def handle_start(self, payload: ProviderContext) -> ProviderContext | None:
         """Handle agent start by initializing logging and showing instructions."""
@@ -187,9 +203,12 @@ class DebugProvider(BaseEventHandleProvider):
         log_content = f"Agent: {agent_name}\nInstructions:\n{instructions}\n{'=' * 50}\n"
         self._write_to_log("instructions.log", log_content)
 
-        if self.config.instructions_wait_for_user_input:
-            console.line()
-            console.input("Press Enter to continue...")
+        if self.config.function_calls_wait_for_user_input:
+            if self.config.application_frame == "cli":
+                console.line()
+                console.input("Press Enter to continue...")
+            else:
+                self.pause_execution()
 
     def _show_budget(self, agent: Agent) -> None:
         """Show the budget to the user."""
@@ -287,5 +306,25 @@ class DebugProvider(BaseEventHandleProvider):
         self._write_to_log("functions.log", log_content)
 
         if self.config.function_calls_wait_for_user_input:
-            console.line()
-            console.input("Press Enter to continue...")
+            if self.config.application_frame == "cli":
+                console.line()
+                console.input("Press Enter to continue...")
+            else:
+                self.pause_execution()
+
+    def on_button_click(self, b):
+        continue_event.set()  # Set the event to continue execution
+        clear_output(wait=True)  # Clear the button output
+        print("Continuing...")
+
+    def pause_execution(self):
+        # Reset the event
+        continue_event.clear()
+
+        # Create the button
+        button = widgets.Button(description="Continue")
+        button.on_click(self.on_button_click)
+        display(button)
+
+        # Wait for the event to be set by the button click
+        continue_event.wait()

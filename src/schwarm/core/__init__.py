@@ -7,6 +7,6 @@ This package contains the base classes and implementations for:
 - Core tools and functionality
 """
 
-from schwarm.core.logging import ConsoleColor, log_function_call
+from schwarm.core.logging import log_function_call
 
-__all__ = ["log_function_call", "ConsoleColor"]
+__all__ = ["log_function_call"]

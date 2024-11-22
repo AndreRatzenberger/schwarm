@@ -113,7 +113,7 @@ class LiteLLMProvider(BaseLLMProvider):
         config: Provider configuration
     """
 
-    provider_name: str = "lite_llm"
+    _provider_id: str = Field(default="lite_llm", description="Provider ID")
 
     def __init__(self, config: LiteLLMConfig, **data) -> None:
         """Initialize the Lite LLM provider.
