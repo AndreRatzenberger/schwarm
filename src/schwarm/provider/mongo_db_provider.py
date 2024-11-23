@@ -15,7 +15,7 @@ from schwarm.provider.provider_context import ProviderContext
 class MongoDBConfig(BaseEventHandleProviderConfig):
     """Configuration for the MongoDB provider."""
 
-    mongo_uri: str = Field(default="mongodb+srv://", description="MongoDB connection URI")
+    mongo_uri: str = Field(default="mongodb://ara:ara@127.0.0.1:27017/", description="MongoDB connection URI")
     database_name: str = Field(default="schwarm_events", description="MongoDB database name")
     collection_name: str = Field(default="events", description="MongoDB collection name")
     provider_id: str = Field(default="mongodb", description="Provider ID")
@@ -26,16 +26,12 @@ class MongoDBProvider(BaseEventHandleProvider):
 
     config: MongoDBConfig
 
-    def initialize(self) -> None:
-        """Initialize MongoDB connection."""
-        try:
-            self._mongo_client = MongoClient(self.config.mongo_uri)
-            self._db = self._mongo_client[self.config.database_name]
-            self._collection = self._db[self.config.collection_name]
-            logger.info(f"Successfully connected to MongoDB at {self.config.mongo_uri}")
-        except Exception as e:
-            logger.error(f"Failed to connect to MongoDB: {e!s}")
-            raise
+    def __init__(self, config: MongoDBConfig, **data: Any):
+        super().__init__(config, **data)
+        self._mongo_client = MongoClient(self.config.mongo_uri)
+        self._db = self._mongo_client[self.config.database_name]
+        self._collection = self._db[self.config.collection_name]
+        logger.info(f"Successfully connected to MongoDB at {self.config.mongo_uri}")
 
     def handle_event(self, event: Event) -> ProviderContext | None:
         """Handle events by storing them in MongoDB.

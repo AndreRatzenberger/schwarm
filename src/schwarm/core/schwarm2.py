@@ -97,11 +97,15 @@ class Schwarm2:
         self._provider_context.available_providers = self._manager.get_all_provider_cfgs_as_dict()
         self._trigger_event(EventType.START)
 
-        while self._can_continue_conversation():
-            logger.info(f"Processing turn {self._current_turn()}/{max_turns}")
-            self._process_turn(agent, context_variables, model_override, execute_tools)
+        self._provider_context.current_agent = agent
+        self._provider_context.current_turn = 0
 
-        logger.info(f"Agent run completed after {self._current_turn()} turns")
+        while self._can_continue_conversation():
+            logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
+            self._process_turn(agent, context_variables, model_override, execute_tools)
+            self._provider_context.current_turn += 1
+
+        logger.info(f"Agent run completed after {self._provider_context.current_turn} turns")
         self._restore_logging(show_logs)
 
         return Response(
@@ -135,13 +139,7 @@ class Schwarm2:
 
     def _can_continue_conversation(self):
         """Check if the conversation can continue."""
-        history_length = len(self._provider_context.message_history)
-        return history_length - len(self._provider_context.message_history) < self._provider_context.max_turns
-
-    def _current_turn(self):
-        """Calculate the current conversation turn."""
-        init_len = len(self._provider_context.message_history)
-        return len(self._provider_context.message_history) - init_len + 1
+        return self._provider_context.current_turn < self._provider_context.max_turns
 
     def _process_turn(
         self, agent: Agent, context_variables: dict[str, Any], model_override: str | None, execute_tools: bool

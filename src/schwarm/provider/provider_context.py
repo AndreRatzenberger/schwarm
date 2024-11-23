@@ -1,5 +1,6 @@
 """Defines the context available to providers."""
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -81,3 +82,7 @@ class ProviderContext(BaseModel):
     #         Any: The result of the event.
     #     """
     #     ProviderManager().trigger_event(event_type, self)
+
+    def __str__(self) -> str:
+        """Return a JSON-formatted string representation of the object."""
+        return json.dumps(self.model_dump(), default=str, indent=2)
