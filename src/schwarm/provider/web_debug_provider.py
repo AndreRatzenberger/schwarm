@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import subprocess
 from typing import Any
 
 import websockets
@@ -16,7 +17,7 @@ from schwarm.provider.provider_context import ProviderContext
 class WebDebugConfig(BaseEventHandleProviderConfig):
     """Configuration for the websocket debug provider."""
 
-    websocket_target: str = Field(default="ws://localhost:8000/ws", description="Websocket endpoint to send events to")
+    websocket_target: str = Field(default="ws://localhost:8123", description="Websocket endpoint to send events to")
 
 
 class WebDebugProvider(BaseEventHandleProvider):
@@ -30,6 +31,8 @@ class WebDebugProvider(BaseEventHandleProvider):
 
     def __init__(self, config: WebDebugConfig, **data: Any):
         """Initialize the websocket debug provider."""
+        subprocess.run(["npm", "run", "dev"], cwd="src/websocket_ui")
+
         self.config = config
         self._websocket = None
         self._connect_lock = asyncio.Lock()
@@ -80,6 +83,7 @@ class WebDebugProvider(BaseEventHandleProvider):
         """Handle events by sending them to the websocket endpoint."""
         self.event_log.append(event)
         await self._send_event(event)
+        input("wait....")
         return event.payload
 
     async def cleanup(self) -> None:

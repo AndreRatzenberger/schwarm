@@ -10,7 +10,7 @@ from schwarm.provider.web_debug_provider import WebDebugConfig, WebDebugProvider
 async def main():
     """Run test client that sends various events."""
     # Create provider
-    config = WebDebugConfig(websocket_target="ws://localhost:8000/ws")
+    config = WebDebugConfig(websocket_target="ws://localhost:8123")
     provider = WebDebugProvider(config=config)
 
     # Initialize provider
