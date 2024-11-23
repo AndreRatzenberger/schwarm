@@ -20,6 +20,7 @@ class EventType(Enum):
     TOOL_EXECUTION = "on_tool_execution"
     POST_TOOL_EXECUTION = "on_post_tool_execution"
     INSTRUCT = "on_instruct"
+    POST_INSTRUCT = "on_post_instruct"
 
 
 @dataclass

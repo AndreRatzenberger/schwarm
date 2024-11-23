@@ -224,7 +224,7 @@ class Schwarm:
         # Get the agent instructions to set system prompt
         instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
 
-        self._provider_context.current_instruction = instructions
+        self._provider_context.instruction_str = instructions
         self._manager.trigger_event(EventType.POST_INSTRUCT, self._provider_context)
 
         logger.debug(f"Generated instructions for agent '{agent.name}'")

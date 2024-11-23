@@ -193,13 +193,16 @@ class DebugProvider(BaseEventHandleProvider):
         if not self.config.show_instructions:
             return
         agent_name = event.current_agent.name
-        instructions = event.current_agent.instructions
-        if callable(instructions):
-            instructions = event.current_instruction
+
+        if callable(event.current_agent.instructions):
+            instructions = event.instruction_str
+        else:
+            instructions = event.current_agent.instructions()
         console.line()
         console.print(Markdown(f"# 📝 Instructing 🤖 {agent_name}"), style="bold orange3")
         console.line()
-        console.print(Markdown(truncate_string(instructions, self.config.max_length)), style="italic")
+        if isinstance(instructions, str):
+            console.print(Markdown(truncate_string(instructions, self.config.max_length)), style="italic")
 
         # Write to instructions log
         log_content = f"Agent: {agent_name}\nInstructions:\n{instructions}\n{'=' * 50}\n"
