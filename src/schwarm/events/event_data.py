@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Generic, TypeVar
 
+from pydantic import BaseModel, Field
+
+from schwarm.provider.provider_context import ProviderContext
+
 if TYPE_CHECKING:
     pass
 
@@ -33,11 +37,10 @@ class EventType(Enum):
     NONE = "on_begin"
 
 
-@dataclass
-class Event(Generic[T]):
+class Event(BaseModel):
     """Type-safe event with payload."""
 
-    type: EventType
-    payload: T
-    agent_id: str
-    datetime: str
+    type: EventType = Field(default=EventType.NONE)
+    payload: ProviderContext = Field(default_factory=ProviderContext)
+    agent_id: str = Field(default="")
+    datetime: str = Field(default="")

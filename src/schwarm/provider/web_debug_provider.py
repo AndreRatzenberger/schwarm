@@ -1,7 +1,6 @@
 """Websocket-based debug provider for sending system information to a websocket endpoint."""
 
 import asyncio
-import json
 import subprocess
 import threading
 from typing import Any
@@ -45,6 +44,7 @@ class WebDebugProvider(BaseEventHandleProvider):
         self._websocket = None
         self._connect_lock = asyncio.Lock()
         self._initialized = False
+        self._connected = False
 
         # Start the websocket UI server in a separate thread
 
@@ -60,34 +60,37 @@ class WebDebugProvider(BaseEventHandleProvider):
         """Ensure websocket connection is established."""
         async with self._connect_lock:
             if self._websocket is None:
-                try:
-                    self._websocket = await websockets.connect(
-                        self.config.websocket_target,
-                        ping_interval=None,  # Disable ping to avoid connection issues
-                    )
-                    logger.info(f"Connected to websocket at {self.config.websocket_target}")
-                    return True
-                except Exception as e:
-                    logger.error(f"Failed to connect to websocket: {e}")
-                    self._websocket = None
-                    return False
+                while not self._connected:
+                    try:
+                        self._websocket = await websockets.connect(
+                            self.config.websocket_target,
+                            ping_interval=None,  # Disable ping to avoid connection issues
+                        )
+                        logger.info(f"Connected to websocket at {self.config.websocket_target}")
+                        self._connected = True
+                        return True
+                    except Exception as e:
+                        logger.error(f"Failed to connect to websocket: {e}")
+                        self._websocket = None
+                        return False
             return False
 
-    async def _send_event(self, event: Event) -> None:
+    def _send_event(self, event: Event) -> None:
         """Send event to websocket endpoint."""
         try:
-            await self._ensure_connection()
-            if self._websocket:
-                event_data = {
-                    "type": event.type.value,
-                    "payload": event.payload,
-                    "agent_id": event.agent_id,
-                    "datetime": event.datetime,
-                }
-                await self._websocket.send(json.dumps(event_data))
-                logger.debug(f"Sent event to websocket: {event.type}")
-            else:
-                logger.warning("Websocket connection not available")
+            while not self._connected:
+                asyncio.run(self._ensure_connection())
+                if self._websocket:
+                    event_data = {
+                        "type": event.type.value,
+                        "payload": event.payload,
+                        "agent_id": event.agent_id,
+                        "datetime": event.datetime,
+                    }
+                    test = self._websocket.send(event.model_dump_json())
+                    logger.debug(f"Sent event to websocket: {event.type}")
+                else:
+                    logger.warning("Websocket connection not available")
         except Exception as e:
             logger.error(f"Failed to send event to websocket: {e}")
             self._websocket = None
@@ -98,10 +101,10 @@ class WebDebugProvider(BaseEventHandleProvider):
             logger.info(f"Initializing websocket debug provider with target: {self.config.websocket_target}")
             self._initialized = True
 
-    async def handle_event(self, event: Event) -> ProviderContext:
+    def handle_event(self, event: Event) -> ProviderContext:
         """Handle events by sending them to the websocket endpoint."""
         self.event_log.append(event)
-        await self._send_event(event)
+        test = self._send_event(event)
         return event.payload
 
     async def cleanup(self) -> None:

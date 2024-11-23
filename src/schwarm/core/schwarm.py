@@ -10,6 +10,7 @@ from loguru import logger
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events import EventType
+from schwarm.events.event_data import Event
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
@@ -144,7 +145,7 @@ class Schwarm:
         self._provider_context.message_history = copy.deepcopy(messages)
         init_len = len(messages)
 
-        self._manager.trigger_event(EventType.INSTRUCT, self._provider_context)
+        self._trigger_event(EventType.INSTRUCT, self._provider_context)
 
         if callable(active_agent.instructions):
             self._provider_context.instruction_func = active_agent.instructions
@@ -153,20 +154,20 @@ class Schwarm:
             self._provider_context.instruction_func = None
             self._provider_context.instruction_str = active_agent.instructions
 
-        self._manager.trigger_event(EventType.POST_INSTRUCT, self._provider_context)
+        self._trigger_event(EventType.POST_INSTRUCT, self._provider_context)
 
         while len(self._provider_context.message_history) - init_len < max_turns and active_agent:
             current_turn = len(self._provider_context.message_history) - init_len + 1
             logger.info(f"Processing turn {current_turn}/{max_turns}")
-
-            self._manager.trigger_event(EventType.MESSAGE_COMPLETION, self._provider_context)
+            self._trigger_event(EventType.POST_MESSAGE_COMPLETION, self._provider_context)
+            self._trigger_event(EventType.MESSAGE_COMPLETION, self._provider_context)
             completion = self._complete_agent_request(
                 agent=active_agent,
                 context_variables=self._provider_context.context_variables,
                 history=self._provider_context.message_history,
                 override_model=model_override,
             )
-            self._manager.trigger_event(EventType.POST_MESSAGE_COMPLETION, self._provider_context)
+            self._trigger_event(EventType.POST_MESSAGE_COMPLETION, self._provider_context)
             completion.sender = active_agent.name
             logger.debug(f"Completion received from {completion.sender}")
 
@@ -222,13 +223,13 @@ class Schwarm:
         self._provider_context.current_message = history[-1]
         self._provider_context.context_variables = context_variables
         self._provider_context.current_agent = agent
-        self._manager.trigger_event(EventType.INSTRUCT, self._provider_context)
+        self._trigger_event(EventType.INSTRUCT, self._provider_context)
 
         # Get the agent instructions to set system prompt
         instructions = agent.instructions(context_variables) if callable(agent.instructions) else agent.instructions
 
         self._provider_context.instruction_str = instructions
-        self._manager.trigger_event(EventType.POST_INSTRUCT, self._provider_context)
+        self._trigger_event(EventType.POST_INSTRUCT, self._provider_context)
 
         logger.debug(f"Generated instructions for agent '{agent.name}'")
 
@@ -263,3 +264,12 @@ class Schwarm:
         logger.debug("Completion received from provider")
 
         return result
+
+    def _trigger_event(self, event_type: EventType, context: ProviderContext):
+        """Trigger a specific event."""
+        if self._provider_context:
+            event = Event()
+            event.type = event_type
+            event.payload = self._provider_context
+            self._manager.trigger_event(event)
+            logger.debug(f"Event triggered: {event.type}")

@@ -9,7 +9,7 @@ from typing import Optional, TypeVar
 
 from loguru import logger
 
-from schwarm.events import Event, EventType
+from schwarm.events import Event
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
@@ -218,10 +218,10 @@ class ProviderManager:
 
         return result
 
-    def trigger_event(self, event_type: EventType, payload: ProviderContext) -> list[ProviderContext]:
+    def trigger_event(self, event: Event) -> list[ProviderContext]:
         """Trigger an event across all relevant providers."""
-        agent_id = payload.current_agent.name
-        event = Event(type=event_type, payload=payload, agent_id=agent_id, datetime=datetime.now().isoformat())
+        agent_id = event.payload.current_agent.name
+        event.datetime = datetime.now().isoformat()
         # Get event providers in priority order
         providers = self.get_event_providers(agent_id)
         providers.extend(self.get_event_providers("global"))

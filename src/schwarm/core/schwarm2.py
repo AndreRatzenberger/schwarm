@@ -9,7 +9,8 @@ from loguru import logger
 
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
-from schwarm.events import EventType
+from schwarm.events import Event
+from schwarm.events.event_data import EventType
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
@@ -210,5 +211,8 @@ class Schwarm2:
     def _trigger_event(self, event_type: EventType):
         """Trigger a specific event."""
         if self._provider_context:
-            self._manager.trigger_event(event_type, self._provider_context)
-            logger.debug(f"Event triggered: {event_type.value}")
+            event = Event()
+            event.type = event_type
+            event.payload = self._provider_context
+            self._manager.trigger_event(event)
+            logger.debug(f"Event triggered: {event.type}")

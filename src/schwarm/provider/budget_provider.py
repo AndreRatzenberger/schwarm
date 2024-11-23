@@ -58,9 +58,9 @@ class BudgetProvider(BaseEventHandleProvider):
         elif event.type == "handoff":
             return self.handle_handoff(event.payload)
 
-        return super().handle_event(event.payload)
+        return super().handle_event(event)
 
-    def handle_start(self, context=ProviderContext) -> None:
+    def handle_start(self, context: ProviderContext) -> None:
         """Handle agent start by initializing budget tracking."""
         # Create logs directory if it doesn't exist
         if self.config.save_budget:

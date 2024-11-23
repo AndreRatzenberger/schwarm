@@ -5,7 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from schwarm.events.event_data import EventType
 from schwarm.models.message import Message
 
 
@@ -18,7 +17,6 @@ class ProviderContext(BaseModel):
     ProviderContext has to be serializable to JSON
     """
 
-    Event: EventType = Field(default=EventType.HANDOFF, description="The current event type")
     max_turns: int = Field(default=10, description="Maximum number of turns in a conversation")
     current_turn: int = Field(default=0, description="Current turn in the conversation")
     model_override: str | None = Field(default=None, description="Model override for the current conversation")

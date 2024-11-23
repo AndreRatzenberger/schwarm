@@ -73,7 +73,7 @@ class DebugProvider(BaseEventHandleProvider):
         """Initialize the debug provider by ensuring the log directory exists."""
         self._ensure_log_directory()
 
-    def handle_event(self, event: Event[ProviderContext]) -> ProviderContext | None:
+    def handle_event(self, event: Event) -> ProviderContext | None:
         """Handle events by showing relevant information."""
         self.context = event.payload
         if event.type == EventType.START:
