@@ -117,11 +117,13 @@ class DebugProvider(BaseEventHandleProvider):
 
         # Show function call information
         for tool_call in latest_message.tool_calls:
+            function_name = tool_call.get("function", {}).get("name")
+            function_args = tool_call.get("function", {}).get("arguments")
             self._show_function(
                 context_variables=self.context.context_variables,
                 sender=self.context.current_agent.name,
-                function=tool_call.function.name,
-                parameters=tool_call.function.arguments,
+                function=function_name,
+                parameters=function_args,
             )
 
     def handle_post_tool_execution(self) -> None:
@@ -254,7 +256,7 @@ class DebugProvider(BaseEventHandleProvider):
         sender: str = "",
         receiver: str | None = None,
         function: str | None = "",
-        parameters: dict[str, Any] | None = None,
+        parameters: dict[str, Any] | Any | None = None,
         result: Result | None = None,
     ) -> None:
         """Show the function and parameters to the user."""

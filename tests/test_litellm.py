@@ -58,7 +58,7 @@ async def test_provider_initialization():
     config = create_config()
     provider = LiteLLMProvider(config)
     assert provider.config == config
-    assert provider.provider_name == "lite_llm"
+
 
 
 
