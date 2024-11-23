@@ -107,13 +107,6 @@ export const EventTable = () => {
             margin: '0 auto',
             padding: '20px'
         }}>
-            <h1 style={{
-                color: '#333',
-                marginBottom: '24px',
-                textAlign: 'center'
-            }}>
-                Schwarm Event Monitor
-            </h1>
             
             <div className="event-table-container">
                 <div className="status-bar" style={{ 

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import subprocess
+import threading
 from typing import Any
 
 import websockets
@@ -20,6 +21,14 @@ class WebDebugConfig(BaseEventHandleProviderConfig):
     websocket_target: str = Field(default="ws://localhost:8123", description="Websocket endpoint to send events to")
 
 
+def run_websocket_ui():
+    """Run the websocket UI server in a separate process."""
+    try:
+        subprocess.run(["npm", "run", "dev"], cwd="src/websocket_ui")
+    except Exception as e:
+        logger.error(f"Failed to start websocket UI server: {e}")
+
+
 class WebDebugProvider(BaseEventHandleProvider):
     """Websocket-based debug provider that sends system information to a websocket endpoint."""
 
@@ -28,18 +37,26 @@ class WebDebugProvider(BaseEventHandleProvider):
     _websocket: Any = None
     _connect_lock: asyncio.Lock
     _initialized: bool = False
+    _server_thread: threading.Thread | None = None
 
     def __init__(self, config: WebDebugConfig, **data: Any):
         """Initialize the websocket debug provider."""
-        subprocess.run(["npm", "run", "dev"], cwd="src/websocket_ui")
-
         self.config = config
         self._websocket = None
         self._connect_lock = asyncio.Lock()
         self._initialized = False
+
+        # Start the websocket UI server in a separate thread
+
+        self._server_thread = threading.Thread(target=run_websocket_ui, daemon=True)
+        self._server_thread.start()
+        logger.info("Started websocket UI server in background thread")
+        # Add a delay to ensure the server has time to start
+        asyncio.run(asyncio.sleep(5))
+        connection = self._ensure_connection()
         super().__init__(config, **data)
 
-    async def _ensure_connection(self) -> None:
+    async def _ensure_connection(self) -> bool:
         """Ensure websocket connection is established."""
         async with self._connect_lock:
             if self._websocket is None:
@@ -49,10 +66,12 @@ class WebDebugProvider(BaseEventHandleProvider):
                         ping_interval=None,  # Disable ping to avoid connection issues
                     )
                     logger.info(f"Connected to websocket at {self.config.websocket_target}")
+                    return True
                 except Exception as e:
                     logger.error(f"Failed to connect to websocket: {e}")
                     self._websocket = None
-                    raise
+                    return False
+            return False
 
     async def _send_event(self, event: Event) -> None:
         """Send event to websocket endpoint."""
@@ -83,7 +102,6 @@ class WebDebugProvider(BaseEventHandleProvider):
         """Handle events by sending them to the websocket endpoint."""
         self.event_log.append(event)
         await self._send_event(event)
-        input("wait....")
         return event.payload
 
     async def cleanup(self) -> None:

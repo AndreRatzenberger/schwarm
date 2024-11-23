@@ -29,28 +29,6 @@ async function startServer() {
             clients.delete(ws);
         });
     });
-
-    // Simulate events every 5 seconds
-    setInterval(() => {
-        const event: Event<unknown> = {
-            type: EventType.TOOL_EXECUTION,
-            payload: {
-                tool: "test_tool",
-                params: { test: "value" }
-            },
-            agent_id: "test-agent",
-            datetime: new Date().toISOString()
-        };
-
-        // Broadcast to all connected clients
-        clients.forEach(client => {
-            try {
-                (client as WebSocket).send(JSON.stringify(event));
-            } catch (error) {
-                console.error('Failed to send message:', error);
-            }
-        });
-    }, 5000);
 }
 
 startServer().catch(console.error);
