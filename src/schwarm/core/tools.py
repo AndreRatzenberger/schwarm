@@ -5,7 +5,7 @@ from typing import Any
 
 from litellm import ChatCompletionMessageToolCall
 
-from schwarm.models.types import Agent, AgentFunction, Message, Response, Result
+from schwarm.models.types import AgentFunction, Message, Response, Result
 
 # Constants
 CONTEXT_VARS_KEY = "context_variables"
@@ -34,6 +34,8 @@ class ToolHandler:
         Raises:
             TypeError: If the result cannot be properly processed
         """
+        from schwarm.models.agent import Agent
+
         match result:
             case Result() as result:
                 return result

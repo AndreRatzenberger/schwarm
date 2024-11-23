@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from loguru import logger
 
-from schwarm.core.logging import log_function_call
+from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events import EventType
 from schwarm.models.message import Message
@@ -33,7 +33,6 @@ class Schwarm:
         logger.remove()
         # Add a default handler that we can control
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
-        self._logging_enabled = True
         self._agents: list[Agent] = agent_list
         self._manager = ProviderManager()
         logger.info("Schwarm instance initialized")
@@ -122,52 +121,56 @@ class Schwarm:
         Returns:
             Response object containing messages, agent, and context variables.
         """
-        # Control logging output based on show_logs parameter
-        if not show_logs and self._logging_enabled:
-            logger.info("Disabling console logging")
-            logger.remove(self._default_handler)
-            self._logging_enabled = False
-        elif show_logs and not self._logging_enabled:
-            logger.info("Enabling console logging")
-            self._default_handler = logger.add(sys.stderr, level="DEBUG")
-            self._logging_enabled = True
+        setup_logging(is_logging_enabled=show_logs, log_level="trace")
+        # Context Store
+        self._provider_context = ProviderContext()
 
+        self._provider_context.max_turns = max_turns
+
+        # initialize the active agent and its providers
         active_agent = agent
-        context_variables = copy.deepcopy(context_variables)
-        history = copy.deepcopy(messages)
-        init_len = len(messages)
-
-        self._provider_context = ProviderContext(
-            message_history=history,
-            current_message=history[-1] if history else None,
-            current_agent=active_agent,
-            context_variables=context_variables,
-            available_agents=self._agents,
-            available_tools=agent.functions,
-            available_providers=self._manager.get_all_provider_cfgs_as_dict(),
-        )
+        self._provider_context.current_agent = active_agent
+        self._provider_context.available_agents.append(active_agent)
+        self._provider_context.available_tools = active_agent.functions
 
         for config in agent.provider_configurations:
             if config.enabled:
                 self._manager.create_provider_and_register(agent.name, config)
 
-        self._manager.trigger_event(EventType.START, self._provider_context)
+        self._provider_context.available_providers = self._manager.get_all_provider_cfgs_as_dict()
 
-        while len(history) - init_len < max_turns and active_agent:
-            current_turn = len(history) - init_len + 1
+        # Copy the context variables and history for the context store
+        self._provider_context.context_variables = copy.deepcopy(context_variables)
+        self._provider_context.message_history = copy.deepcopy(messages)
+        init_len = len(messages)
+
+        self._provider_context.trigger_event(EventType.INSTRUCT)
+
+        if callable(active_agent.instructions):
+            self._provider_context.instruction_func = active_agent.instructions
+            self._provider_context.instruction_str = active_agent.instructions(context_variables)
+        else:
+            self._provider_context.instruction_func = None
+            self._provider_context.instruction_str = active_agent.instructions
+
+        self._provider_context.trigger_event(EventType.POST_INSTRUCT)
+
+        while len(self._provider_context.message_history) - init_len < max_turns and active_agent:
+            current_turn = len(self._provider_context.message_history) - init_len + 1
             logger.info(f"Processing turn {current_turn}/{max_turns}")
 
+            self._manager.trigger_event(EventType.MESSAGE_COMPLETION, self._provider_context)
             completion = self._complete_agent_request(
                 agent=active_agent,
-                context_variables=context_variables,
-                history=history,
+                context_variables=self._provider_context.context_variables,
+                history=self._provider_context.message_history,
                 override_model=model_override,
             )
-
+            self._manager.trigger_event(EventType.POST_MESSAGE_COMPLETION, self._provider_context)
             completion.sender = active_agent.name
             logger.debug(f"Completion received from {completion.sender}")
 
-            history.append(completion)
+            self._provider_context.message_history.append(completion)
 
             if not completion.tool_calls or not execute_tools:
                 logger.info("No tools to execute or tool execution disabled")
@@ -181,14 +184,14 @@ class Schwarm:
                 context_variables=context_variables,
             )
 
-            history.extend(partial_response.messages)
-            context_variables.update(partial_response.context_variables)
+            self._provider_context.message_history.extend(partial_response.messages)
+            self._provider_context.context_variables.update(partial_response.context_variables)
 
             if partial_response.agent and partial_response.agent != active_agent:
                 logger.info(f"Agent handoff: {active_agent.name} -> {partial_response.agent.name}")
-                active_agent = partial_response.agent
+                self._provider_context.current_agent = partial_response.agent
 
-        logger.info(f"Agent run completed after {len(history) - init_len} turns")
+        logger.info(f"Agent run completed after {current_turn} turns")
 
         # Restore logging if it was disabled
         if not show_logs and not self._logging_enabled:
@@ -197,9 +200,9 @@ class Schwarm:
             logger.info("Console logging restored")
 
         return Response(
-            messages=history[init_len:],
-            agent=active_agent,
-            context_variables=context_variables,
+            messages=self._provider_context.message_history[init_len:],
+            agent=self._provider_context.current_agent,
+            context_variables=self._provider_context.context_variables,
         )
 
     @log_function_call(log_level="DEBUG")

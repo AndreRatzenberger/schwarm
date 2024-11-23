@@ -9,11 +9,10 @@ import shutil
 from rich.console import Console
 from rich.markdown import Markdown
 
-from schwarm.core.schwarm import Schwarm
-from schwarm.models.display_config import DisplayConfig
+from schwarm.core.schwarm2 import Schwarm2
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, ContextVariables, Result
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.provider_presets import DEFAULT
 from schwarm.utils.file import save_text_to_file
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -71,25 +70,25 @@ orchestrator_agent = Agent(
     name="orchestrator",
     instructions=orchestrator_instructions,
     parallel_tool_calls=False,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    provider_configurations=DEFAULT,
 )
 
 blog_writer = Agent(
     name="blog_writer",
     instructions=blog_writer_instructions,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    provider_configurations=DEFAULT,
 )
 
 seo_optimizer = Agent(
     name="seo_optimizer",
     instructions=seo_optimizer_instructions,
-    provider_config=LiteLLMConfig(enable_cache=True),
+    provider_configurations=DEFAULT,
 )
 
 user_agent = Agent(
     name="user_agent",
     instructions="Print the final blog post.",
-    provider_config=LiteLLMConfig(enable_cache=True),
+    provider_configurations=DEFAULT,
     tool_choice="none",  # forces to print the final blog post
 )
 
@@ -181,21 +180,13 @@ console.print(Markdown("# Blog Demo"))
 
 input = "I need a blog post about weekend activities during autumn."
 
-response = Schwarm().run(
+response = Schwarm2().run(
     orchestrator_agent,
     messages=[Message(role="user", content=input)],
     context_variables={},
     model_override="gpt-4o",
     max_turns=100,
     execute_tools=True,
-    display_config=DisplayConfig(
-        show_function_calls=True,
-        function_calls_wait_for_user_input=True,
-        show_instructions=True,
-        instructions_wait_for_user_input=True,
-        max_length=-1,
-    ),
-    show_logs=False,
 )
 
 console.print(Markdown("# Output"))

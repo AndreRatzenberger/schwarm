@@ -2,6 +2,7 @@
 
 from typing import Any, Literal
 
+from litellm import ChatCompletionMessageToolCall
 from pydantic import BaseModel, Field
 
 
@@ -19,7 +20,9 @@ class Message(BaseModel):
     content: str | None = Field(default="", description="Content of the message")
     sender: str | None = Field(default=None, description="Identifier of the message sender")
     name: str | None = Field(default=None, description="Name/identifier of the model or user")
-    tool_calls: list[Any] | None = Field(default_factory=list, description="List of tool calls")
+    tool_calls: list[ChatCompletionMessageToolCall] | None = Field(
+        default_factory=list, description="List of tool calls"
+    )
     tool_call_id: str | None = Field(default=None, description="Identifier of the tool call")
     info: "MessageInfo | None" = Field(default=None, description="Information about the message")
     additional_info: dict[str, Any] = Field(

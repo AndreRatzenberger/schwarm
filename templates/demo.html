@@ -124,7 +124,7 @@
     </div>
 
     <div class="preview-panel">
-        <iframe src="../static/index.html"></iframe>
+        <iframe src="http://localhost:5173/"></iframe>
     </div>
 
     <script>
@@ -132,10 +132,47 @@
             const status = document.getElementById('status');
             status.textContent = `Status: Triggering ${eventType}...`;
 
-            fetch(`/trigger/${eventType}`, { method: 'POST' })
+            // Create demo agent for context
+            const demoAgent = {
+                name: "Demo Agent",
+                model: "demo-model",
+                description: "Demo agent for testing",
+                id: "demo_agent"
+            };
+
+            // Create event data matching TypeScript interface
+            const eventData = {
+                type: eventType,
+                payload: {
+                    message_history: [],
+                    current_message: {
+                        role: "assistant",
+                        content: `Demo ${eventType} event`,
+                        sender: "demo_agent",
+                        additional_info: {}
+                    },
+                    current_agent: demoAgent,
+                    available_agents: [demoAgent],
+                    available_tools: {},
+                    available_providers: {},
+                    context_variables: {},
+                    instruction_str: null
+                },
+                agent_id: "demo_agent",
+                datetime: new Date().toISOString()
+            };
+
+            // Send directly to React app's API endpoint
+            fetch('http://localhost:5173/api/events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(eventData)
+            })
                 .then(response => response.json())
                 .then(data => {
-                    status.textContent = `Status: ${data.event} completed`;
+                    status.textContent = `Status: ${eventType} completed`;
                     setTimeout(() => {
                         status.textContent = 'Status: Ready';
                     }, 2000);

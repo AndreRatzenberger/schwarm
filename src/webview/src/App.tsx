@@ -2,7 +2,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { createTheme } from '@mui/material/styles';
 import { useEffect } from 'react';
 import Layout from './components/Layout.tsx';
-import { wsService } from './services/websocket.ts';
+import { useDebugStore } from './store/debugStore';
 
 // Create a dark theme by default
 const theme = createTheme({
@@ -22,20 +22,17 @@ const theme = createTheme({
 });
 
 function App() {
+  const setConnected = useDebugStore(state => state.setConnected);
+
   useEffect(() => {
-    // Connect to WebSocket when app starts
-    const wsUrl = import.meta.env.VITE_WS_URL;
-    if (!wsUrl) {
-      console.error('WebSocket URL not configured. Please set VITE_WS_URL in .env file.');
-      return;
-    }
-    wsService.connect(wsUrl);
+    // Mark as connected since we're using direct HTTP now
+    setConnected(true);
 
     // Cleanup on unmount
     return () => {
-      wsService.disconnect();
+      setConnected(false);
     };
-  }, []);
+  }, [setConnected]);
 
   return (
     <ThemeProvider theme={theme}>

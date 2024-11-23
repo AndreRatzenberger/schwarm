@@ -75,6 +75,7 @@ class DebugProvider(BaseEventHandleProvider):
 
     def handle_event(self, event: Event[ProviderContext]) -> ProviderContext | None:
         """Handle events by showing relevant information."""
+        self.context = event.payload
         if event.type == EventType.START:
             self.handle_start(event.payload)
         elif event.type == EventType.MESSAGE_COMPLETION:
@@ -208,7 +209,7 @@ class DebugProvider(BaseEventHandleProvider):
         log_content = f"Agent: {agent_name}\nInstructions:\n{instructions}\n{'=' * 50}\n"
         self._write_to_log("instructions.log", log_content)
 
-        if self.config.function_calls_wait_for_user_input:
+        if self.config.instructions_wait_for_user_input:
             if self.config.application_frame == "cli":
                 console.line()
                 console.input("Press Enter to continue...")

@@ -10,6 +10,15 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
+@dataclass
+class OnChangePayload(Generic[T]):
+    """Payload for on_change events."""
+
+    name: str
+    old_value: T
+    new_value: T
+
+
 class EventType(Enum):
     """Core system events."""
 
@@ -21,6 +30,7 @@ class EventType(Enum):
     POST_TOOL_EXECUTION = "on_post_tool_execution"
     INSTRUCT = "on_instruct"
     POST_INSTRUCT = "on_post_instruct"
+    NONE = "on_begin"
 
 
 @dataclass

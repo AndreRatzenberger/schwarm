@@ -12,8 +12,8 @@ from loguru import logger
 from schwarm.events import Event, EventType
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseProviderConfig
-from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
-from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
+from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.provider.base.base_provider import BaseProvider
 
 P = TypeVar("P", bound=BaseProvider)
@@ -73,10 +73,20 @@ class ProviderManager:
                         # Get all classes defined in the module
                         for name, obj in inspect.getmembers(module, inspect.isclass):
                             # Check if it's a provider class
-                            if issubclass(obj, BaseProvider) and obj != BaseProvider:
+                            if (
+                                issubclass(obj, BaseProvider)
+                                and obj != BaseProvider
+                                and obj != BaseLLMProvider
+                                and obj != BaseEventHandleProvider
+                            ):
                                 # Find corresponding config class
                                 for config_name, config_obj in inspect.getmembers(module, inspect.isclass):
-                                    if issubclass(config_obj, BaseProviderConfig) and config_obj != BaseProviderConfig:
+                                    if (
+                                        issubclass(config_obj, BaseProviderConfig)
+                                        and config_obj != BaseProviderConfig
+                                        and config_obj != BaseLLMProviderConfig
+                                        and config_obj != BaseEventHandleProviderConfig
+                                    ):
                                         # Register the provider and config pair
                                         self._config_to_provider_map[config_obj] = obj
                                         logger.debug(

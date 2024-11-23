@@ -9,7 +9,6 @@ from rich import inspect
 from rich.console import Console
 
 from schwarm.core.schwarm import Schwarm
-from schwarm.models.display_config import DisplayConfig
 from schwarm.models.message import Message
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -47,15 +46,6 @@ response = Schwarm().run(
     model_override="gpt-4o",
     max_turns=100,
     execute_tools=True,
-    display_config=DisplayConfig(
-        show_function_calls=True,
-        function_calls_wait_for_user_input=True,
-        function_calls_print_context_variables=True,
-        show_instructions=True,
-        instructions_wait_for_user_input=True,
-        show_budget=True,
-        show_budget_table=True,
-    ),
     show_logs=False,
 )
 # model_override="ollama_chat/qwen2.5:7b-instruct-q8_0",
