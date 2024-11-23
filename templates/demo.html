@@ -1,11 +1,11 @@
-
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Web Debug UI Demo Controls</title>
     <style>
-        body { 
-            font-family: Arial; 
+        body {
+            font-family: Arial;
             margin: 0;
             padding: 0;
             display: flex;
@@ -13,7 +13,8 @@
             height: 100vh;
             box-sizing: border-box;
         }
-        .control-panel { 
+
+        .control-panel {
             background: #1e1e1e;
             padding: 15px;
             border-bottom: 1px solid #333;
@@ -25,12 +26,14 @@
             height: auto;
             overflow-x: auto;
         }
+
         .preview-panel {
             flex: 1;
             border: none;
             overflow: hidden;
             background: #1e1e1e;
         }
+
         .button {
             display: inline-flex;
             align-items: center;
@@ -45,32 +48,38 @@
             transition: background 0.2s;
             white-space: nowrap;
         }
-        .button:hover { 
-            background: #404040; 
+
+        .button:hover {
+            background: #404040;
         }
-        .scenario { 
+
+        .scenario {
             display: flex;
             gap: 5px;
             align-items: center;
             padding: 0 10px;
             border-right: 1px solid #404040;
         }
+
         .scenario:last-child {
             border-right: none;
         }
+
         .scenario h3 {
             font-size: 13px;
             margin: 0;
             color: #888;
             white-space: nowrap;
         }
-        .status { 
+
+        .status {
             margin-left: auto;
             padding: 5px 10px;
             background: #2d2d2d;
             border-radius: 4px;
             font-size: 13px;
         }
+
         iframe {
             width: 100%;
             height: 100%;
@@ -78,31 +87,32 @@
         }
     </style>
 </head>
+
 <body>
     <div class="control-panel">
         <div class="scenario">
             <h3>Agent Interaction</h3>
-            <button class="button" onclick="triggerEvent('start_agent')">▶️ Start Agent</button>
-            <button class="button" onclick="triggerEvent('send_message')">💬 Send Message</button>
-            <button class="button" onclick="triggerEvent('tool_call')">🔧 Execute Tool</button>
+            <button class="button" onclick="triggerEvent('on_start')">▶️ Start Agent</button>
+            <button class="button" onclick="triggerEvent('on_message_completion')">💬 Send Message</button>
+            <button class="button" onclick="triggerEvent('on_tool_execution')">🔧 Execute Tool</button>
         </div>
 
         <div class="scenario">
             <h3>Multi-Agent</h3>
-            <button class="button" onclick="triggerEvent('add_agent')">➕ Add Agent</button>
-            <button class="button" onclick="triggerEvent('agent_handoff')">🔄 Agent Handoff</button>
+            <button class="button" onclick="triggerEvent('on_start')">➕ Add Agent</button>
+            <button class="button" onclick="triggerEvent('on_handoff')">🔄 Agent Handoff</button>
         </div>
 
         <div class="scenario">
             <h3>Resources</h3>
-            <button class="button" onclick="triggerEvent('update_budget')">💰 Update Budget</button>
-            <button class="button" onclick="triggerEvent('token_spike')">📈 Token Spike</button>
+            <button class="button" onclick="triggerEvent('on_tool_execution')">💰 Update Budget</button>
+            <button class="button" onclick="triggerEvent('on_tool_execution')">📈 Token Spike</button>
         </div>
 
         <div class="scenario">
             <h3>Errors</h3>
-            <button class="button" onclick="triggerEvent('tool_error')">⚠️ Tool Error</button>
-            <button class="button" onclick="triggerEvent('agent_error')">❌ Agent Error</button>
+            <button class="button" onclick="triggerEvent('on_tool_execution')">⚠️ Tool Error</button>
+            <button class="button" onclick="triggerEvent('on_message_completion')">❌ Agent Error</button>
         </div>
 
         <div class="scenario">
@@ -121,8 +131,8 @@
         function triggerEvent(eventType) {
             const status = document.getElementById('status');
             status.textContent = `Status: Triggering ${eventType}...`;
-            
-            fetch(`/trigger/${eventType}`, {method: 'POST'})
+
+            fetch(`/trigger/${eventType}`, { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     status.textContent = `Status: ${data.event} completed`;
@@ -139,4 +149,5 @@
         }
     </script>
 </body>
+
 </html>

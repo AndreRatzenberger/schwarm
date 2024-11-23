@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Agent, Message, BudgetData, Event } from '../types/events';
+import { Agent, Message, Event } from '../types/events';
 
 interface DebugStore {
     // Connection Status
@@ -21,9 +21,7 @@ interface DebugStore {
     addEvent: (event: Event) => void;
     clearEvents: () => void;
 
-    // Budget
-    budget: BudgetData | null;
-    updateBudget: (budget: BudgetData) => void;
+
 
     // Connections
     connections: Array<{ from: string; to: string }>;
@@ -56,9 +54,7 @@ export const useDebugStore = create<DebugStore>((set) => ({
         set((state) => ({ eventHistory: [...state.eventHistory, event] })),
     clearEvents: () => set({ eventHistory: [] }),
 
-    // Budget
-    budget: null,
-    updateBudget: (budget) => set({ budget }),
+
 
     // Connections
     connections: [],

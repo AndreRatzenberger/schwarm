@@ -3,7 +3,7 @@ import { useState, SyntheticEvent } from 'react';
 import Header from './Header';
 import AgentGraph from './AgentGraph';
 import EventTable from './EventTable';
-import BudgetPanel from './BudgetPanel';
+
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -83,9 +83,6 @@ export default function Layout() {
           <AgentGraph />
         </TabPanel>
 
-        <TabPanel value={currentTab} index={2}>
-          <BudgetPanel />
-        </TabPanel>
       </Container>
     </Box>
   );

@@ -101,155 +101,6 @@ def send_event(event: Event[ProviderContext]) -> None:
     # Send event through debug provider
     debug_provider.handle_event(event)
 
-# Demo control panel HTML
-DEMO_CONTROLS = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Web Debug UI Demo Controls</title>
-    <style>
-        body { 
-            font-family: Arial; 
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        .control-panel { 
-            background: #1e1e1e;
-            padding: 15px;
-            border-bottom: 1px solid #333;
-            color: white;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            height: auto;
-            overflow-x: auto;
-        }
-        .preview-panel {
-            flex: 1;
-            border: none;
-            overflow: hidden;
-            background: #1e1e1e;
-        }
-        .button {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 8px 12px;
-            background: #2d2d2d;
-            color: white;
-            border: 1px solid #404040;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background 0.2s;
-            white-space: nowrap;
-        }
-        .button:hover { 
-            background: #404040; 
-        }
-        .scenario { 
-            display: flex;
-            gap: 5px;
-            align-items: center;
-            padding: 0 10px;
-            border-right: 1px solid #404040;
-        }
-        .scenario:last-child {
-            border-right: none;
-        }
-        .scenario h3 {
-            font-size: 13px;
-            margin: 0;
-            color: #888;
-            white-space: nowrap;
-        }
-        .status { 
-            margin-left: auto;
-            padding: 5px 10px;
-            background: #2d2d2d;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="control-panel">
-        <div class="scenario">
-            <h3>Agent Interaction</h3>
-            <button class="button" onclick="triggerEvent('start_agent')">▶️ Start Agent</button>
-            <button class="button" onclick="triggerEvent('send_message')">💬 Send Message</button>
-            <button class="button" onclick="triggerEvent('tool_call')">🔧 Execute Tool</button>
-        </div>
-
-        <div class="scenario">
-            <h3>Multi-Agent</h3>
-            <button class="button" onclick="triggerEvent('add_agent')">➕ Add Agent</button>
-            <button class="button" onclick="triggerEvent('agent_handoff')">🔄 Agent Handoff</button>
-        </div>
-
-        <div class="scenario">
-            <h3>Resources</h3>
-            <button class="button" onclick="triggerEvent('update_budget')">💰 Update Budget</button>
-            <button class="button" onclick="triggerEvent('token_spike')">📈 Token Spike</button>
-        </div>
-
-        <div class="scenario">
-            <h3>Errors</h3>
-            <button class="button" onclick="triggerEvent('tool_error')">⚠️ Tool Error</button>
-            <button class="button" onclick="triggerEvent('agent_error')">❌ Agent Error</button>
-        </div>
-
-        <div class="scenario">
-            <h3>Reset</h3>
-            <button class="button" onclick="triggerEvent('reset')" style="background: #442222;">🔄 Reset Demo</button>
-        </div>
-
-        <div class="status" id="status">Status: Ready</div>
-    </div>
-
-    <div class="preview-panel">
-        <iframe src="http://localhost:5173"></iframe>
-    </div>
-
-    <script>
-        function triggerEvent(eventType) {
-            const status = document.getElementById('status');
-            status.textContent = `Status: Triggering ${eventType}...`;
-            
-            fetch(`/trigger/${eventType}`, {method: 'POST'})
-                .then(response => response.json())
-                .then(data => {
-                    status.textContent = `Status: ${data.event} completed`;
-                    setTimeout(() => {
-                        status.textContent = 'Status: Ready';
-                    }, 2000);
-                })
-                .catch(error => {
-                    status.textContent = `Status: Error - ${error.message}`;
-                    setTimeout(() => {
-                        status.textContent = 'Status: Ready';
-                    }, 2000);
-                });
-        }
-    </script>
-</body>
-</html>
-"""
-
-# Save demo controls to templates
-with open(TEMPLATES_DIR / "demo.html", "w") as f:
-    f.write(DEMO_CONTROLS)
-
 @app.get("/demo", response_class=HTMLResponse)
 async def demo_controls():
     """Show demo controls panel."""
@@ -258,24 +109,14 @@ async def demo_controls():
 @app.post("/trigger/{event_type}")
 async def trigger_event(event_type: str):
     """Trigger a specific demo event."""
-    if event_type == "start_agent":
+    if event_type == "on_start":
         await simulate_agent_start()
-    elif event_type == "send_message":
+    elif event_type == "on_message_completion":
         await simulate_message()
-    elif event_type == "tool_call":
+    elif event_type == "on_tool_execution":
         await simulate_tool_call()
-    elif event_type == "add_agent":
-        await simulate_new_agent()
-    elif event_type == "agent_handoff":
+    elif event_type == "on_handoff":
         await simulate_handoff()
-    elif event_type == "update_budget":
-        await simulate_budget_update()
-    elif event_type == "token_spike":
-        await simulate_token_spike()
-    elif event_type == "tool_error":
-        await simulate_tool_error()
-    elif event_type == "agent_error":
-        await simulate_agent_error()
     elif event_type == "reset":
         await reset_demo()
     
@@ -283,11 +124,20 @@ async def trigger_event(event_type: str):
 
 async def simulate_agent_start():
     """Simulate starting a new agent."""
+    agent_types = [
+        ("DemoAgent", "gpt-4", "Demo agent for UI testing"),
+        ("ResearchAgent", "gpt-4", "Specialized in research tasks"),
+        ("AnalysisAgent", "gpt-3.5-turbo", "Specialized in data analysis"),
+        ("WritingAgent", "gpt-4", "Specialized in content creation"),
+        ("CodingAgent", "gpt-4", "Specialized in code generation")
+    ]
+    
+    agent_type = agent_types[int(time.time()) % len(agent_types)]
     agent = Agent(
-        name="DemoAgent",
-        model="gpt-4",
-        description="Demo agent for UI testing",
-        instructions="This is a demo agent for testing the web debug interface."
+        name=agent_type[0],
+        model=agent_type[1],
+        description=agent_type[2],
+        instructions=f"This is a {agent_type[0]} for testing the web debug interface."
     )
     
     context = ProviderContext(
@@ -377,42 +227,10 @@ async def simulate_tool_call():
         
         send_event(event)
 
-async def simulate_new_agent():
-    """Simulate adding a new agent."""
-    agent_types = [
-        ("ResearchAgent", "gpt-4", "Specialized in research tasks"),
-        ("AnalysisAgent", "gpt-3.5-turbo", "Specialized in data analysis"),
-        ("WritingAgent", "gpt-4", "Specialized in content creation"),
-        ("CodingAgent", "gpt-4", "Specialized in code generation")
-    ]
-    
-    agent_type = agent_types[int(time.time()) % len(agent_types)]
-    agent = Agent(
-        name=agent_type[0],
-        model=agent_type[1],
-        description=agent_type[2],
-        instructions=f"This is a {agent_type[0]} for testing multi-agent scenarios."
-    )
-    
-    context = ProviderContext(
-        current_agent=agent,
-        message_history=[],
-        context_variables={}
-    )
-    
-    event = Event(
-        type=EventType.START,
-        payload=context,
-        agent_id=agent.name,
-        datetime=datetime.now().isoformat()
-    )
-    
-    send_event(event)
-
 async def simulate_handoff():
     """Simulate agent handoff."""
     if not debug_provider.context or len(debug_provider._event_history) < 2:
-        await simulate_new_agent()
+        await simulate_agent_start()
         await asyncio.sleep(1)
     
     context = debug_provider.context
@@ -438,103 +256,6 @@ async def simulate_handoff():
             type=EventType.HANDOFF,
             payload=context,
             agent_id=new_agent.name,
-            datetime=datetime.now().isoformat()
-        )
-        
-        send_event(event)
-
-async def simulate_budget_update():
-    """Simulate budget changes."""
-    if not debug_provider.context or not debug_provider.context.current_agent:
-        await simulate_agent_start()
-        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
-    
-    if debug_provider.context:
-        budget_data = {
-            "max_spent": 10.0,
-            "max_tokens": 1000,
-            "current_spent": time.time() % 10.0,
-            "current_tokens": int(time.time() * 10) % 1000
-        }
-        
-        debug_provider._run_coroutine(
-            debug_provider._broadcast_event("budget_update", budget_data)
-        )
-
-async def simulate_token_spike():
-    """Simulate sudden increase in token usage."""
-    if not debug_provider.context or not debug_provider.context.current_agent:
-        await simulate_agent_start()
-        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
-    
-    if debug_provider.context:
-        # Simulate rapid token usage increase
-        for _ in range(5):
-            budget_data = {
-                "max_spent": 10.0,
-                "max_tokens": 1000,
-                "current_spent": 5.0 + (time.time() % 5.0),
-                "current_tokens": 700 + (int(time.time() * 10) % 300)
-            }
-            
-            debug_provider._run_coroutine(
-                debug_provider._broadcast_event("budget_update", budget_data)
-            )
-            await asyncio.sleep(0.5)
-
-async def simulate_tool_error():
-    """Simulate tool execution error."""
-    if not debug_provider.context or not debug_provider.context.current_agent:
-        await simulate_agent_start()
-        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
-    
-    context = debug_provider.context
-    if context and context.current_agent:
-        error_message = Message(
-            role="tool",
-            content="Error executing tool",
-            additional_info={
-                "error": "Tool execution failed",
-                "details": "Connection timeout",
-                "timestamp": datetime.now().isoformat()
-            }
-        )
-        
-        context.message_history.append(error_message)
-        
-        event = Event(
-            type=EventType.TOOL_EXECUTION,
-            payload=context,
-            agent_id=context.current_agent.name,
-            datetime=datetime.now().isoformat()
-        )
-        
-        send_event(event)
-
-async def simulate_agent_error():
-    """Simulate agent error."""
-    if not debug_provider.context or not debug_provider.context.current_agent:
-        await simulate_agent_start()
-        await asyncio.sleep(0.5)  # Give time for the agent to be initialized
-    
-    context = debug_provider.context
-    if context and context.current_agent:
-        error_message = Message(
-            role="assistant",
-            content="Error in agent execution",
-            additional_info={
-                "error": "Agent execution failed",
-                "details": "Model API error",
-                "timestamp": datetime.now().isoformat()
-            }
-        )
-        
-        context.message_history.append(error_message)
-        
-        event = Event(
-            type=EventType.MESSAGE_COMPLETION,
-            payload=context,
-            agent_id=context.current_agent.name,
             datetime=datetime.now().isoformat()
         )
         

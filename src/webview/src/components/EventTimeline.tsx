@@ -13,21 +13,24 @@ import {
   Code as CodeIcon,
   Person as PersonIcon,
   SwapHoriz as SwapIcon,
+  Info as InfoIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useDebugStore } from '../store/debugStore';
-import { Event, EventType, EventPayload } from '../types/events';
+import { Event, EventType, ProviderContext } from '../types/events';
 
 const getEventIcon = (type: EventType) => {
   switch (type) {
-    case 'agent_start':
+    case 'on_start':
       return <PersonIcon />;
-    case 'message_completion':
+    case 'on_post_message_completion':
       return <MessageIcon />;
-    case 'tool_execution':
+    case 'on_tool_execution':
       return <CodeIcon />;
-    case 'handoff':
+    case 'on_handoff':
       return <SwapIcon />;
+    case 'on_instruct':
+        return <InfoIcon />;
     default:
       return <ErrorIcon />;
   }
@@ -35,39 +38,35 @@ const getEventIcon = (type: EventType) => {
 
 const getEventColor = (type: EventType) => {
   switch (type) {
-    case 'agent_start':
+    case 'on_start':
       return 'primary.main';
-    case 'message_completion':
+    case 'on_post_message_completion':
       return 'success.main';
-    case 'tool_execution':
+    case 'on_tool_execution':
       return 'info.main';
-    case 'handoff':
+    case 'on_handoff':
       return 'warning.main';
+    case 'on_instruct':
+      return 'info.main';
     default:
       return 'error.main';
   }
 };
 
 const formatEventContent = (event: Event) => {
-  const data = event.data as any; // Temporary type assertion for development
+  const data = event.payload as ProviderContext; // Temporary type assertion for development
   
   switch (event.type) {
-    case 'agent_start':
-      return `Agent ${data.agent?.name || 'Unknown'} started`;
-    case 'message_completion':
-      return `Message from ${data.agent || 'Unknown'}`;
-    case 'tool_execution': {
+    case 'on_start':
+      return `Agent ${data.current_agent?.name || 'Unknown'} started`;
+    case 'on_post_message_completion':
+      return `Message from ${data.current_agent || 'Unknown'}`;
+    case 'on_tool_execution': {
       const tools = Array.isArray(data) ? data : [];
       return `Tool executed: ${tools[0]?.name || 'Unknown tool'}`;
     }
-    case 'handoff':
-      return `Handoff from ${data.from || 'Unknown'} to ${data.to || 'Unknown'}`;
-    case 'tool_result':
-      return `Tool result received`;
-    case 'budget_update':
-      return `Budget: ${data.current_spent?.toFixed(2) || 0}/${data.max_spent?.toFixed(2) || 0}`;
-    case 'reset':
-      return 'System reset';
+    case 'on_handoff':
+      return `Handoff from ${data.current_agent || 'Unknown'} to ${data.current_agent || 'Unknown'}`;
     default:
       return 'Unknown event';
   }
@@ -78,7 +77,7 @@ export default function EventTimeline() {
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
     );
   }, [events]);
 
@@ -90,7 +89,7 @@ export default function EventTimeline() {
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         <Timeline>
           {sortedEvents.map((event, index) => (
-            <TimelineItem key={`${event.timestamp}-${index}`}>
+            <TimelineItem key={`${event.datetime}-${index}`}>
               <TimelineSeparator>
                 <TimelineDot sx={{ bgcolor: getEventColor(event.type) }}>
                   {getEventIcon(event.type)}
@@ -102,7 +101,7 @@ export default function EventTimeline() {
                   {formatEventContent(event)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {new Date(event.timestamp).toLocaleTimeString()}
+                  {new Date(event.datetime).toLocaleTimeString()}
                 </Typography>
               </TimelineContent>
             </TimelineItem>

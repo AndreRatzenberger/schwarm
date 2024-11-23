@@ -29,8 +29,8 @@ export interface ProviderContext {
     current_message: Message | null;
     current_agent: Agent | null;
     available_agents: Agent[];
-    available_tools: any[];  // TODO: Define tool type if needed
-    available_providers: Record<string, any>;  // TODO: Define provider type if needed
+    available_tools: Record<string, string>;  // TODO: Define tool type if needed
+    available_providers: Record<string, string>;  // TODO: Define provider type if needed
     context_variables: Record<string, unknown>;
     instruction_str: string | null;
 }
@@ -50,11 +50,4 @@ export interface Event {
     payload: ProviderContext;
     agent_id: string;
     datetime: string;
-}
-
-export interface BudgetData {
-    max_spent: number;
-    max_tokens: number;
-    current_spent: number;
-    current_tokens: number;
 }
