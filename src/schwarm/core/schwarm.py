@@ -144,7 +144,7 @@ class Schwarm:
         self._provider_context.message_history = copy.deepcopy(messages)
         init_len = len(messages)
 
-        self._provider_context.trigger_event(EventType.INSTRUCT)
+        self._manager.trigger_event(EventType.INSTRUCT, self._provider_context)
 
         if callable(active_agent.instructions):
             self._provider_context.instruction_func = active_agent.instructions
@@ -153,7 +153,7 @@ class Schwarm:
             self._provider_context.instruction_func = None
             self._provider_context.instruction_str = active_agent.instructions
 
-        self._provider_context.trigger_event(EventType.POST_INSTRUCT)
+        self._manager.trigger_event(EventType.POST_INSTRUCT, self._provider_context)
 
         while len(self._provider_context.message_history) - init_len < max_turns and active_agent:
             current_turn = len(self._provider_context.message_history) - init_len + 1

@@ -14,6 +14,7 @@ dependencies = [
     "orjson>=3.10.11",
     "poethepoet>=0.29.0",
     "pydantic>=2.9.2",
+    "pymongo>=4.10.1",
     "python-decouple>=3.8",
     "python-dotenv>=1.0.1",
     "rich>=13.9.4",

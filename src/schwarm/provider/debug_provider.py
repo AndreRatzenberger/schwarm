@@ -253,7 +253,7 @@ class DebugProvider(BaseEventHandleProvider):
         context_variables: dict[str, Any],
         sender: str = "",
         receiver: str | None = None,
-        function: str = "",
+        function: str | None = "",
         parameters: dict[str, Any] | None = None,
         result: Result | None = None,
     ) -> None:

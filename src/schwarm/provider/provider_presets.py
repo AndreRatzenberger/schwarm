@@ -3,9 +3,9 @@
 from schwarm.provider.budget_provider import BudgetConfig
 from schwarm.provider.debug_provider import DebugConfig
 from schwarm.provider.litellm_provider import LiteLLMConfig
-from schwarm.provider.web_debug_provider import WebDebugConfig
+from schwarm.provider.mongo_db_provider import MongoDBConfig
 
-DEFAULT = [LiteLLMConfig(enable_cache=True, enable_debug=True), DebugConfig(), BudgetConfig(), WebDebugConfig()]
+DEFAULT = [LiteLLMConfig(enable_cache=True, enable_debug=True), DebugConfig(), BudgetConfig(), MongoDBConfig()]
 
 DEFAULT_JUPYTER = [
     LiteLLMConfig(enable_cache=True, enable_debug=True),
