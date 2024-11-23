@@ -1,6 +1,7 @@
 """Websocket-based debug provider for sending system information to a websocket endpoint."""
 
 import asyncio
+import json
 import subprocess
 import threading
 from typing import Any
@@ -28,6 +29,35 @@ def run_websocket_ui():
         logger.error(f"Failed to start websocket UI server: {e}")
 
 
+def make_serializable(obj: Any) -> Any:
+    """Recursively convert an object into a serializable format."""
+    if isinstance(obj, dict):
+        return {key: make_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [make_serializable(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(make_serializable(item) for item in obj)
+    elif isinstance(obj, set):
+        return [make_serializable(item) for item in obj]
+    elif hasattr(obj, "model_dump"):
+        # For Pydantic models
+        return make_serializable(obj.model_dump())
+    elif callable(obj):
+        # Handle callable objects (functions, methods)
+        return f"<function {obj.__name__}>" if hasattr(obj, "__name__") else str(obj)
+    elif hasattr(obj, "__dict__"):
+        # For objects with __dict__, convert their attributes
+        return {"__type__": obj.__class__.__name__, "attributes": make_serializable(obj.__dict__)}
+
+    # Try json serialization as a test
+    try:
+        json.dumps(obj)
+        return obj
+    except (TypeError, OverflowError, ValueError):
+        # If the object can't be serialized, convert it to string
+        return str(obj)
+
+
 class WebDebugProvider(BaseEventHandleProvider):
     """Websocket-based debug provider that sends system information to a websocket endpoint."""
 
@@ -47,7 +77,6 @@ class WebDebugProvider(BaseEventHandleProvider):
         self._connected = False
 
         # Start the websocket UI server in a separate thread
-
         self._server_thread = threading.Thread(target=run_websocket_ui, daemon=True)
         self._server_thread.start()
         logger.info("Started websocket UI server in background thread")
@@ -80,17 +109,22 @@ class WebDebugProvider(BaseEventHandleProvider):
         try:
             while not self._connected:
                 asyncio.run(self._ensure_connection())
-                if self._websocket:
-                    event_data = {
-                        "type": event.type.value,
-                        "payload": event.payload,
-                        "agent_id": event.agent_id,
-                        "datetime": event.datetime,
-                    }
-                    test = self._websocket.send(event.model_dump_json())
-                    logger.debug(f"Sent event to websocket: {event.type}")
-                else:
-                    logger.warning("Websocket connection not available")
+
+            if self._websocket:
+                # Convert the event to a serializable format
+                event_data = {
+                    "type": event.type.value,
+                    "payload": make_serializable(event.payload),
+                    "agent_id": event.agent_id,
+                    "datetime": event.datetime,
+                }
+
+                # At this point, event_data should be guaranteed to be serializable
+                event_json = json.dumps(event_data)
+                test = self._websocket.send(event_json)
+                logger.debug(f"Sent event to websocket: {event.type}")
+            else:
+                logger.warning("Websocket connection not available")
         except Exception as e:
             logger.error(f"Failed to send event to websocket: {e}")
             self._websocket = None

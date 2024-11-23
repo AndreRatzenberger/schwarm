@@ -8,6 +8,7 @@ import pytest
 from websockets.exceptions import WebSocketException
 
 from schwarm.events.event_data import Event, EventType
+from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.web_debug_provider import WebDebugConfig, WebDebugProvider
 from tests.test_websocket_server import TestWebSocketServer
 
@@ -22,6 +23,14 @@ def config():
 def provider(config):
     """Create a test provider."""
     return WebDebugProvider(config=config)
+
+
+@pytest.fixture
+def test_context():
+    """Create a test provider context."""
+    return ProviderContext(
+        context_variables={"message": "test"}
+    )
 
 
 @pytest.fixture
@@ -60,7 +69,7 @@ async def test_websocket_connection_failure(provider):
 
 
 @pytest.mark.asyncio
-async def test_send_event(provider):
+async def test_send_event(provider, test_context):
     """Test sending event to websocket."""
     mock_websocket = AsyncMock()
     mock_websocket.open = True
@@ -68,7 +77,7 @@ async def test_send_event(provider):
 
     event = Event(
         type=EventType.START,
-        payload={"message": "test"},
+        payload=test_context,
         agent_id="test_agent",
         datetime="2024-01-01T00:00:00"
     )
@@ -77,7 +86,7 @@ async def test_send_event(provider):
 
     expected_data = {
         "type": event.type.value,
-        "payload": event.payload,
+        "payload": test_context.model_dump(),
         "agent_id": event.agent_id,
         "datetime": event.datetime,
     }
@@ -85,12 +94,12 @@ async def test_send_event(provider):
 
 
 @pytest.mark.asyncio
-async def test_handle_event(provider):
+async def test_handle_event(provider, test_context):
     """Test handling event."""
     provider._send_event = AsyncMock()
     event = Event(
         type=EventType.START,
-        payload={"message": "test"},
+        payload=test_context,
         agent_id="test_agent",
         datetime="2024-01-01T00:00:00"
     )
@@ -123,11 +132,11 @@ def test_initialize(provider):
 # Integration Tests with Real WebSocket Server
 
 @pytest.mark.asyncio
-async def test_integration_send_event(websocket_server, provider):
+async def test_integration_send_event(websocket_server, provider, test_context):
     """Test sending event to real websocket server."""
     event = Event(
         type=EventType.START,
-        payload={"message": "integration test"},
+        payload=test_context,
         agent_id="test_agent",
         datetime="2024-01-01T00:00:00"
     )
@@ -139,18 +148,18 @@ async def test_integration_send_event(websocket_server, provider):
     messages = websocket_server.get_received_messages()
     assert len(messages) == 1
     assert messages[0]["type"] == event.type.value
-    assert messages[0]["payload"] == event.payload
+    assert messages[0]["payload"] == test_context.model_dump()
     assert messages[0]["agent_id"] == event.agent_id
     assert messages[0]["datetime"] == event.datetime
 
 
 @pytest.mark.asyncio
-async def test_integration_multiple_events(websocket_server, provider):
+async def test_integration_multiple_events(websocket_server, provider, test_context):
     """Test sending multiple events to real websocket server."""
     events = [
         Event(
             type=EventType.START,
-            payload={"message": f"test {i}"},
+            payload=test_context,
             agent_id="test_agent",
             datetime=f"2024-01-01T00:00:0{i}"
         )
@@ -168,6 +177,6 @@ async def test_integration_multiple_events(websocket_server, provider):
     
     for event, message in zip(events, messages):
         assert message["type"] == event.type.value
-        assert message["payload"] == event.payload
+        assert message["payload"] == test_context.model_dump()
         assert message["agent_id"] == event.agent_id
         assert message["datetime"] == event.datetime

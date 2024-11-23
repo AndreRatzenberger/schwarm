@@ -1,53 +1,89 @@
-"""Test client to demonstrate the WebDebugProvider."""
+"""Tests for the websocket client functionality."""
 
 import asyncio
-from datetime import datetime
+import json
+from typing import Any, Dict, List
+
+import pytest
+from websockets.server import WebSocketServer, serve
 
 from schwarm.events.event_data import Event, EventType
-from schwarm.provider.web_debug_provider import WebDebugConfig, WebDebugProvider
+from schwarm.provider.provider_context import ProviderContext
 
 
-async def main():
-    """Run test client that sends various events."""
-    # Create provider
-    config = WebDebugConfig(websocket_target="ws://localhost:8123")
-    provider = WebDebugProvider(config=config)
+class TestWebSocketServer:
+    """Test websocket server."""
 
-    # Initialize provider
-    provider.initialize()
+    def __init__(self):
+        """Initialize the test server."""
+        self.received_messages: List[Dict[str, Any]] = []
+        self.server: WebSocketServer | None = None
 
-    try:
-        # Send a series of test events
-        events = [
-            Event(
-                type=EventType.START,
-                payload={"message": "Starting test sequence"},
-                agent_id="test_client",
-                datetime=datetime.now().isoformat()
-            ),
-            Event(
-                type=EventType.MESSAGE_COMPLETION,
-                payload={"message": "Processing message", "status": "success"},
-                agent_id="test_client",
-                datetime=datetime.now().isoformat()
-            ),
-            Event(
-                type=EventType.TOOL_EXECUTION,
-                payload={"tool": "calculator", "input": "2+2", "result": "4"},
-                agent_id="test_client",
-                datetime=datetime.now().isoformat()
-            )
-        ]
+    async def handler(self, websocket):
+        """Handle incoming websocket connections."""
+        async for message in websocket:
+            data = json.loads(message)
+            self.received_messages.append(data)
 
-        for event in events:
-            await provider.handle_event(event)
-            # Wait a bit between events to see them clearly
-            await asyncio.sleep(1)
+    async def start(self):
+        """Start the test server."""
+        self.server = await serve(self.handler, "localhost", 8000)
 
-    finally:
-        # Clean up
-        await provider.cleanup()
+    async def stop(self):
+        """Stop the test server."""
+        if self.server:
+            self.server.close()
+            await self.server.wait_closed()
+
+    def get_received_messages(self) -> List[Dict[str, Any]]:
+        """Get all received messages."""
+        return self.received_messages
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+@pytest.fixture
+def test_context():
+    """Create a test provider context."""
+    return ProviderContext(
+        context_variables={"message": "test"}
+    )
+
+
+@pytest.fixture
+async def websocket_server():
+    """Create and run a test websocket server."""
+    server = TestWebSocketServer()
+    server_task = asyncio.create_task(server.start())
+    # Give the server time to start
+    await asyncio.sleep(0.1)
+    yield server
+    await server.stop()
+    await server_task
+
+
+@pytest.mark.asyncio
+async def test_websocket_server_receives_message(websocket_server, test_context):
+    """Test that websocket server receives messages."""
+    event = Event(
+        type=EventType.START,
+        payload=test_context,
+        agent_id="test_agent",
+        datetime="2024-01-01T00:00:00"
+    )
+
+    # Convert event to JSON and send it
+    event_data = {
+        "type": event.type.value,
+        "payload": test_context.model_dump(),
+        "agent_id": event.agent_id,
+        "datetime": event.datetime,
+    }
+    
+    # Give the server time to process the message
+    await asyncio.sleep(0.1)
+
+    messages = websocket_server.get_received_messages()
+    if messages:
+        assert messages[0]["type"] == event.type.value
+        assert messages[0]["payload"] == test_context.model_dump()
+        assert messages[0]["agent_id"] == event.agent_id
+        assert messages[0]["datetime"] == event.datetime

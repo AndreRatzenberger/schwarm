@@ -63,7 +63,7 @@ const StatusIndicator = ({ status }: { status: string }) => {
 
 export const EventTable = () => {
     const [events, setEvents] = useState<Event<unknown>[]>([]);
-    const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+    const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -79,6 +79,12 @@ export const EventTable = () => {
             setWsStatus('disconnected');
             setError('Connection closed. Waiting for reconnection...');
             console.log('Disconnected from WebSocket');
+
+            // Try to reconnect after 5 seconds
+            setTimeout(() => {
+                setWsStatus('connecting');
+                setError(null);
+            }, 5000);
         };
 
         ws.onerror = (event) => {
@@ -90,6 +96,7 @@ export const EventTable = () => {
             try {
                 const data = JSON.parse(event.data) as Event<unknown>;
                 setEvents(prev => [data, ...prev]);
+                console.log('Received event:', data);
             } catch (err) {
                 console.error('Error parsing message:', err);
                 setError('Error parsing incoming message');
