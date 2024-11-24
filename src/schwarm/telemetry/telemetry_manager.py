@@ -5,7 +5,9 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from schwarm.configs.telemetry_config import TelemetryConfig
+from schwarm.models.event import Event
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
+from schwarm.utils.handling import flatten_attributes, make_serializable
 
 
 class TelemetryManager:
@@ -16,6 +18,7 @@ class TelemetryManager:
         self.enabled_providers = set(enabled_providers or [])
         self.enabled_agents: dict[str, TelemetryConfig] = {}
         self.tracers: dict[str, trace.Tracer] = {}
+        self.exporters: list[TelemetryExporter] = telemetry_exporters
 
         # Initialize OpenTelemetry
         tracer_provider = TracerProvider()
@@ -40,15 +43,16 @@ class TelemetryManager:
         """Check if tracing is enabled for a specific provider."""
         return provider_id in self.enabled_providers
 
-    def send_trace(self, global_context: dict[str, str]):
+    def send_trace(self, global_context: Event):
         """Send a trace with global context."""
-        tracer = self.get_tracer("global")
-        if not self.get_tracer:
+        if not self.global_tracer:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
+        payload = flatten_attributes(make_serializable(global_context.payload))
 
-        with tracer.start_as_current_span(f"handle_event: {global_context}") as span:
-            for key, value in global_context.items():
-                span.set_attribute(key, value)
+        with self.global_tracer.start_as_current_span(f"{global_context.agent_id} - {global_context.type}") as span:
+            for key, value in payload.items():
+                if isinstance(value, str | int | float | bool | bytes):
+                    span.set_attribute(key, value)
 
     def get_tracer(self, provider_id: str) -> trace.Tracer:
         """Get a tracer for a specific provider.
@@ -59,11 +63,4 @@ class TelemetryManager:
         Returns:
             trace.Tracer: A tracer instance.
         """
-        if not self.is_tracing_enabled(provider_id):
-            # Return a no-op tracer if tracing is disabled for this provider
-            return trace.get_tracer("noop")
-
-        # Return or create a tracer for this provider
-        if provider_id not in self.tracers:
-            self.tracers[provider_id] = trace.get_tracer(f"provider.{provider_id}")
-        return self.tracers[provider_id]
+        return self.global_tracer

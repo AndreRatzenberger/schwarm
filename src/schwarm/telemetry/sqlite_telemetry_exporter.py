@@ -5,10 +5,12 @@ import sqlite3
 from collections.abc import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
-from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+from opentelemetry.sdk.trace.export import SpanExportResult
+
+from schwarm.telemetry.base.http_telemetry_exporter import HttpTelemetryExporter
 
 
-class SqliteTelemetryExporter(SpanExporter):
+class SqliteTelemetryExporter(HttpTelemetryExporter):
     """Exporter for storing OpenTelemetry spans in SQLite."""
 
     def __init__(self, db_path: str = "schwarm_events.db"):

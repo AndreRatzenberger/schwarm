@@ -227,7 +227,7 @@ class Schwarm2:
             event.agent_id = self._provider_context.current_agent.name
             event.datetime = datetime.now().isoformat()
 
-            self._telemetry_manager.send_trace({"event": event_type.value})
+            self._telemetry_manager.send_trace(event)
         if self._provider_context:
             event = Event()
             event.type = event_type

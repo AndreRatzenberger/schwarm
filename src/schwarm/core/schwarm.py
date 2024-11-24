@@ -11,9 +11,9 @@ from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
-from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
@@ -132,7 +132,7 @@ class Schwarm:
         """
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
         # Context Store
-        self._provider_context = ProviderContext()
+        self._provider_context = ProviderContextModel()
 
         self._provider_context.max_turns = max_turns
 
@@ -142,9 +142,9 @@ class Schwarm:
         self._provider_context.available_agents.append(active_agent)
         self._provider_context.available_tools = active_agent.functions
 
-        for config in agent.configs:
-            if config.enabled:
-                self._manager.create_provider(agent.name, config)
+        # for config in agent.configs:
+        #     if config.enabled:
+        #         self._manager.create_provider(agent.name, config)
 
         self._provider_context.available_providers = self._manager.get_all_provider_cfgs_as_dict()
 
@@ -273,7 +273,7 @@ class Schwarm:
 
         return result
 
-    def _trigger_event(self, event_type: EventType, context: ProviderContext):
+    def _trigger_event(self, event_type: EventType, context: ProviderContextModel):
         """Trigger a specific event."""
         if self._provider_context:
             event = Event()
