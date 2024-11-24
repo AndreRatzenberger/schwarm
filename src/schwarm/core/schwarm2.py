@@ -42,7 +42,7 @@ class Schwarm2:
             self._telemetry_manager = TelemetryManager(telemetry_exporters, enabled_providers=["all"])
         else:
             self._telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
-        self._provider_manager = ProviderManager(telemetry_maanager=self._telemetry_manager)
+        self._provider_manager = ProviderManager(telemetry_manager=self._telemetry_manager)
 
         logger.info("Schwarm instance initialized")
 

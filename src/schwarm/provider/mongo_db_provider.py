@@ -43,7 +43,6 @@ class MongoDBProvider(BaseEventHandleProvider):
             The provider context if the event payload is a ProviderContext, None otherwise
         """
         # Always log the event
-        self.event_log.append(event)
 
         # Early return if MongoDB isn't initialized
         if self._collection is None:

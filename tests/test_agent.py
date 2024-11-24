@@ -13,6 +13,8 @@ from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.debug_provider import DebugConfig, DebugProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
+from schwarm.telemetry.telemetry_manager import TelemetryManager
+from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
 
 # Import and rebuild Result model
 Result.model_rebuild()
@@ -24,7 +26,7 @@ class TestConfig(BaseProviderConfig):
 class TestProvider(BaseEventHandleProvider):
     """Test provider implementation."""
     def __init__(self, config: BaseProviderConfig, **data):
-        super().__init__(config,**data)
+        super().__init__(config, **data)
         self.calls: list[str] = []
         self.context = ProviderContext()
         
@@ -37,9 +39,15 @@ class TestProvider(BaseEventHandleProvider):
         self.calls.append(f"complete: {messages[0].content}")
         return Message(role="assistant", content=f"Response to: {messages[0].content}")
 
-    def handle_event(self, event):
+    def handle_event(self, event, span=None):
         return ProviderContext()
 
+
+@pytest.fixture
+def telemetry_manager(tmp_path):
+    """Create a TelemetryManager instance for testing."""
+    exporter = SqliteTelemetryExporter(db_path=str(tmp_path / "test_events.db"))
+    return TelemetryManager(telemetry_exporters=[exporter], enabled_providers=["all"])
 
 
 @pytest.fixture
@@ -79,9 +87,9 @@ def test_function(context: Dict[str, Any], query: str) -> None:
 
 
 @pytest.fixture
-def agent():
+def agent(telemetry_manager):
     """Create a test agent."""
-    pm = ProviderManager()
+    pm = ProviderManager(telemetry_manager=telemetry_manager)
     pm._config_to_provider_map[TestConfig] = TestProvider
     agent = Agent(
         name="test_agent",
@@ -108,7 +116,6 @@ def test_get_typed_provider(agent):
     """Test getting typed provider."""
     provider = agent.get_typed_provider(TestProvider)
     assert isinstance(provider[0], TestProvider)
-
 
 
 def test_quickstart_with_function(agent, mock_schwarm):
@@ -158,14 +165,13 @@ def test_quickstart_modes(mock_schwarm, agent):
     )
 
 
-def test_provider_setup(agent):
+def test_provider_setup(agent, telemetry_manager):
     """Test provider setup."""
-    provider = ProviderManager().get_providers_by_class(TestProvider) 
+    provider = ProviderManager(telemetry_manager=telemetry_manager).get_providers_by_class(TestProvider) 
     assert isinstance(provider[0], TestProvider)
 
 
-
-def test_quickstart_response_conversion():
+def test_quickstart_response_conversion(telemetry_manager):
     """Test conversion of Schwarm Response to Result."""
     agent = Agent(
         name="test_agent",
@@ -188,16 +194,19 @@ def test_quickstart_response_conversion():
         assert result.context_variables == {"test": "value"}
         assert result.agent == agent
 
-def test_constructor():
+
+def test_constructor(telemetry_manager):
     zap = DebugProvider(DebugConfig())
 
-def test_multiple_providers():
+
+def test_multiple_providers(telemetry_manager):
     """Test agent with multiple providers."""
     class AnotherConfig(TestConfig):
         """Another provider configuration."""
-    ProviderManager()._config_to_provider_map[TestConfig] = TestProvider
-    ProviderManager()._config_to_provider_map[AnotherConfig] = TestProvider
     
+    pm = ProviderManager(telemetry_manager=telemetry_manager)
+    pm._config_to_provider_map[TestConfig] = TestProvider
+    pm._config_to_provider_map[AnotherConfig] = TestProvider
     
     agent = Agent(
         name="multi_agent",
@@ -209,10 +218,28 @@ def test_multiple_providers():
     
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = ProviderManager().create_provider(agent.name, config)
- 
+        provider = pm.create_provider(agent.name, config)
     
-    providers = ProviderManager().get_all_providers_to_scope(agent.name)
+    providers = pm.get_all_providers_to_scope(agent.name)
     assert len(providers) == 2
     assert type(providers[0]) is TestProvider
     assert type(providers[1]) is TestProvider
+
+
+def test_telemetry_integration(telemetry_manager):
+    """Test telemetry integration with agent providers."""
+    pm = ProviderManager(telemetry_manager=telemetry_manager)
+    pm._config_to_provider_map[TestConfig] = TestProvider
+    
+    agent = Agent(
+        name="test_agent",
+        provider_configurations=[TestConfig()],
+        instructions="You are a test agent."
+    )
+    
+    # Initialize provider
+    provider = pm.create_provider(agent.name, agent.provider_configurations[0])
+    
+    # Verify provider has tracer
+    assert hasattr(provider, "_tracer")
+    assert provider._tracer is not None

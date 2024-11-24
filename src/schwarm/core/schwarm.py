@@ -16,6 +16,8 @@ from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
+from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -28,14 +30,21 @@ logger.add(
 class Schwarm:
     """Agent class."""
 
-    def __init__(self, agent_list: list[Agent] = []):
+    def __init__(self, agent_list: list[Agent] = [], telemetry_exporters: list[Any] = []):
         """Initialize the orchestrator."""
         # Remove default handler to control logging output
         logger.remove()
         # Add a default handler that we can control
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
         self._agents: list[Agent] = agent_list
-        self._manager = ProviderManager()
+
+        # Initialize telemetry
+        if telemetry_exporters:
+            self._telemetry_manager = TelemetryManager(telemetry_exporters, enabled_providers=["all"])
+        else:
+            self._telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
+
+        self._manager = ProviderManager(telemetry_manager=self._telemetry_manager)
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):

@@ -72,17 +72,6 @@ class ProviderContext(BaseModel):
             raise ValueError(f"Field {field_name} is not defined in the model.")
         self._on_change_callbacks[field_name] = callback
 
-    # def trigger_event(self, event_type: EventType) -> Any:
-    #     """Trigger an event on the context.
-
-    #     Args:
-    #         event_type (EventType): The event type to trigger.
-
-    #     Returns:
-    #         Any: The result of the event.
-    #     """
-    #     ProviderManager().trigger_event(event_type, self)
-
     def __str__(self) -> str:
         """Return a JSON-formatted string representation of the object."""
         return json.dumps(self.model_dump(), default=str, indent=2)

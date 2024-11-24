@@ -20,9 +20,9 @@ class TestEventProvider(BaseEventHandleProvider):
         """Initialize the provider."""
         pass
 
-    def handle_event(self, event: Event) -> ProviderContext | None:
+    def handle_event(self, event: Event, span=None) -> ProviderContext | None:
         """Handle an event."""
-        super().handle_event(event)  # Log the event
+        super().handle_event(event, span)  # Log the event
         
         # Return None for most events
         if event.type == EventType.TOOL_EXECUTION:
@@ -57,6 +57,12 @@ def mock_context():
     return context
 
 
+@pytest.fixture
+def mock_span():
+    """Create a mock span for telemetry."""
+    return MagicMock()
+
+
 def test_provider_initialization(provider, config):
     """Test provider initialization."""
     assert isinstance(provider.config, BaseEventHandleProviderConfig)
@@ -64,7 +70,7 @@ def test_provider_initialization(provider, config):
     assert provider.event_log == []
 
 
-def test_event_logging(provider, mock_context):
+def test_event_logging(provider, mock_context, mock_span):
     """Test that events are properly logged."""
     # Create test events
     start_event = Event(
@@ -82,8 +88,8 @@ def test_event_logging(provider, mock_context):
     )
     
     # Handle events
-    provider.handle_event(start_event)
-    provider.handle_event(tool_event)
+    provider.handle_event(start_event, mock_span)
+    provider.handle_event(tool_event, mock_span)
     
     # Verify events were logged
     assert len(provider.event_log) == 2
@@ -91,7 +97,7 @@ def test_event_logging(provider, mock_context):
     assert provider.event_log[1] == tool_event
 
 
-def test_tool_execution_return_value(provider, mock_context):
+def test_tool_execution_return_value(provider, mock_context, mock_span):
     """Test that tool execution returns a context."""
     event = Event(
         type=EventType.TOOL_EXECUTION,
@@ -100,13 +106,13 @@ def test_tool_execution_return_value(provider, mock_context):
         datetime=datetime.now().isoformat()
     )
     
-    result = provider.handle_event(event)
+    result = provider.handle_event(event, mock_span)
     
     assert isinstance(result, ProviderContext)
     assert result.current_agent == mock_context.current_agent
 
 
-def test_non_tool_execution_return_value(provider, mock_context):
+def test_non_tool_execution_return_value(provider, mock_context, mock_span):
     """Test that non-tool events return None."""
     event = Event(
         type=EventType.START,
@@ -115,7 +121,7 @@ def test_non_tool_execution_return_value(provider, mock_context):
         datetime=datetime.now().isoformat()
     )
     
-    result = provider.handle_event(event)
+    result = provider.handle_event(event, mock_span)
     
     assert result is None
     assert len(provider.event_log) == 1
@@ -126,3 +132,18 @@ def test_provider_config():
     config = TestConfig(scope="scoped")
     assert config.scope == "scoped"
     assert isinstance(config, BaseEventHandleProviderConfig)
+
+
+def test_handle_event_without_span(provider, mock_context):
+    """Test that handle_event works when span is not provided."""
+    event = Event(
+        type=EventType.START,
+        payload=mock_context,
+        agent_id="test_agent",
+        datetime=datetime.now().isoformat()
+    )
+    
+    # Should not raise error when span is None
+    result = provider.handle_event(event)
+    assert result is None
+    assert len(provider.event_log) == 1

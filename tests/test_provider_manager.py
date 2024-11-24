@@ -7,6 +7,8 @@ from schwarm.provider.base import BaseProvider
 from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.provider_manager import ProviderManager, ProviderInitError
+from schwarm.telemetry.telemetry_manager import TelemetryManager
+from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
 from typing import Any
 
 
@@ -38,7 +40,7 @@ class TestEventProvider(BaseEventHandleProvider):
         """Initialize the provider."""
         pass
     
-    def handle_event(self, event: Event, span) -> None:
+    def handle_event(self, event: Event, span=None) -> None:
         """Handle the given event."""
         pass
 
@@ -47,33 +49,40 @@ class TestConfig(BaseProviderConfig):
     """Test provider configuration."""
 
 
-
 class TestEventConfig(BaseEventHandleProviderConfig):
     """Test event provider configuration."""
-    
+
+
+@pytest.fixture
+def telemetry_manager(tmp_path):
+    """Create a TelemetryManager instance for testing."""
+    exporter = SqliteTelemetryExporter(db_path=str(tmp_path / "test_events.db"))
+    return TelemetryManager(telemetry_exporters=[exporter], enabled_providers=["all"])
 
 
 @pytest.fixture()
-def manager():
+def manager(telemetry_manager):
     """Create a fresh provider manager instance."""
     # Reset the global instance
     ProviderManager._instance = None
-    pm = ProviderManager()
-    pm._config_to_provider_map[TestConfig] = TestProvider
-    pm._config_to_provider_map[TestEventConfig] = TestEventProvider
-    return ProviderManager()
+    # Create new instance with telemetry
+    return ProviderManager(telemetry_manager=telemetry_manager)
 
 
-def test_global_pattern():
+def test_global_pattern(telemetry_manager):
     """Test provider manager global pattern."""
-    manager1 = ProviderManager()
-    manager2 = ProviderManager()
+    # Reset singleton for this test
+    ProviderManager._instance = None
+    manager1 = ProviderManager(telemetry_manager=telemetry_manager)
+    manager2 = ProviderManager(telemetry_manager=telemetry_manager)
     assert manager1 is manager2
-
 
 
 def test_initialize_global_provider(manager: ProviderManager):
     """Test initialization of global provider."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     config = TestConfig(scope="global")
     provider = manager.create_provider("test_agent", config)
     
@@ -84,41 +93,42 @@ def test_initialize_global_provider(manager: ProviderManager):
     assert provider2 in manager._providers["global"]
 
 
-
 def test_initialize_scoped_provider(manager: ProviderManager):
     """Test initialization of scoped provider."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     config = TestConfig(scope="scoped")
     provider = manager.create_provider("test_agent", config)
-    # Properly initialization
     
     assert provider.config == config
     assert provider in manager._providers["test_agent"]
     
     # Should create new instance for different agent
     provider2 = manager.create_provider("other_agent", config)
- # Properly initialization
     assert provider is not provider2
-
 
 
 def test_initialize_ephemeral_provider(manager: ProviderManager):
     """Test initialization of ephemeral provider."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     config = TestConfig(scope="jit")
     provider1 = manager.create_provider("test_agent", config)
- # Properly initialization
     provider2 = manager.create_provider("test_agent", config)
-  # Properly initialization
     
     # Should create new instance each time
     assert provider1 is not provider2
 
 
-
 def test_get_provider(manager: ProviderManager):
     """Test provider retrieval."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     config = TestConfig()
     provider = manager.create_provider("test_agent", config)
- # Properly initialization
     
     # Should find provider by name
     assert manager.get_provider_by_id("test_agent", provider._provider_id) is provider
@@ -127,20 +137,17 @@ def test_get_provider(manager: ProviderManager):
     assert manager.get_provider_by_id("test_agent", "non_existent") is None
 
 
-
 def test_get_providers_by_class(manager: ProviderManager):
     """Test provider retrieval by class."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     config = TestConfig()
     provider = manager.create_provider("test_agent", config)
- # Properly initialization
     
     p_list = manager.get_providers_by_class(TestProvider)
-
     assert provider in p_list
-   
-
-    assert len(manager.get_providers_by_class(TestProvider2))==0
-
+    assert len(manager.get_providers_by_class(TestProvider2)) == 0
 
 
 def test_provider_init_error(manager: ProviderManager):
@@ -150,42 +157,43 @@ def test_provider_init_error(manager: ProviderManager):
         pass
     
     config = NonExistentConfig()
-
     
     with pytest.raises(ProviderInitError) as exc_info:
         manager.create_provider("test_agent", config)
     assert "No provider implementation found" in str(exc_info.value)
 
 
-
 def test_get_event_providers(manager: ProviderManager):
     """Test retrieval of event providers."""
+    # Register provider classes
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    manager._config_to_provider_map[TestEventConfig] = TestEventProvider
+    
     # Create both regular and event providers
     regular_config = TestConfig(scope="global")
     event_config = TestEventConfig(scope="global")
     
     regular_provider = manager.create_provider("test_agent", regular_config)
- # Properly initialization
     event_provider = manager.create_provider("test_agent", event_config)
- # Properly initialization
     
     event_providers = manager.get_event_providers("global")
     assert len(event_providers) == 1
     assert event_providers[0] is event_provider
 
 
-
 def test_get_all_providers_as_dict(manager: ProviderManager):
     """Test provider dictionary generation."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
     # Create providers with different scopes
     global_config = TestConfig(scope="global")
     scoped_config = TestConfig(scope="scoped")
     
     global_provider = manager.create_provider("test_agent", global_config)
-    global_provider._provider_id = "global_provider"  # Properly initialization
+    global_provider._provider_id = "global_provider"
     scoped_provider = manager.create_provider("test_agent", scoped_config)
- 
-    scoped_provider._provider_id = "scoped_provider"# Properly initialization
+    scoped_provider._provider_id = "scoped_provider"
     
     providers_dict = manager._providers
     
@@ -197,17 +205,17 @@ def test_get_all_providers_as_dict(manager: ProviderManager):
     assert providers_dict["test_agent"][0]._provider_id == "scoped_provider"
 
 
-
 def test_trigger_event(manager: ProviderManager):
     """Test event triggering across providers."""
+    # Register provider class
+    manager._config_to_provider_map[TestEventConfig] = TestEventProvider
+    
     # Create event providers with different priorities
     config1 = TestEventConfig()
     config2 = TestEventConfig()
     
     provider1 = manager.create_provider("test_agent", config1)
- # Properly initialization
     provider2 = manager.create_provider("test_agent", config2)
-   # Properly initialization
     
     # Mock the providers and context
     mock_context = MagicMock(spec=ProviderContext)
@@ -218,7 +226,20 @@ def test_trigger_event(manager: ProviderManager):
     
     # Trigger event
     result = manager.trigger_event(event)
-
+    
     # Providers should be sorted by priority
     event_providers = manager.get_event_providers("test_agent")
     assert len(result) == len(event_providers)
+
+
+def test_telemetry_integration(manager: ProviderManager):
+    """Test telemetry integration with providers."""
+    # Register provider class
+    manager._config_to_provider_map[TestConfig] = TestProvider
+    
+    config = TestConfig(scope="global")
+    provider = manager.create_provider("test_agent", config)
+    
+    # Verify provider has tracer
+    assert hasattr(provider, "_tracer")
+    assert provider._tracer is not None

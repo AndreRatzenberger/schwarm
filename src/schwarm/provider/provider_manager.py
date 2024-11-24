@@ -48,7 +48,7 @@ class ProviderManager:
 
     _instance: Optional["ProviderManager"] = None
 
-    def __new__(cls) -> "ProviderManager":
+    def __new__(cls, telemetry_manager: TelemetryManager) -> "ProviderManager":
         """Create or return the singleton instance of ProviderManager.
 
         Returns:
@@ -103,7 +103,7 @@ class ProviderManager:
         results = []
         for provider in providers:
             try:
-                result = provider._open_telemetry_handler(event)
+                result = provider._internal_event_handler(event)
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error triggering event for provider {type(provider).__name__}: {e}")

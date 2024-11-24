@@ -7,8 +7,16 @@ from pydantic import BaseModel, Field, PrivateAttr
 
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
+from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.telemetry_manager import TelemetryManager
 
 T = TypeVar("T", bound=BaseProvider)
+
+
+def create_provider_manager() -> ProviderManager:
+    """Create a new ProviderManager instance with default telemetry."""
+    telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
+    return ProviderManager(telemetry_manager=telemetry_manager)
 
 
 class Agent(BaseModel):
@@ -32,7 +40,7 @@ class Agent(BaseModel):
     provider_configurations: list[BaseProviderConfig] = Field(
         default_factory=list, description="List of provider configurations"
     )
-    _provider_manager: ProviderManager = PrivateAttr(default_factory=ProviderManager)
+    _provider_manager: ProviderManager = PrivateAttr(default_factory=create_provider_manager)
 
     def get_typed_provider(self, provider_type: type[T]) -> list[T]:
         """Get a provider with proper type safety."""
@@ -62,7 +70,7 @@ class Agent(BaseModel):
         # Import here to avoid circular dependency
         from schwarm.core.schwarm import Schwarm
 
-        # Create Schwarm instance
+        # Create Schwarm instance with default telemetry
         schwarm = Schwarm()
         schwarm.register_agent(self)
 

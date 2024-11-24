@@ -20,7 +20,8 @@ class BaseEventHandleProvider(BaseProvider, ABC):
 
     event_log: list[Event] = field(default_factory=list)
 
-    def _open_telemetry_handler(self, event: Event) -> ProviderContext:
+    def _internal_event_handler(self, event: Event) -> ProviderContext:
+        self.event_log.append(event)
         if not self._tracer:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
 
