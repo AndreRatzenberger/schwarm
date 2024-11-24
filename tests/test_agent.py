@@ -91,7 +91,7 @@ def agent():
     )
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = agent._provider_manager.create_provider_and_register(agent.name, config)
+        provider = agent._provider_manager.create_provider(agent.name, config)
 
     return agent
 
@@ -209,7 +209,7 @@ def test_multiple_providers():
     
     # Initialize providers
     for config in agent.provider_configurations:
-        provider = ProviderManager().create_provider_and_register(agent.name, config)
+        provider = ProviderManager().create_provider(agent.name, config)
  
     
     providers = ProviderManager().get_all_providers_to_scope(agent.name)

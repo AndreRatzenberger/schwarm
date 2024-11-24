@@ -74,4 +74,4 @@ class Agent(BaseModel):
     def _setup_providers(self) -> None:
         """Initialize all configured providers."""
         for config in self.provider_configurations:
-            self._provider_manager.create_provider_and_register(self.name, config)
+            self._provider_manager.create_provider(self.name, config)

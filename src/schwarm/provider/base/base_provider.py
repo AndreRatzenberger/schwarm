@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from litellm import BaseModel
+from opentelemetry.trace import Tracer
 from pydantic import Field
 
 from schwarm.models.provider_context import ProviderContext
@@ -34,6 +35,7 @@ class BaseProvider(ABC):
     _provider_id: str = field(default="", init=False)
     context: ProviderContext = field(default_factory=ProviderContext)
     is_enabled: bool = True
+    _tracer: Tracer | None = None
 
     def update_context(self, context: ProviderContext) -> None:
         """Updates the provider's context with new data."""
@@ -51,3 +53,8 @@ class BaseProvider(ABC):
         if not self.context:
             raise ValueError("Provider context has not been set")
         return self.context
+
+    def set_tracer(self, tracer: Tracer):
+        """Sets the tracer for the provider."""
+        self._tracer = tracer
+        return self

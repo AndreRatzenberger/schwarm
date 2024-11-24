@@ -38,7 +38,7 @@ class TestEventProvider(BaseEventHandleProvider):
         """Initialize the provider."""
         pass
     
-    def handle_event(self, event: Event) -> None:
+    def handle_event(self, event: Event, span) -> None:
         """Handle the given event."""
         pass
 
@@ -75,12 +75,12 @@ def test_global_pattern():
 def test_initialize_global_provider(manager: ProviderManager):
     """Test initialization of global provider."""
     config = TestConfig(scope="global")
-    provider = manager.create_provider_and_register("test_agent", config)
+    provider = manager.create_provider("test_agent", config)
     
     assert provider.config == config
     assert provider in manager._providers["global"]
     
-    provider2 = manager.create_provider_and_register("other_agent", config)
+    provider2 = manager.create_provider("other_agent", config)
     assert provider2 in manager._providers["global"]
 
 
@@ -88,14 +88,14 @@ def test_initialize_global_provider(manager: ProviderManager):
 def test_initialize_scoped_provider(manager: ProviderManager):
     """Test initialization of scoped provider."""
     config = TestConfig(scope="scoped")
-    provider = manager.create_provider_and_register("test_agent", config)
+    provider = manager.create_provider("test_agent", config)
     # Properly initialization
     
     assert provider.config == config
     assert provider in manager._providers["test_agent"]
     
     # Should create new instance for different agent
-    provider2 = manager.create_provider_and_register("other_agent", config)
+    provider2 = manager.create_provider("other_agent", config)
  # Properly initialization
     assert provider is not provider2
 
@@ -104,9 +104,9 @@ def test_initialize_scoped_provider(manager: ProviderManager):
 def test_initialize_ephemeral_provider(manager: ProviderManager):
     """Test initialization of ephemeral provider."""
     config = TestConfig(scope="jit")
-    provider1 = manager.create_provider_and_register("test_agent", config)
+    provider1 = manager.create_provider("test_agent", config)
  # Properly initialization
-    provider2 = manager.create_provider_and_register("test_agent", config)
+    provider2 = manager.create_provider("test_agent", config)
   # Properly initialization
     
     # Should create new instance each time
@@ -117,7 +117,7 @@ def test_initialize_ephemeral_provider(manager: ProviderManager):
 def test_get_provider(manager: ProviderManager):
     """Test provider retrieval."""
     config = TestConfig()
-    provider = manager.create_provider_and_register("test_agent", config)
+    provider = manager.create_provider("test_agent", config)
  # Properly initialization
     
     # Should find provider by name
@@ -131,7 +131,7 @@ def test_get_provider(manager: ProviderManager):
 def test_get_providers_by_class(manager: ProviderManager):
     """Test provider retrieval by class."""
     config = TestConfig()
-    provider = manager.create_provider_and_register("test_agent", config)
+    provider = manager.create_provider("test_agent", config)
  # Properly initialization
     
     p_list = manager.get_providers_by_class(TestProvider)
@@ -153,8 +153,8 @@ def test_provider_init_error(manager: ProviderManager):
 
     
     with pytest.raises(ProviderInitError) as exc_info:
-        manager.create_provider_and_register("test_agent", config)
-    assert "Failed to initialize provider" in str(exc_info.value)
+        manager.create_provider("test_agent", config)
+    assert "No provider implementation found" in str(exc_info.value)
 
 
 
@@ -164,9 +164,9 @@ def test_get_event_providers(manager: ProviderManager):
     regular_config = TestConfig(scope="global")
     event_config = TestEventConfig(scope="global")
     
-    regular_provider = manager.create_provider_and_register("test_agent", regular_config)
+    regular_provider = manager.create_provider("test_agent", regular_config)
  # Properly initialization
-    event_provider = manager.create_provider_and_register("test_agent", event_config)
+    event_provider = manager.create_provider("test_agent", event_config)
  # Properly initialization
     
     event_providers = manager.get_event_providers("global")
@@ -181,9 +181,9 @@ def test_get_all_providers_as_dict(manager: ProviderManager):
     global_config = TestConfig(scope="global")
     scoped_config = TestConfig(scope="scoped")
     
-    global_provider = manager.create_provider_and_register("test_agent", global_config)
+    global_provider = manager.create_provider("test_agent", global_config)
     global_provider._provider_id = "global_provider"  # Properly initialization
-    scoped_provider = manager.create_provider_and_register("test_agent", scoped_config)
+    scoped_provider = manager.create_provider("test_agent", scoped_config)
  
     scoped_provider._provider_id = "scoped_provider"# Properly initialization
     
@@ -204,9 +204,9 @@ def test_trigger_event(manager: ProviderManager):
     config1 = TestEventConfig()
     config2 = TestEventConfig()
     
-    provider1 = manager.create_provider_and_register("test_agent", config1)
+    provider1 = manager.create_provider("test_agent", config1)
  # Properly initialization
-    provider2 = manager.create_provider_and_register("test_agent", config2)
+    provider2 = manager.create_provider("test_agent", config2)
    # Properly initialization
     
     # Mock the providers and context
@@ -214,9 +214,10 @@ def test_trigger_event(manager: ProviderManager):
     mock_agent = MagicMock()
     mock_agent.name = "test_agent"
     mock_context.current_agent = mock_agent
+    event = Event(type=EventType.START, payload=mock_context)
     
     # Trigger event
-    result = manager.trigger_event(EventType.START, mock_context)
+    result = manager.trigger_event(event)
 
     # Providers should be sorted by priority
     event_providers = manager.get_event_providers("test_agent")
