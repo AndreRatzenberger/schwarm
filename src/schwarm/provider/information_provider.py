@@ -60,7 +60,7 @@ class InformationProvider(BaseEventHandleProvider):
     """Debug provider that handles display and logging functionality."""
 
     config: InformationConfig
-    _provider_id: str = Field(default="debug", description="Provider ID")
+    _provider_id: str = "debug"
     _log_dir: Path = Path(APP_SETTINGS.DATA_FOLDER) / "logs"
 
     def initialize(self) -> None:

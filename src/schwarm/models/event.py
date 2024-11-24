@@ -181,7 +181,7 @@ class Event(BaseModel):
 
     type: EventType = Field(default=EventType.NONE, description="Event type")
     agent_name: str = Field(default="", description="Name of the agent")
-    provider_name: str = Field(default="", description="Name of the provider")
+    provider_id: str = Field(default="", description="Name of the provider")
     timestamp: str = Field(default=datetime.now(), description="Event timestamp")
     context: Any = Field(default=None, description="Event context")
 

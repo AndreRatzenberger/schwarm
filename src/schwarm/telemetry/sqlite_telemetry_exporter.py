@@ -22,8 +22,9 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
             db_path: Path to the SQLite database file
         """
         super().__init__()
-        self.db_path = Path(APP_SETTINGS.TELEMETRY, db_path)
-        self.db_path.mkdir(parents=True, exist_ok=True)
+        self.telemetry_path = Path(APP_SETTINGS.TELEMETRY)
+        self.telemetry_path.mkdir(parents=True, exist_ok=True)
+        self.db_path = self.telemetry_path.joinpath(db_path).__str__()
         self._initialize_database()
 
     def _initialize_database(self):

@@ -13,7 +13,7 @@ from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 class HttpTelemetryExporter(TelemetryExporter, ABC):
     """Base class for custom OpenTelemetry exporters."""
 
-    def __init__(self, api_host="0.0.0.0", api_port=8123):
+    def __init__(self, api_host="127.0.0.1", api_port=8123):
         """Initialize the base exporter."""
         super().__init__()
         self.api_host = api_host

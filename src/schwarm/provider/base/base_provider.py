@@ -1,7 +1,6 @@
 """Base provider implementation."""
 
 from abc import ABC
-from dataclasses import dataclass, field
 from typing import Literal
 
 from loguru import logger
@@ -19,6 +18,7 @@ class BaseProviderConfig(BaseConfig):
     """Base configuration for all providers."""
 
     scope: Scope = Field(default="scoped", description="Provider lifecycle scope")
+    provider_id_override: Scope = Field(default="", description="Override provider ID")
     enabled: bool = Field(default=True, description="Provider enabled status")
 
     class Config:
@@ -27,14 +27,18 @@ class BaseProviderConfig(BaseConfig):
         validate_assignment = True
 
 
-@dataclass
 class BaseProvider(ABC):
     """Base class for all providers."""
 
-    config: BaseProviderConfig
-    _provider_id: str = field(default="", init=False)
-    context: ProviderContextModel = field(default_factory=ProviderContextModel)
-    is_enabled: bool = True
+    def __init__(self, config: BaseProviderConfig):
+        """Initialize the provider with a configuration."""
+        self.config = config
+        self.context = ProviderContextModel()
+        self.is_enabled = config.enabled
+        if not self.config.provider_id_override:
+            self._provider_id = self.__class__.__name__.lower()
+        else:
+            self._provider_id = self.config.provider_id_override
 
     def __post_init__(self):
         """Post-initialization actions."""

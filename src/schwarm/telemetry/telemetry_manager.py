@@ -51,9 +51,11 @@ class TelemetryManager:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
         context = json.dumps(make_serializable(global_context.context))
 
-        with self.global_tracer.start_as_current_span(
-            f"{global_context.agent_name} - {global_context.provider_id} - {global_context.type}"
-        ) as span:
+        name = f"{global_context.agent_name} - {global_context.type}"
+        if global_context.provider_id:
+            name = f"{global_context.provider_id} - {global_context.agent_name} - {global_context.type}"
+
+        with self.global_tracer.start_as_current_span(f"{name}") as span:
             span.set_attribute("event_type", str(global_context.type))
             span.set_attribute("agent_id", global_context.agent_name)
             span.set_attribute("context", context)

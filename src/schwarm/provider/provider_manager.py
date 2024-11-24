@@ -105,6 +105,7 @@ class ProviderManager:
                 result = provider.handle_event(event)
                 event.context = result
                 if result:
+                    event.provider_id = provider._provider_id
                     self.telemetry_manager.send_trace(event)
                 results.append(result)
             except Exception as e:
@@ -182,7 +183,7 @@ class ProviderManager:
         if not provider_class:
             raise ProviderInitError(f"No provider implementation found for config type: {type(config).__name__}")
 
-        provider = provider_class(config=config)
+        provider = provider_class(config)
         return provider
 
     def create_provider(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:
@@ -202,6 +203,7 @@ class ProviderManager:
         scope = agent_id if config.scope != "global" else "global"
 
         provider = self._create_provider(config)
+        provider._provider_id = f"{provider.__class__.__name__.lower()}_{len(self._providers[scope])}"
 
         if scope not in self._providers:
             self._providers[scope] = []
