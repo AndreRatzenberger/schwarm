@@ -16,6 +16,9 @@ from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
+from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
+from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -30,12 +33,17 @@ logger.add(
 class Schwarm2:
     """Agent orchestrator class."""
 
-    def __init__(self, agent_list: list[Agent] = []):
+    def __init__(self, agent_list: list[Agent] = [], telemetry_exporters: list[TelemetryExporter] = []):
         """Initialize the orchestrator."""
         logger.remove()
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
         self._agents = agent_list
-        self._manager = ProviderManager()
+        if telemetry_exporters:
+            self._telemetry_manager = TelemetryManager(telemetry_exporters, enabled_providers=["all"])
+        else:
+            self._telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
+        self._provider_manager = ProviderManager(telemetry_maanager=self._telemetry_manager)
+
         logger.info("Schwarm instance initialized")
 
     def register_agent(self, agent: Agent):
@@ -92,9 +100,9 @@ class Schwarm2:
 
         for config in agent.provider_configurations:
             if config.enabled:
-                self._manager.create_provider(agent.name, config)
+                self._provider_manager.create_provider(agent.name, config)
 
-        self._provider_context.available_providers = self._manager.get_all_provider_cfgs_as_dict()
+        self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
         self._trigger_event(EventType.START)
 
         self._provider_context.current_agent = agent
@@ -187,7 +195,7 @@ class Schwarm2:
         tools = [function_to_json(f) for f in agent.functions]
         self._filter_context_vars_from_tools(tools)
 
-        provider = self._manager.get_first_llm_provider(agent.name)
+        provider = self._provider_manager.get_first_llm_provider(agent.name)
         if isinstance(provider, BaseLLMProvider):
             result = provider.complete(
                 messages,
@@ -212,5 +220,5 @@ class Schwarm2:
             event = Event()
             event.type = event_type
             event.payload = self._provider_context
-            self._manager.trigger_event(event)
+            self._provider_manager.trigger_event(event)
             logger.debug(f"Event triggered: {event.type}")

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from litellm import BaseModel
+from loguru import logger
 from opentelemetry.trace import Tracer
 from pydantic import Field
 
@@ -37,8 +38,13 @@ class BaseProvider(ABC):
     is_enabled: bool = True
     _tracer: Tracer | None = None
 
+    def __post_init__(self):
+        """Post-initialization actions."""
+        logger.debug(f"Initialized provider {self.__class__.__name__} with scope: {self.config.scope}")
+
     def update_context(self, context: ProviderContext) -> None:
         """Updates the provider's context with new data."""
+        logger.debug(f"Updating context for provider {self.__class__.__name__}")
         self.context = context
 
     def get_context(self) -> ProviderContext:
@@ -54,7 +60,26 @@ class BaseProvider(ABC):
             raise ValueError("Provider context has not been set")
         return self.context
 
-    def set_tracer(self, tracer: Tracer):
-        """Sets the tracer for the provider."""
+    def init_tracer(self, tracer: Tracer | None = None):
+        """Initializes the tracer for the provider.
+
+        Args:
+            tracer (Optional[Tracer]): Explicit tracer instance. If None, falls back to `TelemetryManager`.
+
+        Note:
+            If no tracer is provided and the `TelemetryManager` is not initialized, an error will be logged.
+        """
         self._tracer = tracer
-        return self
+
+    def get_tracer(self) -> Tracer:
+        """Retrieves the initialized tracer.
+
+        Returns:
+            Tracer: The initialized tracer instance.
+
+        Raises:
+            RuntimeError: If the tracer has not been initialized.
+        """
+        if not self._tracer:
+            raise RuntimeError(f"Tracer has not been initialized for provider {self.__class__.__name__}")
+        return self._tracer

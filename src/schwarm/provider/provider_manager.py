@@ -8,10 +8,6 @@ from pathlib import Path
 from typing import Optional, TypeVar
 
 from loguru import logger
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from schwarm.events import Event
 from schwarm.models.provider_context import ProviderContext
@@ -19,6 +15,7 @@ from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.provider.base.base_provider import BaseProvider
+from schwarm.telemetry.telemetry_manager import TelemetryManager
 
 P = TypeVar("P", bound=BaseProvider)
 
@@ -62,7 +59,7 @@ class ProviderManager:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, telemetry_manager: TelemetryManager):
         """Initialize the provider manager.
 
         Sets up the provider storage, OpenTelemetry tracing, and scans for available
@@ -75,29 +72,12 @@ class ProviderManager:
 
             self._providers: dict[str, list[BaseProvider]] = {}
 
-            # self._providers: dict[str, BaseEventHandleProvider] = {}
-            self._init_open_telemetry()
-            self._initialized = True
-
             # Stores registered provider classes and their configs
             # {config_class: provider_class}
             self._config_to_provider_map: dict[type[BaseProviderConfig], type[BaseProvider]] = {}
-            self._init_open_telemetry()
             self._scan_and_register_providers()
+            self.telemetry_manager = telemetry_manager
             self._initialized = True
-
-    def _init_open_telemetry(self) -> None:
-        """Initialize OpenTelemetry tracing configuration.
-
-        Sets up the OpenTelemetry tracer provider with OTLP exporter and batch span
-        processor for distributed tracing capabilities.
-        """
-        tracer_provider = TracerProvider()
-        trace.set_tracer_provider(tracer_provider)
-        otlp_exporter = OTLPSpanExporter()
-        span_processor = BatchSpanProcessor(otlp_exporter)
-        tracer_provider.add_span_processor(span_processor)
-        self.tracer = trace.get_tracer(__name__)
 
     def trigger_event(self, event: Event) -> list[ProviderContext]:
         """Trigger an event across all relevant providers.
@@ -123,7 +103,7 @@ class ProviderManager:
         results = []
         for provider in providers:
             try:
-                result = provider._otm_init(event)
+                result = provider._open_telemetry_handler(event)
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error triggering event for provider {type(provider).__name__}: {e}")
@@ -201,7 +181,9 @@ class ProviderManager:
             raise ProviderInitError(f"No provider implementation found for config type: {type(config).__name__}")
 
         provider = provider_class(config=config)
-        provider.set_tracer(self.tracer)  # Pass the shared tracer
+        provider.init_tracer(
+            self.telemetry_manager.get_tracer(provider_id=provider._provider_id)
+        )  # Pass the shared tracer
         return provider
 
     def create_provider(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:

@@ -1,0 +1,49 @@
+"""TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
+
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
+
+
+class TelemetryManager:
+    """Manages OpenTelemetry tracing configuration and provider-specific tracers."""
+
+    def __init__(self, telemetry_exporters: list[TelemetryExporter], enabled_providers: list[str]):
+        """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
+        self.enabled_providers = set(enabled_providers or [])
+        self.tracers: dict[str, trace.Tracer] = {}
+
+        # Initialize OpenTelemetry
+        tracer_provider = TracerProvider()
+        trace.set_tracer_provider(tracer_provider)
+
+        # Add exporters
+        for exporter in telemetry_exporters:
+            span_processor = BatchSpanProcessor(exporter)
+            tracer_provider.add_span_processor(span_processor)
+
+        self.global_tracer = trace.get_tracer(__name__)
+
+    def is_tracing_enabled(self, provider_id: str) -> bool:
+        """Check if tracing is enabled for a specific provider."""
+        return provider_id in self.enabled_providers
+
+    def get_tracer(self, provider_id: str) -> trace.Tracer:
+        """Get a tracer for a specific provider.
+
+        Args:
+            provider_id (str): The provider ID for which to get a tracer.
+
+        Returns:
+            trace.Tracer: A tracer instance.
+        """
+        if not self.is_tracing_enabled(provider_id):
+            # Return a no-op tracer if tracing is disabled for this provider
+            return trace.get_tracer("noop")
+
+        # Return or create a tracer for this provider
+        if provider_id not in self.tracers:
+            self.tracers[provider_id] = trace.get_tracer(f"provider.{provider_id}")
+        return self.tracers[provider_id]
