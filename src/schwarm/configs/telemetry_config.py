@@ -1,3 +1,5 @@
+"""Configuration for telemetry."""
+
 from pydantic import Field
 
 from schwarm.configs.base.base_config import BaseConfig

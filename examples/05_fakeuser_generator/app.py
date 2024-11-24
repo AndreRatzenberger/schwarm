@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 from tinydb import TinyDB
 
-from schwarm.core.schwarm2 import Schwarm2
+from schwarm.core.schwarm import Schwarm2
 from schwarm.models.types import Agent, ContextVariables, Result
 from schwarm.provider.provider_presets import DEFAULT
 from schwarm.utils.settings import APP_SETTINGS

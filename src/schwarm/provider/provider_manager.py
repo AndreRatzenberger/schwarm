@@ -104,7 +104,6 @@ class ProviderManager:
             try:
                 result = provider._internal_event_handler(event)
                 results.append(result)
-                self.telemetry_manager.export()
             except Exception as e:
                 logger.error(f"Error triggering event for provider {type(provider).__name__}: {e}")
 
