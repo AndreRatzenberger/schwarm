@@ -3,6 +3,7 @@
 import copy
 import sys
 from collections import defaultdict
+from datetime import datetime
 from typing import Any, Literal
 
 from loguru import logger
@@ -38,6 +39,7 @@ class Schwarm2:
         """Initialize the orchestrator."""
         logger.remove()
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
+
         self._agents = agent_list
         if telemetry_exporters:
             self._telemetry_manager = TelemetryManager(telemetry_exporters, enabled_providers=["all"])
@@ -99,19 +101,12 @@ class Schwarm2:
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
         self._setup_context(agent, messages, context_variables, max_turns)
 
-        for config in agent.configs:
-            if isinstance(config, BaseProviderConfig):
-                self._provider_manager.create_provider(agent.name, config)
-            if isinstance(config, TelemetryConfig):
-                self._telemetry_manager.add_agent(agent.name, config)
-
         self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
-        self._trigger_event(EventType.START)
-
         self._provider_context.current_agent = agent
         self._provider_context.current_turn = 0
 
         while self._can_continue_conversation():
+            self._trigger_event(EventType.START_TURN)
             logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
             self._process_turn(agent, context_variables, model_override, execute_tools)
             self._provider_context.current_turn += 1
@@ -127,6 +122,11 @@ class Schwarm2:
 
     def _setup_context(self, agent: Agent, messages: list[Message], context_variables: dict[str, Any], max_turns: int):
         """Initialize the provider context."""
+        for config in agent.configs:
+            if isinstance(config, BaseProviderConfig):
+                self._provider_manager.create_provider(agent.name, config)
+            if isinstance(config, TelemetryConfig):
+                self._telemetry_manager.add_agent(agent.name, config)
         self._provider_context = ProviderContextModel(
             max_turns=max_turns,
             current_agent=agent,
@@ -135,9 +135,7 @@ class Schwarm2:
             context_variables=copy.deepcopy(context_variables),
             message_history=copy.deepcopy(messages),
         )
-        self._trigger_event(EventType.INSTRUCT)
-        self._set_instructions(agent)
-        self._trigger_event(EventType.POST_INSTRUCT)
+        self._trigger_event(EventType.START)
 
     def _set_instructions(self, agent: Agent):
         """Set agent instructions in the context."""
@@ -156,9 +154,8 @@ class Schwarm2:
         self, agent: Agent, context_variables: dict[str, Any], model_override: str | None, execute_tools: bool
     ):
         """Process a single turn in the conversation."""
-        self._trigger_event(EventType.MESSAGE_COMPLETION)
         completion = self._complete_agent_request(agent, context_variables, model_override)
-        self._trigger_event(EventType.POST_MESSAGE_COMPLETION)
+
         self._provider_context.message_history.append(completion)
 
         if not completion.tool_calls or not execute_tools:
@@ -190,7 +187,9 @@ class Schwarm2:
     def _complete_agent_request(self, agent: Agent, context_variables: dict[str, Any], override_model: str) -> Message:
         """Complete an agent request."""
         context_variables = defaultdict(str, context_variables)
+        self._trigger_event(EventType.INSTRUCT)
         self._set_instructions(agent)
+        self._trigger_event(EventType.POST_INSTRUCT)
 
         system_msg = Message(role="system", content=self._provider_context.instruction_str)
         messages = [system_msg, *self._provider_context.message_history]
@@ -198,6 +197,7 @@ class Schwarm2:
         tools = [function_to_json(f) for f in agent.functions]
         self._filter_context_vars_from_tools(tools)
 
+        self._trigger_event(EventType.MESSAGE_COMPLETION)
         provider = self._provider_manager.get_first_llm_provider(agent.name)
         if isinstance(provider, BaseLLMProvider):
             result = provider.complete(
@@ -207,6 +207,7 @@ class Schwarm2:
                 tool_choice=str(agent.tool_choice),
                 parallel_tool_calls=agent.parallel_tool_calls,
             )
+        self._trigger_event(EventType.POST_MESSAGE_COMPLETION)
         return result
 
     def _filter_context_vars_from_tools(self, tools: list[dict]):
@@ -219,9 +220,19 @@ class Schwarm2:
 
     def _trigger_event(self, event_type: EventType):
         """Trigger a specific event."""
+        if self._telemetry_manager:
+            event = Event()
+            event.type = event_type
+            event.payload = self._provider_context
+            event.agent_id = self._provider_context.current_agent.name
+            event.datetime = datetime.now().isoformat()
+
+            self._telemetry_manager.send_trace({"event": event_type.value})
         if self._provider_context:
             event = Event()
             event.type = event_type
             event.payload = self._provider_context
+            event.agent_id = self._provider_context.current_agent.name
+            event.datetime = datetime.now().isoformat()
             self._provider_manager.trigger_event(event)
             logger.debug(f"Event triggered: {event.type}")

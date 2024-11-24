@@ -40,6 +40,16 @@ class TelemetryManager:
         """Check if tracing is enabled for a specific provider."""
         return provider_id in self.enabled_providers
 
+    def send_trace(self, global_context: dict[str, str]):
+        """Send a trace with global context."""
+        tracer = self.get_tracer("global")
+        if not self.get_tracer:
+            raise RuntimeError("Tracer not set. Did you forget to register the provider?")
+
+        with tracer.start_as_current_span(f"handle_event: {global_context}") as span:
+            for key, value in global_context.items():
+                span.set_attribute(key, value)
+
     def get_tracer(self, provider_id: str) -> trace.Tracer:
         """Get a tracer for a specific provider.
 
