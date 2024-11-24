@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from schwarm.core.schwarm2 import Schwarm2
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.models.types import Agent
 from schwarm.models.message import Message

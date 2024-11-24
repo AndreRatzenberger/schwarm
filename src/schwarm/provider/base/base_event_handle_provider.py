@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from opentelemetry.trace import Span
 
 from schwarm.events.event import Event
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
-from schwarm.provider.provider_context import ProviderContext
 
 
 class BaseEventHandleProviderConfig(BaseProviderConfig):
@@ -22,7 +22,7 @@ class BaseEventHandleProvider(BaseProvider, ABC):
 
     event_log: list[Event] = field(default_factory=list)
 
-    def _internal_event_handler(self, event: Event) -> ProviderContext:
+    def _internal_event_handler(self, event: Event) -> ProviderContextModel:
         self.event_log.append(event)
         if not self._tracer:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
@@ -40,6 +40,6 @@ class BaseEventHandleProvider(BaseProvider, ABC):
                 raise
 
     @abstractmethod
-    def handle_event(self, event: Event, span: Span) -> ProviderContext:
+    def handle_event(self, event: Event, span: Span | None = None) -> ProviderContextModel:
         """Handle an event."""
         self.event_log.append(event)

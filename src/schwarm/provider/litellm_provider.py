@@ -9,7 +9,7 @@ from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
 from schwarm.models.message import Message, MessageInfo
-from schwarm.provider.base import BaseLLMProvider, BaseLLMProviderConfig
+from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
 
 if TYPE_CHECKING:

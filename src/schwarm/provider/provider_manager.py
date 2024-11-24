@@ -10,7 +10,7 @@ from typing import Optional, TypeVar
 from loguru import logger
 
 from schwarm.events.event import Event
-from schwarm.models.provider_context import ProviderContext
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
@@ -78,7 +78,7 @@ class ProviderManager:
             self.telemetry_manager = telemetry_manager
             self._initialized = True
 
-    def trigger_event(self, event: Event) -> list[ProviderContext]:
+    def trigger_event(self, event: Event) -> list[ProviderContextModel]:
         """Trigger an event across all relevant providers.
 
         Args:

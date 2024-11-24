@@ -12,13 +12,13 @@ from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProviderConfig
-from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -127,7 +127,7 @@ class Schwarm2:
 
     def _setup_context(self, agent: Agent, messages: list[Message], context_variables: dict[str, Any], max_turns: int):
         """Initialize the provider context."""
-        self._provider_context = ProviderContext(
+        self._provider_context = ProviderContextModel(
             max_turns=max_turns,
             current_agent=agent,
             available_agents=[agent],

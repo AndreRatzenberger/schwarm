@@ -8,7 +8,7 @@ from schwarm.provider.base import BaseProviderConfig
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.provider_manager import ProviderManager, ProviderInitError
 from schwarm.telemetry.telemetry_manager import TelemetryManager
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from typing import Any
 
 

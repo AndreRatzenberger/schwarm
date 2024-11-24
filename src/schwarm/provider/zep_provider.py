@@ -7,9 +7,10 @@ from pydantic import Field
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
-from schwarm.events import Event, EventType
-from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import BaseEventHandleProvider, BaseProviderConfig
+from schwarm.models.event import Event, EventType
+from schwarm.models.provider_context import ProviderContextModel
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
+from schwarm.provider.base.base_provider import BaseProviderConfig
 
 
 class ZepConfig(BaseProviderConfig):
@@ -46,7 +47,7 @@ class ZepProvider(BaseEventHandleProvider):
             EventType.MESSAGE_COMPLETION: [self.save_completion],
         }
 
-    def initialize(self, provider_context: ProviderContext | None = None) -> ProviderContext | None:
+    def initialize(self, provider_context: ProviderContextModel | None = None) -> ProviderContextModel | None:
         """Initialize Zep connection."""
         self.zep_service = Zep(api_key=self.config.zep_api_key, base_url=self.config.zep_api_url)
 
@@ -115,7 +116,7 @@ class ZepProvider(BaseEventHandleProvider):
             return []
         return response.results
 
-    def enhance_instructions(self, provider_context: ProviderContext | None = None) -> str | None:
+    def enhance_instructions(self, provider_context: ProviderContextModel | None = None) -> str | None:
         """Add memory context to instructions."""
         if not self.zep_service or not self.session_id:
             logger.error("Zep service not initialized")
@@ -131,7 +132,7 @@ class ZepProvider(BaseEventHandleProvider):
 
         return None
 
-    def save_completion(self, provider_context: ProviderContext | None = None) -> None:
+    def save_completion(self, provider_context: ProviderContextModel | None = None) -> None:
         """Save completion to memory."""
         if not self.zep_service or not self.session_id:
             logger.error("Zep service or session_id not initialized")
@@ -155,7 +156,7 @@ class ZepProvider(BaseEventHandleProvider):
         """Not implemented as this is primarily an event-based provider."""
         raise NotImplementedError("ZepProvider does not support direct completion")
 
-    def handle_event(self, event: Event) -> ProviderContext | None:
+    def handle_event(self, event: Event) -> ProviderContextModel | None:
         """Handle an event."""
         if self.context:
             return self.context

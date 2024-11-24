@@ -9,14 +9,13 @@ from loguru import logger
 
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
-from schwarm.events import EventType
-from schwarm.events.event import Event
+from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS

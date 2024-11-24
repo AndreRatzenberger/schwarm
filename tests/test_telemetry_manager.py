@@ -1,7 +1,7 @@
 import pytest
 from opentelemetry import trace
 from schwarm.telemetry.telemetry_manager import TelemetryManager
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 
 @pytest.fixture
 def test_db_path(tmp_path):

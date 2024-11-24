@@ -14,7 +14,7 @@ from schwarm.provider.debug_provider import DebugConfig, DebugProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.telemetry_manager import TelemetryManager
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 
 # Import and rebuild Result model
 Result.model_rebuild()

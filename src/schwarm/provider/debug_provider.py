@@ -15,12 +15,9 @@ from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
 from schwarm.events.event import Event, EventType
-from schwarm.models.agent import Agent
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.result import Result
-from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
-from schwarm.provider.budget_provider import BudgetProvider
-from schwarm.provider.provider_context import ProviderContext
-from schwarm.provider.provider_manager import ProviderManager
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 
 continue_event = threading.Event()
@@ -73,7 +70,7 @@ class DebugProvider(BaseEventHandleProvider):
         """Initialize the debug provider by ensuring the log directory exists."""
         self._ensure_log_directory()
 
-    def handle_event(self, event: Event) -> ProviderContext | None:
+    def handle_event(self, event: Event) -> ProviderContextModel | None:
         """Handle events by showing relevant information."""
         self.context = event.payload
         if event.type == EventType.START:
@@ -85,7 +82,7 @@ class DebugProvider(BaseEventHandleProvider):
         elif event.type == EventType.POST_TOOL_EXECUTION:
             self.handle_post_tool_execution()
 
-    def handle_start(self, payload: ProviderContext) -> ProviderContext | None:
+    def handle_start(self, payload: ProviderContextModel) -> ProviderContextModel | None:
         """Handle agent start by initializing logging and showing instructions."""
         if self.config.save_logs:
             self._ensure_log_directory()
@@ -103,8 +100,8 @@ class DebugProvider(BaseEventHandleProvider):
             return
 
         # Show budget if configured
-        if self.config.show_budget:
-            self._show_budget(self.context.current_agent)
+        # if self.config.show_budget:
+        #     self._show_budget(self.context.current_agent)
 
     def handle_tool_execution(self) -> None:
         """Handle tool execution to show function calls."""
@@ -191,7 +188,7 @@ class DebugProvider(BaseEventHandleProvider):
         ) as f:
             f.write(content_with_timestamp)
 
-    def _show_instructions(self, event: ProviderContext) -> None:
+    def _show_instructions(self, event: ProviderContextModel) -> None:
         """Show the instructions to the user."""
         if not self.config.show_instructions:
             return
@@ -218,37 +215,37 @@ class DebugProvider(BaseEventHandleProvider):
             else:
                 self.pause_execution()
 
-    def _show_budget(self, agent: Agent) -> None:
-        """Show the budget to the user."""
-        if not self.config.show_budget:
-            return
+    # def _show_budget(self, agent: Agent) -> None:
+    #     """Show the budget to the user."""
+    #     if not self.config.show_budget:
+    #         return
 
-        console.line()
-        console.print(Markdown(f"# 💰 Budget - {agent.name}"), style="bold orange3")
-        manager = ProviderManager()
-        budget = manager.get_provider_by_id(agent.name, "budget")
+    #     console.line()
+    #     console.print(Markdown(f"# 💰 Budget - {agent.name}"), style="bold orange3")
+    #     manager = ProviderManager()
+    #     budget = manager.get_provider_by_id(agent.name, "budget")
 
-        console.line()
-        # Initialize log_content with default empty values
-        log_content = f"Agent: {agent.name}\nNo budget information available\n{'=' * 50}\n"
+    #     console.line()
+    #     # Initialize log_content with default empty values
+    #     log_content = f"Agent: {agent.name}\nNo budget information available\n{'=' * 50}\n"
 
-        if isinstance(budget, BudgetProvider):
-            console.print(Markdown(f"**- Max Spent:** ${budget.config.max_spent:.5f}"), style="italic")
-            console.print(Markdown(f"**- Max Tokens:** {budget.config.max_tokens}"), style="italic")
-            console.print(Markdown(f"**- Current Spent:** ${budget.config.current_spent:.5f}"), style="italic")
-            console.print(Markdown(f"**- Current Tokens:** {budget.config.current_tokens}"), style="italic")
+    #     if isinstance(budget, BudgetProvider):
+    #         console.print(Markdown(f"**- Max Spent:** ${budget.config.max_spent:.5f}"), style="italic")
+    #         console.print(Markdown(f"**- Max Tokens:** {budget.config.max_tokens}"), style="italic")
+    #         console.print(Markdown(f"**- Current Spent:** ${budget.config.current_spent:.5f}"), style="italic")
+    #         console.print(Markdown(f"**- Current Tokens:** {budget.config.current_tokens}"), style="italic")
 
-            # Update log_content with budget information
-            log_content = (
-                f"Agent: {agent.name}\n"
-                f"Max Spent: ${budget.config.max_spent:.5f}\n"
-                f"Max Tokens: {budget.config.max_tokens}\n"
-                f"Current Spent: ${budget.config.current_spent:.5f}\n"
-                f"Current Tokens: {budget.config.current_tokens}\n"
-                f"{'=' * 50}\n"
-            )
+    #         # Update log_content with budget information
+    #         log_content = (
+    #             f"Agent: {agent.name}\n"
+    #             f"Max Spent: ${budget.config.max_spent:.5f}\n"
+    #             f"Max Tokens: {budget.config.max_tokens}\n"
+    #             f"Current Spent: ${budget.config.current_spent:.5f}\n"
+    #             f"Current Tokens: {budget.config.current_tokens}\n"
+    #             f"{'=' * 50}\n"
+    #         )
 
-        self._write_to_log("budget.log", log_content)
+    #     self._write_to_log("budget.log", log_content)
 
     def _show_function(
         self,

@@ -8,8 +8,8 @@ from pydantic import Field
 from pymongo import MongoClient
 
 from schwarm.events.event import Event
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
-from schwarm.provider.provider_context import ProviderContext
 
 
 class MongoDBConfig(BaseEventHandleProviderConfig):
@@ -33,7 +33,7 @@ class MongoDBProvider(BaseEventHandleProvider):
         self._collection = self._db[self.config.collection_name]
         logger.info(f"Successfully connected to MongoDB at {self.config.mongo_uri}")
 
-    def handle_event(self, event: Event) -> ProviderContext | None:
+    def handle_event(self, event: Event) -> ProviderContextModel | None:
         """Handle events by storing them in MongoDB.
 
         Args:
@@ -71,8 +71,8 @@ class MongoDBProvider(BaseEventHandleProvider):
             return payload.model_dump()
         return str(payload)
 
-    def _get_provider_context(self, event: Event) -> ProviderContext | None:
+    def _get_provider_context(self, event: Event) -> ProviderContextModel | None:
         """Extract ProviderContext from event if available."""
-        if isinstance(event.payload, ProviderContext):
+        if isinstance(event.payload, ProviderContextModel):
             return event.payload
         return None

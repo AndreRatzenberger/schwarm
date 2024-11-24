@@ -9,8 +9,8 @@ from loguru import logger
 from pydantic import Field
 
 from schwarm.models.message import Message
-from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import BaseEventHandleProvider, BaseEventHandleProviderConfig
+from schwarm.models.provider_context import ProviderContextModel
+from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 
 
@@ -60,13 +60,13 @@ class BudgetProvider(BaseEventHandleProvider):
 
         return super().handle_event(event)
 
-    def handle_start(self, context: ProviderContext) -> None:
+    def handle_start(self, context: ProviderContextModel) -> None:
         """Handle agent start by initializing budget tracking."""
         # Create logs directory if it doesn't exist
         if self.config.save_budget:
             os.makedirs(f"{APP_SETTINGS.DATA_FOLDER}/logs", exist_ok=True)
 
-    def handle_post_message_completion(self, provider_context: ProviderContext) -> None:
+    def handle_post_message_completion(self, provider_context: ProviderContextModel) -> None:
         """Handle post message completion to update budget tracking.
 
         This handler is called after each message completion, allowing us
@@ -99,7 +99,7 @@ class BudgetProvider(BaseEventHandleProvider):
             # Check if we've exceeded any limits
             self._check_limits()
 
-    def handle_handoff(self, event: ProviderContext) -> None:
+    def handle_handoff(self, event: ProviderContextModel) -> None:
         """Handle agent handoff to transfer budget state.
 
         This handler ensures budget tracking continues across agent handoffs

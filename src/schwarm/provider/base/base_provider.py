@@ -9,7 +9,7 @@ from opentelemetry.trace import Tracer
 from pydantic import Field
 
 from schwarm.configs.base.base_config import BaseConfig
-from schwarm.models.provider_context import ProviderContext
+from schwarm.models.provider_context import ProviderContextModel
 
 # Type aliases
 Scope = Literal["global", "scoped", "jit"]
@@ -34,7 +34,7 @@ class BaseProvider(ABC):
 
     config: BaseProviderConfig
     _provider_id: str = field(default="", init=False)
-    context: ProviderContext = field(default_factory=ProviderContext)
+    context: ProviderContextModel = field(default_factory=ProviderContextModel)
     is_enabled: bool = True
     _tracer: Tracer | None = None
 
@@ -42,12 +42,12 @@ class BaseProvider(ABC):
         """Post-initialization actions."""
         logger.debug(f"Initialized provider {self.__class__.__name__} with scope: {self.config.scope}")
 
-    def update_context(self, context: ProviderContext) -> None:
+    def update_context(self, context: ProviderContextModel) -> None:
         """Updates the provider's context with new data."""
         logger.debug(f"Updating context for provider {self.__class__.__name__}")
         self.context = context
 
-    def get_context(self) -> ProviderContext:
+    def get_context(self) -> ProviderContextModel:
         """Gets the provider's current context.
 
         Returns:
