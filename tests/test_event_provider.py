@@ -3,8 +3,9 @@ from datetime import datetime
 from unittest.mock import MagicMock
 import pytest
 from schwarm.events.event import Event, EventType
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
-from schwarm.provider.provider_context import ProviderContext
+
 from schwarm.models.message import Message
 
 
@@ -20,14 +21,14 @@ class TestEventProvider(BaseEventHandleProvider):
         """Initialize the provider."""
         pass
 
-    def handle_event(self, event: Event, span=None) -> ProviderContext | None:
+    def handle_event(self, event: Event, span=None) -> ProviderContextModel | None:
         """Handle an event."""
         super().handle_event(event, span)  # Log the event
         
         # Return None for most events
         if event.type == EventType.TOOL_EXECUTION:
-            return ProviderContext(
-                current_agent=event.payload.current_agent,
+            return ProviderContextModel(
+                current_agent=event.context.current_agent,
                 message_history=[],
                 context_variables={}
             )
@@ -49,7 +50,7 @@ def provider(config):
 @pytest.fixture
 def mock_context():
     """Create a mock provider context."""
-    context = MagicMock(spec=ProviderContext)
+    context = MagicMock(spec=ProviderContextModel)
     context.current_agent = MagicMock()
     context.current_agent.name = "test_agent"
     context.message_history = []
@@ -74,17 +75,17 @@ def test_event_logging(provider, mock_context, mock_span):
     """Test that events are properly logged."""
     # Create test events
     start_event = Event(
-        type=EventType.START,
-        payload=mock_context,
-        agent_id="test_agent",
-        datetime=datetime.now().isoformat()
+        type=str(EventType.START),
+        context=mock_context,
+        agent_name="test_agent",
+        timestamp=datetime.now().isoformat()
     )
     
     tool_event = Event(
-        type=EventType.TOOL_EXECUTION,
-        payload=mock_context,
-        agent_id="test_agent",
-        datetime=datetime.now().isoformat()
+        type=str(EventType.TOOL_EXECUTION),
+        context=mock_context,
+        agent_name="test_agent",
+        timestamp=datetime.now().isoformat()
     )
     
     # Handle events
@@ -100,25 +101,25 @@ def test_event_logging(provider, mock_context, mock_span):
 def test_tool_execution_return_value(provider, mock_context, mock_span):
     """Test that tool execution returns a context."""
     event = Event(
-        type=EventType.TOOL_EXECUTION,
-        payload=mock_context,
-        agent_id="test_agent",
-        datetime=datetime.now().isoformat()
+        type=str(EventType.TOOL_EXECUTION),
+        context=mock_context,
+        agent_name="test_agent",
+        timestamp=datetime.now().isoformat()
     )
     
     result = provider.handle_event(event, mock_span)
     
-    assert isinstance(result, ProviderContext)
+    assert isinstance(result, ProviderContextModel)
     assert result.current_agent == mock_context.current_agent
 
 
 def test_non_tool_execution_return_value(provider, mock_context, mock_span):
     """Test that non-tool events return None."""
     event = Event(
-        type=EventType.START,
-        payload=mock_context,
-        agent_id="test_agent",
-        datetime=datetime.now().isoformat()
+        type=str(EventType.START),
+        context=mock_context,
+        agent_name="test_agent",
+        timestamp=datetime.now().isoformat()
     )
     
     result = provider.handle_event(event, mock_span)
@@ -137,10 +138,10 @@ def test_provider_config():
 def test_handle_event_without_span(provider, mock_context):
     """Test that handle_event works when span is not provided."""
     event = Event(
-        type=EventType.START,
-        payload=mock_context,
-        agent_id="test_agent",
-        datetime=datetime.now().isoformat()
+        type=str(EventType.START),
+        context=mock_context,
+        agent_name="test_agent",
+        timestamp=datetime.now().isoformat()
     )
     
     # Should not raise error when span is None

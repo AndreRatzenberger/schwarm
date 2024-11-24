@@ -4,7 +4,8 @@ import pytest
 from unittest.mock import MagicMock, patch
 from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message, MessageInfo
-from schwarm.models.provider_context import ProviderContext
+
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent
 from schwarm.provider.budget_provider import BudgetConfig, BudgetProvider
 
@@ -22,7 +23,7 @@ class TestBudgetProvider(BudgetProvider):
 @pytest.fixture
 def mock_context():
     """Create a mock provider context."""
-    context = MagicMock(spec=ProviderContext)
+    context = MagicMock(spec=ProviderContextModel)
     context.current_agent = MagicMock(spec=Agent)
     context.current_agent.name = "test_agent"
     context.message_history = []
@@ -153,16 +154,16 @@ def test_handle_handoff(provider, mock_context):
     next_agent.provider_configurations = [next_budget_config]
 
     # Create handoff event with proper ProviderContext
-    handoff_context = ProviderContext(
+    handoff_context = ProviderContextModel(
         current_agent=next_agent,
         message_history=[],
         context_variables={}
     )
     event = Event(
-        type=EventType.HANDOFF,
-        payload=handoff_context,
-        agent_id="test_agent",
-        datetime="2021-01-01T00:00:00Z"
+        type=str(EventType.HANDOFF),
+        context=handoff_context,
+        agent_name="test_agent",
+        timestamp="2021-01-01T00:00:00Z"
     )
 
     # Handle handoff

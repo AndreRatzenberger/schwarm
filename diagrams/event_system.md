@@ -13,7 +13,7 @@ classDiagram
 
     class Event {
         +EventType type
-        +T payload
+        +T context
         +str agent_id
         +str datetime
     }
@@ -33,7 +33,7 @@ classDiagram
     }
 
     Event --> EventType
-    Event o-- ProviderContext : payload
+    Event o-- ProviderContext : context
     ProviderManager --> Event : triggers
     BaseEventHandleProvider --> Event : handles
     ProviderManager --> BaseEventHandleProvider : manages

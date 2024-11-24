@@ -28,8 +28,8 @@ class BaseEventHandleProvider(BaseProvider, ABC):
 
         with self._tracer.start_as_current_span(f"handle_event: {event.type}") as span:
             span.set_attribute("event.type", str(event.type))
-            span.set_attribute("event.timestamp", str(event.datetime))
-            span.set_attribute("event.payload", str(event.payload))  # Be cautious about PII!
+            span.set_attribute("event.timestamp", str(event.timestamp))
+            span.set_attribute("event.context", str(event.context))  # Be cautious about PII!
 
             self.event_log.append(event)
             try:

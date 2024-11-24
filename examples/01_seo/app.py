@@ -9,7 +9,7 @@ import shutil
 from rich.console import Console
 from rich.markdown import Markdown
 
-from schwarm.core.schwarm import Schwarm2
+from schwarm.core.schwarm import Schwarm
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, ContextVariables, Result
 from schwarm.provider.provider_presets import DEFAULT
@@ -171,7 +171,7 @@ def main():
 
     input = "I need a blog post about weekend activities during autumn."
 
-    response = Schwarm2().run(
+    response = Schwarm().run(
         orchestrator_agent,
         messages=[Message(role="user", content=input)],
         context_variables={},

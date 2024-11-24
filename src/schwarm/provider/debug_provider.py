@@ -72,17 +72,15 @@ class DebugProvider(BaseEventHandleProvider):
 
     def handle_event(self, event: Event) -> ProviderContextModel | None:
         """Handle events by showing relevant information."""
-        self.context = event.payload
+        self.context = event.context
         if event.type == EventType.START:
-            self.handle_start(event.payload)
+            self.handle_start(event.context)
         elif event.type == EventType.MESSAGE_COMPLETION:
             self.handle_message_completion()
         elif event.type == EventType.TOOL_EXECUTION:
             self.handle_tool_execution()
-        elif event.type == EventType.POST_TOOL_EXECUTION:
-            self.handle_post_tool_execution()
 
-    def handle_start(self, payload: ProviderContextModel) -> ProviderContextModel | None:
+    def handle_start(self, context: ProviderContextModel) -> ProviderContextModel | None:
         """Handle agent start by initializing logging and showing instructions."""
         if self.config.save_logs:
             self._ensure_log_directory()
@@ -92,7 +90,7 @@ class DebugProvider(BaseEventHandleProvider):
             logger.warning("No context available for debug provider")
             return
 
-        self._show_instructions(payload)
+        self._show_instructions(context)
 
     def handle_message_completion(self) -> None:
         """Handle message completion to show relevant information."""

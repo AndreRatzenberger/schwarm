@@ -5,8 +5,9 @@ import pytest
 from pydantic import BaseModel
 from schwarm.events.event import Event
 from schwarm.models.message import Message, MessageInfo
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Result
-from schwarm.models.provider_context import ProviderContext
+
 from schwarm.provider.debug_provider import DebugProvider, DebugConfig
 from schwarm.provider.budget_provider import BudgetConfig, BudgetProvider
 from schwarm.provider.provider_manager import ProviderManager
@@ -23,7 +24,7 @@ class TestDebugProvider(DebugProvider):
         """Initialize the provider."""
         pass
     def handle_event(self, event):
-        self.handle_start(event.payload)
+        self.handle_start(event.context)
 
 
 @pytest.fixture
@@ -41,7 +42,7 @@ def config():
 @pytest.fixture
 def mock_context():
     """Create a mock provider context."""
-    context = MagicMock(spec=ProviderContext)
+    context = MagicMock(spec=ProviderContextModel)
     context.current_agent = MagicMock(spec=Agent)
     context.current_agent.name = "test_agent"
     context.current_agent.instructions = "Test instructions"

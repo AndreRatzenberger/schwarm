@@ -40,7 +40,7 @@ class MongoDBProvider(BaseEventHandleProvider):
             event: The event to handle and store
 
         Returns:
-            The provider context if the event payload is a ProviderContext, None otherwise
+            The provider context if the event context is a ProviderContext, None otherwise
         """
         # Always log the event
 
@@ -54,7 +54,7 @@ class MongoDBProvider(BaseEventHandleProvider):
             event_dict = {
                 "timestamp": datetime.utcnow(),
                 "event_type": str(event.type),  # Convert EventType to string for MongoDB storage
-                "payload": self._serialize_payload(event.payload),
+                "context": self._serialize_context(event.context),
             }
 
             # Store in MongoDB
@@ -65,14 +65,14 @@ class MongoDBProvider(BaseEventHandleProvider):
 
         return self._get_provider_context(event)
 
-    def _serialize_payload(self, payload: Any) -> Any:
-        """Serialize payload for MongoDB storage."""
-        if hasattr(payload, "model_dump"):
-            return payload.model_dump()
-        return str(payload)
+    def _serialize_context(self, context: Any) -> Any:
+        """Serialize context for MongoDB storage."""
+        if hasattr(context, "model_dump"):
+            return context.model_dump()
+        return str(context)
 
     def _get_provider_context(self, event: Event) -> ProviderContextModel | None:
         """Extract ProviderContext from event if available."""
-        if isinstance(event.payload, ProviderContextModel):
-            return event.payload
+        if isinstance(event.context, ProviderContextModel):
+            return event.context
         return None

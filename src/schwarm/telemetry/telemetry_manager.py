@@ -49,13 +49,13 @@ class TelemetryManager:
         """Send a trace with global context."""
         if not self.global_tracer:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
-        payload = json.dumps(make_serializable(global_context.payload))
+        context = json.dumps(make_serializable(global_context.context))
 
-        with self.global_tracer.start_as_current_span(f"{global_context.agent_id} - {global_context.type}") as span:
+        with self.global_tracer.start_as_current_span(f"{global_context.agent_name} - {global_context.type}") as span:
             span.set_attribute("event_type", str(global_context.type))
-            span.set_attribute("agent_id", global_context.agent_id)
-            span.set_attribute("payload", payload)
-            # for key, value in payload.items():
+            span.set_attribute("agent_id", global_context.agent_name)
+            span.set_attribute("context", context)
+            # for key, value in context.items():
             #     if isinstance(value, str | int | float | bool | bytes):
             #         span.set_attribute(key, value)
 

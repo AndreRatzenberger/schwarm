@@ -52,11 +52,11 @@ class BudgetProvider(BaseEventHandleProvider):
     def handle_event(self, event):
         """Handle an event by updating budget tracking and enforcing limits."""
         if event.type == "start":
-            self.handle_start(event.payload)
+            self.handle_start(event.context)
         elif event.type == "post_message_completion":
-            self.handle_post_message_completion(event.payload)
+            self.handle_post_message_completion(event.context)
         elif event.type == "handoff":
-            return self.handle_handoff(event.payload)
+            return self.handle_handoff(event.context)
 
         return super().handle_event(event)
 

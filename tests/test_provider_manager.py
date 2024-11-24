@@ -2,10 +2,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from schwarm.events.event import Event, EventType
-from schwarm.models.provider_context import ProviderContext
-from schwarm.provider.base import BaseProvider
-from schwarm.provider.base import BaseProviderConfig
+
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
+from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager, ProviderInitError
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
@@ -218,11 +218,11 @@ def test_trigger_event(manager: ProviderManager):
     provider2 = manager.create_provider("test_agent", config2)
     
     # Mock the providers and context
-    mock_context = MagicMock(spec=ProviderContext)
+    mock_context = MagicMock(spec=ProviderContextModel)
     mock_agent = MagicMock()
     mock_agent.name = "test_agent"
     mock_context.current_agent = mock_agent
-    event = Event(type=EventType.START, payload=mock_context)
+    event = Event(type=str(EventType.START), context=mock_context, agent_name="test_agent", timestamp="2021-01-01T00:00:00Z")
     
     # Trigger event
     result = manager.trigger_event(event)
