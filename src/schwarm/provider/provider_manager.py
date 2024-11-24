@@ -92,11 +92,11 @@ class ProviderManager:
             This method handles both agent-specific and global scope providers,
             catching and logging any errors that occur during event processing.
         """
-        agent_id = event.context.current_agent.name
-        event.datetime = datetime.now().isoformat()
+        agent_name = event.agent_name
+        event.timestamp = datetime.now().isoformat()
 
         # Get providers for the agent and global scope
-        providers = self.get_event_providers(agent_id)
+        providers = self.get_event_providers(agent_name)
         providers.extend(self.get_event_providers("global"))
 
         results = []
