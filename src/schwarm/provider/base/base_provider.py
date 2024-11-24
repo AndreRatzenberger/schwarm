@@ -4,11 +4,11 @@ from abc import ABC
 from dataclasses import dataclass, field
 from typing import Literal
 
-from litellm import BaseModel
 from loguru import logger
 from opentelemetry.trace import Tracer
 from pydantic import Field
 
+from schwarm.configs.base.base_config import BaseConfig
 from schwarm.models.provider_context import ProviderContext
 
 # Type aliases
@@ -16,7 +16,7 @@ Scope = Literal["global", "scoped", "jit"]
 ProviderType = Literal["event", "llm"]
 
 
-class BaseProviderConfig(BaseModel):
+class BaseProviderConfig(BaseConfig):
     """Base configuration for all providers."""
 
     scope: Scope = Field(default="scoped", description="Provider lifecycle scope")

@@ -1,22 +1,11 @@
 """Agent model definition."""
 
 from collections.abc import Callable
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 
-from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
-from schwarm.provider.provider_manager import ProviderManager
-from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
-from schwarm.telemetry.telemetry_manager import TelemetryManager
-
-T = TypeVar("T", bound=BaseProvider)
-
-
-def create_provider_manager() -> ProviderManager:
-    """Create a new ProviderManager instance with default telemetry."""
-    telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
-    return ProviderManager(telemetry_manager=telemetry_manager)
+from schwarm.configs.base.base_config import BaseConfig
 
 
 class Agent(BaseModel):
@@ -37,49 +26,4 @@ class Agent(BaseModel):
         description="Specific tool selection strategy. none = no tools get called, auto = llm decides if generating a text or calling a tool, required = tools are forced",
     )
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
-    provider_configurations: list[BaseProviderConfig] = Field(
-        default_factory=list, description="List of provider configurations"
-    )
-    _provider_manager: ProviderManager = PrivateAttr(default_factory=create_provider_manager)
-
-    def get_typed_provider(self, provider_type: type[T]) -> list[T]:
-        """Get a provider with proper type safety."""
-        provider = self._provider_manager.get_provider_to_agent_name_by_class(self.name, provider_type)
-        if provider:
-            return provider
-        raise ValueError(f"No provider of type {provider_type.__name__} configured")
-
-    def quickstart(
-        self,
-        input_text: str = "",
-        context_variables: dict[str, Any] | None = None,
-        mode: Literal["auto", "interactive"] = "interactive",
-    ) -> Any:
-        """Quick way to start the agent with minimal configuration.
-
-        This method uses Schwarm's quickstart functionality to run the agent.
-
-        Args:
-            input_text: The input text to process
-            context_variables: Optional context variables
-            mode: Either "auto" or "interactive" mode
-
-        Returns:
-            Result containing the response and any updates
-        """
-        # Import here to avoid circular dependency
-        from schwarm.core.schwarm import Schwarm
-
-        # Create Schwarm instance with default telemetry
-        schwarm = Schwarm()
-        schwarm.register_agent(self)
-
-        # Run through Schwarm's quickstart
-        return schwarm.quickstart(
-            agent=self, input_text=input_text, context_variables=context_variables or {}, mode=mode
-        )
-
-    def _setup_providers(self) -> None:
-        """Initialize all configured providers."""
-        for config in self.provider_configurations:
-            self._provider_manager.create_provider(self.name, config)
+    configs: list[BaseConfig] = Field(default_factory=list, description="List of configurations")

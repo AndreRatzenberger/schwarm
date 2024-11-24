@@ -68,25 +68,25 @@ def main():
         name="orchestrator",
         instructions=orchestrator_instructions,
         parallel_tool_calls=False,
-        provider_configurations=DEFAULT,
+        configs=DEFAULT,
     )
 
     blog_writer = Agent(
         name="blog_writer",
         instructions=blog_writer_instructions,
-        provider_configurations=DEFAULT,
+        configs=DEFAULT,
     )
 
     seo_optimizer = Agent(
         name="seo_optimizer",
         instructions=seo_optimizer_instructions,
-        provider_configurations=DEFAULT,
+        configs=DEFAULT,
     )
 
     user_agent = Agent(
         name="user_agent",
         instructions="Print the final blog post.",
-        provider_configurations=DEFAULT,
+        configs=DEFAULT,
         tool_choice="none",  # forces to print the final blog post
     )
 

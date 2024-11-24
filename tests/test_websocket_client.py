@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import pytest
 from websockets.server import WebSocketServer, serve
 
-from schwarm.events.event_data import Event, EventType
+from schwarm.events.event import Event, EventType
 from schwarm.provider.provider_context import ProviderContext
 
 

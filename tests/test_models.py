@@ -31,7 +31,7 @@ def test_agent():
         model="gpt-4",
         description="Test agent",
         instructions="Test instructions",
-        provider_configurations=[
+        configs=[
             TestProviderConfig(
                 api_key="test-key",
                 api_base="https://api.test.com"
@@ -104,11 +104,11 @@ async def test_agent_model():
     agent = Agent(
         name="test",
         description="test agent",
-        provider_configurations=[test_config]
+        configs=[test_config]
     )
-    assert len(agent.provider_configurations) == 1
-    assert isinstance(agent.provider_configurations[0], TestProviderConfig)
-    assert agent.provider_configurations[0].api_key == "test-key"
+    assert len(agent.configs) == 1
+    assert isinstance(agent.configs[0], TestProviderConfig)
+    assert agent.configs[0].api_key == "test-key"
 
 
 @pytest.mark.asyncio

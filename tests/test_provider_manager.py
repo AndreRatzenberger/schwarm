@@ -1,7 +1,7 @@
 """Tests for the provider manager."""
 import pytest
 from unittest.mock import MagicMock, patch
-from schwarm.events.event_data import Event, EventType
+from schwarm.events.event import Event, EventType
 from schwarm.models.provider_context import ProviderContext
 from schwarm.provider.base import BaseProvider
 from schwarm.provider.base import BaseProviderConfig

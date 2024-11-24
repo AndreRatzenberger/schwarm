@@ -4,6 +4,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 
 
@@ -13,6 +14,7 @@ class TelemetryManager:
     def __init__(self, telemetry_exporters: list[TelemetryExporter], enabled_providers: list[str]):
         """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
         self.enabled_providers = set(enabled_providers or [])
+        self.enabled_agents: dict[str, TelemetryConfig] = {}
         self.tracers: dict[str, trace.Tracer] = {}
 
         # Initialize OpenTelemetry
@@ -25,6 +27,14 @@ class TelemetryManager:
             tracer_provider.add_span_processor(span_processor)
 
         self.global_tracer = trace.get_tracer(__name__)
+
+    def add_agent(self, agent_name: str, config: TelemetryConfig):
+        """Update the telemetry configuration."""
+        self.enabled_agents[agent_name] = config
+
+    def add_provide(self, provider_id: str):
+        """Update the telemetry configuration."""
+        self.enabled_providers.add(provider_id)
 
     def is_tracing_enabled(self, provider_id: str) -> bool:
         """Check if tracing is enabled for a specific provider."""

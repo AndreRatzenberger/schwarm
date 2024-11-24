@@ -49,7 +49,7 @@ os.makedirs(APP_SETTINGS.DATA_FOLDER)
 
 google_search_agent = Agent(
     name="google_search_agent",
-    provider_configurations=[
+    configs=[
         LiteLLMConfig(enable_cache=True),
         DebugConfig(
             show_function_calls=True,
@@ -62,7 +62,7 @@ google_search_agent = Agent(
 )
 arxiv_search_agent = Agent(
     name="arxiv_search_agent",
-    provider_configurations=[
+    configs=[
         LiteLLMConfig(enable_cache=True),
         DebugConfig(
             show_function_calls=True,
@@ -75,7 +75,7 @@ arxiv_search_agent = Agent(
 )
 report_agent = Agent(
     name="report_agent",
-    provider_configurations=[
+    configs=[
         LiteLLMConfig(enable_cache=True),
         DebugConfig(
             show_function_calls=True,
@@ -89,7 +89,7 @@ report_agent = Agent(
 user_agent = Agent(
     name="user_agent",
     tool_choice="none",
-    provider_configurations=[
+    configs=[
         LiteLLMConfig(enable_cache=True),
         DebugConfig(
             show_function_calls=True,

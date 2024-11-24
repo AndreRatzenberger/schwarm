@@ -5,7 +5,7 @@ from schwarm.telemetry.sqllite_telemtry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.models.types import Agent
 from schwarm.models.message import Message
-from schwarm.events.event_data import EventType
+from schwarm.events.event import EventType
 
 @pytest.fixture
 def test_db_path(tmp_path):
@@ -32,7 +32,7 @@ def mock_agent():
         name="test_agent",
         instructions="Test instructions",
         functions=[],
-        provider_configurations=[]
+        configs=[]
     )
 
 def test_schwarm2_initialization_with_telemetry(telemetry_manager):

@@ -2,7 +2,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 import pytest
-from schwarm.events.event_data import Event, EventType
+from schwarm.events.event import Event, EventType
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.models.message import Message

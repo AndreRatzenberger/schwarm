@@ -94,12 +94,12 @@ class Response(BaseModel):
             table.add_row("Additional Info", "No additional info found")
 
         # Render configurations
-        if self.agent.provider_configurations:  # type: ignore
+        if self.agent.configs:  # type: ignore
             config_table = Table(title="Provider Configurations", show_header=True, header_style="bold yellow")
             config_table.add_column("Type")
             config_table.add_column("Enabled")
             config_table.add_column("Details")
-            for config in self.agent.provider_configurations:  # type: ignore
+            for config in self.agent.configs:  # type: ignore
                 config_table.add_row(
                     config.__class__.__name__,
                     str(config.enabled),

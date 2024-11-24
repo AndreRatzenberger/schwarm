@@ -10,7 +10,7 @@ from loguru import logger
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events import EventType
-from schwarm.events.event_data import Event
+from schwarm.events.event import Event
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
@@ -143,7 +143,7 @@ class Schwarm:
         self._provider_context.available_agents.append(active_agent)
         self._provider_context.available_tools = active_agent.functions
 
-        for config in agent.provider_configurations:
+        for config in agent.configs:
             if config.enabled:
                 self._manager.create_provider(agent.name, config)
 

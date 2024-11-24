@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from websockets.exceptions import WebSocketException
 
-from schwarm.events.event_data import Event, EventType
+from schwarm.events.event import Event, EventType
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.web_debug_provider import WebDebugConfig, WebDebugProvider
 from tests.test_websocket_server import TestWebSocketServer

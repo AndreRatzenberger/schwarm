@@ -62,8 +62,8 @@ class User(BaseModel):
 
 # Agents
 
-user_generator = Agent(name="User Generator", provider_configurations=DEFAULT)
-bio_generator = Agent(name="Biography Generator", provider_configurations=DEFAULT)
+user_generator = Agent(name="User Generator", configs=DEFAULT)
+bio_generator = Agent(name="Biography Generator", configs=DEFAULT)
 
 # Instructions
 

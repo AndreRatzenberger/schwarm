@@ -2,7 +2,7 @@
 import os
 import pytest
 from unittest.mock import MagicMock, patch
-from schwarm.events.event_data import Event, EventType
+from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.provider_context import ProviderContext
 from schwarm.models.types import Agent

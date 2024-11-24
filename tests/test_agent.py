@@ -93,12 +93,12 @@ def agent(telemetry_manager):
     pm._config_to_provider_map[TestConfig] = TestProvider
     agent = Agent(
         name="test_agent",
-        provider_configurations=[TestConfig()],
+        configs=[TestConfig()],
         instructions="You are a test agent.",
         functions=[test_function]
     )
     # Initialize providers
-    for config in agent.provider_configurations:
+    for config in agent.configs:
         provider = agent._provider_manager.create_provider(agent.name, config)
 
     return agent
@@ -175,7 +175,7 @@ def test_quickstart_response_conversion(telemetry_manager):
     """Test conversion of Schwarm Response to Result."""
     agent = Agent(
         name="test_agent",
-        provider_configurations=[TestConfig()],
+        configs=[TestConfig()],
         instructions="You are a test agent."
     )
     
@@ -210,14 +210,14 @@ def test_multiple_providers(telemetry_manager):
     
     agent = Agent(
         name="multi_agent",
-        provider_configurations=[
+        configs=[
             TestConfig(),
             AnotherConfig()
         ]
     )
     
     # Initialize providers
-    for config in agent.provider_configurations:
+    for config in agent.configs:
         provider = pm.create_provider(agent.name, config)
     
     providers = pm.get_all_providers_to_scope(agent.name)
@@ -233,12 +233,12 @@ def test_telemetry_integration(telemetry_manager):
     
     agent = Agent(
         name="test_agent",
-        provider_configurations=[TestConfig()],
+        configs=[TestConfig()],
         instructions="You are a test agent."
     )
     
     # Initialize provider
-    provider = pm.create_provider(agent.name, agent.provider_configurations[0])
+    provider = pm.create_provider(agent.name, agent.configs[0])
     
     # Verify provider has tracer
     assert hasattr(provider, "_tracer")

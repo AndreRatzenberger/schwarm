@@ -7,13 +7,14 @@ from typing import Any, Literal
 
 from loguru import logger
 
+from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
-from schwarm.events import Event
-from schwarm.events.event_data import EventType
+from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, Response
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider
+from schwarm.provider.base.base_provider import BaseProviderConfig
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
@@ -98,9 +99,11 @@ class Schwarm2:
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
         self._setup_context(agent, messages, context_variables, max_turns)
 
-        for config in agent.provider_configurations:
-            if config.enabled:
+        for config in agent.configs:
+            if isinstance(config, BaseProviderConfig):
                 self._provider_manager.create_provider(agent.name, config)
+            if isinstance(config, TelemetryConfig):
+                self._telemetry_manager.add_agent(agent.name, config)
 
         self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
         self._trigger_event(EventType.START)

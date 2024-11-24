@@ -7,7 +7,7 @@ from loguru import logger
 from pydantic import Field
 from pymongo import MongoClient
 
-from schwarm.events.event_data import Event
+from schwarm.events.event import Event
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.provider_context import ProviderContext
 

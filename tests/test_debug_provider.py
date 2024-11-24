@@ -3,7 +3,7 @@ import os
 from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
-from schwarm.events.event_data import Event
+from schwarm.events.event import Event
 from schwarm.models.message import Message, MessageInfo
 from schwarm.models.types import Agent, Result
 from schwarm.models.provider_context import ProviderContext
