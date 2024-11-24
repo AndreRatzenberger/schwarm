@@ -10,7 +10,7 @@ from schwarm.models.result import Result
 from schwarm.models.agent import Agent
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
-from schwarm.provider.debug_provider import DebugConfig, DebugProvider
+from schwarm.provider.information_provider import InformationConfig, InformationProvider
 from schwarm.provider.provider_context import ProviderContext
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.telemetry_manager import TelemetryManager
@@ -196,7 +196,7 @@ def test_quickstart_response_conversion(telemetry_manager):
 
 
 def test_constructor(telemetry_manager):
-    zap = DebugProvider(DebugConfig())
+    zap = InformationProvider(InformationConfig())
 
 
 def test_multiple_providers(telemetry_manager):

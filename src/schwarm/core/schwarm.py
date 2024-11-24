@@ -11,7 +11,7 @@ from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.core.logging import log_function_call, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import EventType
-from schwarm.models.event import create_event
+from schwarm.models.event import create_event, create_full_event
 from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Response
@@ -154,12 +154,16 @@ class Schwarm:
     ):
         """Process a single turn in the conversation."""
         completion = self._complete_agent_request(agent, context_variables, model_override)
-
+        self._provider_context.current_message = completion
         self._provider_context.message_history.append(completion)
+
+        self._trigger_event(EventType.POST_MESSAGE_COMPLETION)
 
         if not completion.tool_calls or not execute_tools:
             logger.info("No tools to execute or tool execution disabled")
             return
+
+        self._trigger_event(EventType.TOOL_EXECUTION)
 
         partial_response = ToolHandler().handle_tool_calls(
             current_agent=agent.name,
@@ -167,14 +171,15 @@ class Schwarm:
             functions=agent.functions,
             context_variables=context_variables,
         )
-        self._trigger_event(EventType.TOOL_EXECUTION)
+
         self._provider_context.message_history.extend(partial_response.messages)
         self._provider_context.context_variables.update(partial_response.context_variables)
-
+        self._trigger_event(EventType.POST_TOOL_EXECUTION)
         if partial_response.agent and partial_response.agent != agent:
             logger.info(f"Agent handoff: {agent.name} -> {partial_response.agent.name}")
-            self._trigger_event(EventType.HANDOFF)
             self._provider_context.current_agent = partial_response.agent
+            self._provider_context.previous_agent = agent
+            self._trigger_event(EventType.HANDOFF)
 
     def _restore_logging(self, show_logs: bool):
         """Restore logging settings if modified."""
@@ -194,7 +199,7 @@ class Schwarm:
 
         tools = [function_to_json(f) for f in agent.functions]
         self._filter_context_vars_from_tools(tools)
-
+        self._trigger_event(EventType.MESSAGE_COMPLETION)
         provider = self._provider_manager.get_first_llm_provider(agent.name)
         if isinstance(provider, BaseLLMProvider):
             result = provider.complete(
@@ -204,7 +209,7 @@ class Schwarm:
                 tool_choice=str(agent.tool_choice),
                 parallel_tool_calls=agent.parallel_tool_calls,
             )
-        self._trigger_event(EventType.MESSAGE_COMPLETION)
+
         return result
 
     def _filter_context_vars_from_tools(self, tools: list[dict]):
@@ -218,11 +223,12 @@ class Schwarm:
     def _trigger_event(self, event_type: EventType):
         """Trigger a specific event."""
         logger.debug(f"Event triggered: {event_type}")
-        event = create_event(self._provider_context, event_type)
-        if not event:
-            return
 
         if self._telemetry_manager:
-            self._telemetry_manager.send_trace(event)
+            event = create_event(self._provider_context, event_type)
+            if event:
+                self._telemetry_manager.send_trace(event)
         if self._provider_context:
-            self._provider_manager.trigger_event(event)
+            event = create_full_event(self._provider_context, event_type)
+            if event:
+                self._provider_manager.trigger_event(event)

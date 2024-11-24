@@ -3,11 +3,13 @@
 import json
 import sqlite3
 from collections.abc import Sequence
+from pathlib import Path
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.telemetry.base.http_telemetry_exporter import HttpTelemetryExporter
+from schwarm.utils.settings import APP_SETTINGS
 
 
 class SqliteTelemetryExporter(HttpTelemetryExporter):
@@ -20,7 +22,8 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
             db_path: Path to the SQLite database file
         """
         super().__init__()
-        self.db_path = db_path
+        self.db_path = Path(APP_SETTINGS.TELEMETRY, db_path)
+        self.db_path.mkdir(parents=True, exist_ok=True)
         self._initialize_database()
 
     def _initialize_database(self):

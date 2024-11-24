@@ -8,7 +8,7 @@ from schwarm.models.message import Message, MessageInfo
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Result
 
-from schwarm.provider.debug_provider import DebugProvider, DebugConfig
+from schwarm.provider.information_provider import InformationProvider, InformationConfig
 from schwarm.provider.budget_provider import BudgetConfig, BudgetProvider
 from schwarm.provider.provider_manager import ProviderManager
 
@@ -18,7 +18,7 @@ Agent.model_rebuild()
 Result.model_rebuild()
 
 
-class TestDebugProvider(DebugProvider):
+class TestDebugProvider(InformationProvider):
     """Test implementation of DebugProvider."""
     def initialize(self) -> None:
         """Initialize the provider."""
@@ -30,7 +30,7 @@ class TestDebugProvider(DebugProvider):
 @pytest.fixture
 def config():
     """Create a test debug provider config."""
-    return DebugConfig(
+    return InformationConfig(
         show_instructions=True,
         show_function_calls=True,
         show_budget=True,

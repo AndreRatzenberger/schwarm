@@ -29,7 +29,7 @@ lerna-debug.log*
 schwarm_events.db
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
+.telemetry/
 # Runtime data
 pids
 *.pid

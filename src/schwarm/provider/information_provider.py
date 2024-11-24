@@ -25,7 +25,7 @@ from schwarm.utils.settings import APP_SETTINGS
 console = Console()
 
 
-class DebugConfig(BaseEventHandleProviderConfig):
+class InformationConfig(BaseEventHandleProviderConfig):
     """Configuration for the debug provider."""
 
     show_instructions: bool = Field(default=True, description="Whether to show agent instructions")
@@ -56,10 +56,10 @@ class DebugConfig(BaseEventHandleProviderConfig):
     current_tokens: int = Field(default=0, description="Current tokens used")
 
 
-class DebugProvider(BaseEventHandleProvider):
+class InformationProvider(BaseEventHandleProvider):
     """Debug provider that handles display and logging functionality."""
 
-    config: DebugConfig
+    config: InformationConfig
     _provider_id: str = Field(default="debug", description="Provider ID")
     _log_dir: Path = Path(APP_SETTINGS.DATA_FOLDER) / "logs"
 
@@ -77,7 +77,7 @@ class DebugProvider(BaseEventHandleProvider):
         handlers: dict[EventType, Callable] = {
             EventType.START: self._handle_start,
             EventType.INSTRUCT: self._handle_instruct,
-            EventType.MESSAGE_COMPLETION: self._handle_message_completion,
+            EventType.POST_MESSAGE_COMPLETION: self._handle_message_completion,
             EventType.TOOL_EXECUTION: self._handle_tool_execution,
             EventType.POST_TOOL_EXECUTION: self._handle_post_tool_execution,
             EventType.HANDOFF: self._handle_handoff,
@@ -110,18 +110,18 @@ class DebugProvider(BaseEventHandleProvider):
             wait_for_input=self.config.instructions_wait_for_user_input,
         )
 
-    def _handle_message_completion(self) -> None:
+    def _handle_message_completion(self, context: ProviderContextModel) -> dict:
         """Handle message completion events."""
         if not self.context or not self.context.message_history:
-            return
+            return {}
 
         latest_message = self.context.message_history[-1]
         if not isinstance(latest_message, Message) or not latest_message.info:
-            return
+            return {}
 
-        self._update_budget(latest_message)
+        return self._update_budget(latest_message)
 
-    def _handle_tool_execution(self) -> None:
+    def _handle_tool_execution(self, context: ProviderContextModel) -> None:
         """Handle tool execution events."""
         if not self.context or not self.context.message_history:
             return
@@ -139,7 +139,7 @@ class DebugProvider(BaseEventHandleProvider):
                 parameters=function_args,
             )
 
-    def _handle_post_tool_execution(self) -> None:
+    def _handle_post_tool_execution(self, context: ProviderContextModel) -> None:
         """Handle post tool execution events."""
         if not self.context or not self.context.message_history:
             return
@@ -160,7 +160,7 @@ class DebugProvider(BaseEventHandleProvider):
             return next_agent
 
         for provider in next_agent.provider_configurations:
-            if isinstance(provider, DebugConfig):
+            if isinstance(provider, InformationConfig):
                 provider.current_spent = self.config.current_spent
                 provider.current_tokens = self.config.current_tokens
                 logger.debug(
@@ -194,18 +194,21 @@ class DebugProvider(BaseEventHandleProvider):
         with all_log_path.open(mode=mode, encoding="utf-8") as f:
             f.write(content_with_timestamp)
 
-    def _update_budget(self, message: Message) -> None:
+    def _update_budget(self, message: Message) -> dict[str, Any]:
         """Update budget tracking."""
         if not message.info:
-            return
+            return {}
 
         self.config.current_spent += message.info.completion_cost
         self.config.current_tokens += message.info.token_counter
+
+        result = {"current_spent": self.config.current_spent, "current_tokens": self.config.current_tokens}
 
         if self.config.save_budget:
             self._save_budget_to_csv()
 
         self._check_budget_limits()
+        return result
 
     def _save_budget_to_csv(self) -> None:
         """Save current budget state to CSV."""

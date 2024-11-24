@@ -18,6 +18,7 @@ class EventType(Enum):
     START_TURN = "on_start_turn"  # agent starts a new turn
     INSTRUCT = "on_instruct"  # agent gets instructed (before instruction gets generated)
     MESSAGE_COMPLETION = "on_message_completion"  # LLM chat completion (before message gets send)
+    POST_MESSAGE_COMPLETION = "on_post_message_completion"  # tool execution (after tool gets executed)
     TOOL_EXECUTION = "on_tool_execution"  # tool execution (before tool gets executed)
     POST_TOOL_EXECUTION = "on_post_tool_execution"  # tool execution (after tool gets executed)
     HANDOFF = "on_handoff"  # agent handoff (agent gets changed)
@@ -178,10 +179,11 @@ class ContextFilter:
 class Event(BaseModel):
     """Base event model with filtered context."""
 
-    type: EventType = Field(..., description="Event type")
-    agent_name: str = Field(..., description="Name of the agent")
-    timestamp: str = Field(..., description="Event timestamp")
-    context: Any = Field(..., description="Event context")
+    type: EventType = Field(default=EventType.NONE, description="Event type")
+    agent_name: str = Field(default="", description="Name of the agent")
+    provider_name: str = Field(default="", description="Name of the provider")
+    timestamp: str = Field(default=datetime.now(), description="Event timestamp")
+    context: Any = Field(default=None, description="Event context")
 
 
 def create_start_event(context: "ProviderContextModel") -> Event:
@@ -254,6 +256,16 @@ def create_handoff_event(context: "ProviderContextModel") -> Event:
     )
 
 
+def create_full_event(context: "ProviderContextModel", event_type: EventType) -> Event | None:
+    """Create full event with full context."""
+    return Event(
+        type=event_type,
+        agent_name=context.current_agent.name if context.current_agent else "",
+        timestamp=datetime.utcnow().isoformat(),
+        context=context,
+    )
+
+
 def create_event(context: "ProviderContextModel", event_type: EventType) -> Event | None:
     """Event switch."""
     if event_type == EventType.START:
@@ -262,9 +274,9 @@ def create_event(context: "ProviderContextModel", event_type: EventType) -> Even
         return create_start_turn_event(context=context)
     elif event_type == EventType.INSTRUCT:
         return create_instruct_event(context=context)
-    elif event_type == EventType.MESSAGE_COMPLETION:
+    elif event_type == EventType.MESSAGE_COMPLETION or event_type == EventType.POST_MESSAGE_COMPLETION:
         return create_message_completion_event(context=context)
-    elif event_type == EventType.TOOL_EXECUTION:
+    elif event_type == EventType.TOOL_EXECUTION or event_type == EventType.POST_TOOL_EXECUTION:
         return create_tool_execution_event(context=context)
     elif event_type == EventType.HANDOFF:
         return create_handoff_event(context=context)
