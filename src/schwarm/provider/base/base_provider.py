@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from loguru import logger
-from opentelemetry.trace import Tracer
 from pydantic import Field
 
 from schwarm.configs.base.base_config import BaseConfig
@@ -36,7 +35,6 @@ class BaseProvider(ABC):
     _provider_id: str = field(default="", init=False)
     context: ProviderContextModel = field(default_factory=ProviderContextModel)
     is_enabled: bool = True
-    _tracer: Tracer | None = None
 
     def __post_init__(self):
         """Post-initialization actions."""
@@ -59,27 +57,3 @@ class BaseProvider(ABC):
         if not self.context:
             raise ValueError("Provider context has not been set")
         return self.context
-
-    def init_tracer(self, tracer: Tracer | None = None):
-        """Initializes the tracer for the provider.
-
-        Args:
-            tracer (Optional[Tracer]): Explicit tracer instance. If None, falls back to `TelemetryManager`.
-
-        Note:
-            If no tracer is provided and the `TelemetryManager` is not initialized, an error will be logged.
-        """
-        self._tracer = tracer
-
-    def get_tracer(self) -> Tracer:
-        """Retrieves the initialized tracer.
-
-        Returns:
-            Tracer: The initialized tracer instance.
-
-        Raises:
-            RuntimeError: If the tracer has not been initialized.
-        """
-        if not self._tracer:
-            raise RuntimeError(f"Tracer has not been initialized for provider {self.__class__.__name__}")
-        return self._tracer

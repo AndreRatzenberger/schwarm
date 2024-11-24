@@ -5,7 +5,6 @@ import sys
 from collections import defaultdict
 from typing import Any, Literal
 
-from devtools import debug
 from loguru import logger
 
 from schwarm.configs.telemetry_config import TelemetryConfig
@@ -102,10 +101,6 @@ class Schwarm:
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
         self._setup_context(agent, messages, context_variables, max_turns)
 
-        self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
-        self._provider_context.current_agent = agent
-        self._provider_context.current_turn = 0
-
         while self._can_continue_conversation():
             self._trigger_event(EventType.START_TURN)
             logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
@@ -135,7 +130,10 @@ class Schwarm:
             available_tools=agent.functions,
             context_variables=copy.deepcopy(context_variables),
             message_history=copy.deepcopy(messages),
+            available_providers=self._provider_manager.get_all_provider_cfgs_as_dict(),
         )
+        self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
+        self._provider_context.current_turn = 0
         self._trigger_event(EventType.START)
 
     def _set_instructions(self, agent: Agent):
@@ -219,12 +217,12 @@ class Schwarm:
 
     def _trigger_event(self, event_type: EventType):
         """Trigger a specific event."""
+        logger.debug(f"Event triggered: {event_type}")
         event = create_event(self._provider_context, event_type)
         if not event:
             return
-        debug(event)
+
         if self._telemetry_manager:
             self._telemetry_manager.send_trace(event)
         if self._provider_context:
             self._provider_manager.trigger_event(event)
-            logger.debug(f"Event triggered: {event.type}")

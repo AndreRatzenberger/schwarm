@@ -27,6 +27,7 @@ class ProviderContextModel(BaseModel):
     previous_agent: Any = Field(default=None, description="The agent currently using this provider")  # TODO str?
     available_agents: list[Any] = Field(default_factory=list, description="Map of all available agents by name")
     available_tools: list[Any] = Field(default_factory=list, description="List of all available tools/functions")
+    current_tool: Any = Field(default=None, description="The tool currently chosen by the agent")  # TODO str?
     available_providers: dict[str, Any] = Field(
         default_factory=dict, description="Map of all available providers by name"
     )

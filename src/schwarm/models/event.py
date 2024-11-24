@@ -19,6 +19,7 @@ class EventType(Enum):
     INSTRUCT = "on_instruct"  # agent gets instructed (before instruction gets generated)
     MESSAGE_COMPLETION = "on_message_completion"  # LLM chat completion (before message gets send)
     TOOL_EXECUTION = "on_tool_execution"  # tool execution (before tool gets executed)
+    POST_TOOL_EXECUTION = "on_post_tool_execution"  # tool execution (after tool gets executed)
     HANDOFF = "on_handoff"  # agent handoff (agent gets changed)
     NONE = "on_begin"
 
@@ -42,6 +43,13 @@ class AgentContext(BaseModel):
 
 
 class ToolContext(BaseModel):
+    """Context specific to tool operations."""
+
+    available_tools: list[Any] = Field(default_factory=list)
+    context_variables: dict[str, Any] = Field(default_factory=dict)
+
+
+class PostToolContext(BaseModel):
     """Context specific to tool operations."""
 
     available_tools: list[Any] = Field(default_factory=list)
@@ -155,22 +163,32 @@ class ContextFilter:
             current_message=full_context.current_message,
         )
 
+    @staticmethod
+    def for_post_tool_execution(full_context: "ProviderContextModel") -> ToolExecutionContext:
+        """Filter context for tool execution events."""
+        return ToolExecutionContext(
+            available_tools=full_context.available_tools,
+            context_variables=full_context.context_variables,
+            current_agent=full_context.current_agent,
+            current_message=full_context.current_message,
+        )
+
 
 # Example usage with events
 class Event(BaseModel):
     """Base event model with filtered context."""
 
-    type: str
-    agent_name: str
-    timestamp: str
-    context: Any  # Will be one of the specific context models
+    type: EventType = Field(..., description="Event type")
+    agent_name: str = Field(..., description="Name of the agent")
+    timestamp: str = Field(..., description="Event timestamp")
+    context: Any = Field(..., description="Event context")
 
 
 def create_start_event(context: "ProviderContextModel") -> Event:
     """Create start event with filtered context."""
     filtered_context = ContextFilter.for_start_event(context)
     return Event(
-        type="START",
+        type=EventType.START,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context=filtered_context,
@@ -181,7 +199,7 @@ def create_start_turn_event(context: "ProviderContextModel") -> Event:
     """Create turn start event with filtered context."""
     filtered_context = ContextFilter.for_start_turn(context)
     return Event(
-        type="START_TURN",
+        type=EventType.START_TURN,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context=filtered_context,
@@ -195,7 +213,7 @@ def create_instruct_event(context: "ProviderContextModel", instruction: str | No
         filtered_context.instruction_str = instruction
 
     return Event(
-        type="INSTRUCT",
+        type=EventType.INSTRUCT,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context=filtered_context,
@@ -206,7 +224,7 @@ def create_message_completion_event(context: "ProviderContextModel") -> Event:
     """Create message completion event with filtered context."""
     filtered_context = ContextFilter.for_message_completion(context)
     return Event(
-        type="MESSAGE_COMPLETION",
+        type=EventType.MESSAGE_COMPLETION,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context=filtered_context,
@@ -219,7 +237,7 @@ def create_tool_execution_event(
     """Create tool execution event with filtered context."""
     filtered_context = ContextFilter.for_tool_execution(context)
     return Event(
-        type="TOOL_EXECUTION",
+        type=EventType.TOOL_EXECUTION,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context=filtered_context,
@@ -229,7 +247,7 @@ def create_tool_execution_event(
 def create_handoff_event(context: "ProviderContextModel") -> Event:
     """Create handoff event with filtered context."""
     return Event(
-        type="HANDOFF",
+        type=EventType.HANDOFF,
         agent_name=context.current_agent.name if context.current_agent else "",
         timestamp=datetime.utcnow().isoformat(),
         context="",

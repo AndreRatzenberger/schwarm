@@ -1,7 +1,8 @@
 """Debug provider for displaying and logging system information."""
 
-import os
+import csv
 import threading
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -15,22 +16,17 @@ from rich.markdown import Markdown
 
 from schwarm.core.logging import truncate_string
 from schwarm.events.event import Event, EventType
+from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.result import Result
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 
-continue_event = threading.Event()
-
 console = Console()
 
 
 class DebugConfig(BaseEventHandleProviderConfig):
-    """Configuration for the debug provider.
-
-    This configuration includes all display and logging settings,
-    controlling what information is shown to the user and how.
-    """
+    """Configuration for the debug provider."""
 
     show_instructions: bool = Field(default=True, description="Whether to show agent instructions")
     instructions_wait_for_user_input: bool = Field(
@@ -46,63 +42,87 @@ class DebugConfig(BaseEventHandleProviderConfig):
     application_frame: Literal["cli", "jupyter"] = Field(
         default="cli", description="Whether the application is running in a CLI or Jupyter environment"
     )
-    show_budget: bool = Field(default=True, description="Whether to show budget information")
     max_length: int = Field(default=-1, description="Maximum length for displayed text (-1 for no limit)")
     save_logs: bool = Field(default=True, description="Whether to save logs to files")
     provider_id: str = Field(default="debug", description="Provider ID")
+    save_budget: bool = Field(default=True, description="Whether to save budget to CSV")
+    show_budget: bool = Field(default=False, description="Whether to show budget in display")
+    effect_on_exceed: Literal["warning", "error", "nothing"] = Field(
+        default="warning", description="Action on limit exceed"
+    )
+    max_spent: float = Field(default=10.0, description="Maximum allowed spend")
+    max_tokens: int = Field(default=10000, description="Maximum allowed tokens")
+    current_spent: float = Field(default=0.0, description="Current amount spent")
+    current_tokens: int = Field(default=0, description="Current tokens used")
 
 
 class DebugProvider(BaseEventHandleProvider):
-    """Debug provider that handles display and logging functionality.
-
-    This provider replaces the DisplayService, handling all display and logging
-    through the event system. It shows and logs:
-    - Agent instructions
-    - Function calls and results
-    - Budget information
-    - General debug information
-    """
+    """Debug provider that handles display and logging functionality."""
 
     config: DebugConfig
     _provider_id: str = Field(default="debug", description="Provider ID")
+    _log_dir: Path = Path(APP_SETTINGS.DATA_FOLDER) / "logs"
 
-    def initialize(self):
-        """Initialize the debug provider by ensuring the log directory exists."""
+    def initialize(self) -> None:
+        """Initialize the debug provider."""
         self._ensure_log_directory()
 
     def handle_event(self, event: Event) -> ProviderContextModel | None:
         """Handle events by showing relevant information."""
-        self.context = event.context
-        if event.type == EventType.START:
-            self.handle_start(event.context)
-        elif event.type == EventType.MESSAGE_COMPLETION:
-            self.handle_message_completion()
-        elif event.type == EventType.TOOL_EXECUTION:
-            self.handle_tool_execution()
+        if not event.context:
+            logger.warning("No context available for debug provider")
+            return None
 
-    def handle_start(self, context: ProviderContextModel) -> ProviderContextModel | None:
-        """Handle agent start by initializing logging and showing instructions."""
+        self.context = event.context
+        handlers: dict[EventType, Callable] = {
+            EventType.START: self._handle_start,
+            EventType.INSTRUCT: self._handle_instruct,
+            EventType.MESSAGE_COMPLETION: self._handle_message_completion,
+            EventType.TOOL_EXECUTION: self._handle_tool_execution,
+            EventType.POST_TOOL_EXECUTION: self._handle_post_tool_execution,
+            EventType.HANDOFF: self._handle_handoff,
+        }
+
+        handler = handlers.get(event.type)
+        if handler:
+            return handler(event.context)
+        return None
+
+    def _handle_start(self, context: ProviderContextModel) -> None:
+        """Handle agent start."""
         if self.config.save_logs:
             self._ensure_log_directory()
-            self._delete_logs()
 
-        if not self.context:
-            logger.warning("No context available for debug provider")
+    def _handle_instruct(self, context: ProviderContextModel) -> None:
+        """Handle instruction events."""
+        if not self.config.show_instructions:
             return
 
-        self._show_instructions(context)
+        agent_name = context.current_agent.name if context.current_agent else "Unknown"
+        instructions = context.instruction_str if isinstance(context.instruction_str, str) else ""
 
-    def handle_message_completion(self) -> None:
-        """Handle message completion to show relevant information."""
-        if not self.context:
+        self._display_section(
+            title=f"📝 Instructing 🤖 {agent_name}",
+            content=instructions,
+            style="italic",
+            log_file="instructions.log",
+            log_prefix=f"Agent: {agent_name}\nInstructions:\n",
+            wait_for_input=self.config.instructions_wait_for_user_input,
+        )
+
+    def _handle_message_completion(self) -> None:
+        """Handle message completion events."""
+        if not self.context or not self.context.message_history:
             return
 
-        # Show budget if configured
-        # if self.config.show_budget:
-        #     self._show_budget(self.context.current_agent)
+        latest_message = self.context.message_history[-1]
+        if not isinstance(latest_message, Message) or not latest_message.info:
+            return
 
-    def handle_tool_execution(self) -> None:
-        """Handle tool execution to show function calls."""
+        self._update_budget(latest_message)
+
+    def _handle_tool_execution(self) -> None:
+        """Handle tool execution events."""
         if not self.context or not self.context.message_history:
             return
 
@@ -110,224 +130,220 @@ class DebugProvider(BaseEventHandleProvider):
         if not latest_message.tool_calls:
             return
 
-        # Show function call information
         for tool_call in latest_message.tool_calls:
             function_name = tool_call.get("function", {}).get("name")
             function_args = tool_call.get("function", {}).get("arguments")
-            self._show_function(
-                context_variables=self.context.context_variables,
+            self._show_function_details(
                 sender=self.context.current_agent.name,
                 function=function_name,
                 parameters=function_args,
             )
 
-    def handle_post_tool_execution(self) -> None:
-        """Handle post tool execution to show results."""
+    def _handle_post_tool_execution(self) -> None:
+        """Handle post tool execution events."""
         if not self.context or not self.context.message_history:
             return
 
-        # Get the tool result message
-        result_messages = [
-            msg
-            for msg in self.context.message_history[-2:]  # Look at last 2 messages
-            if msg.role == "tool"  # Tool messages contain results
-        ]
-        if not result_messages:
-            return
-
-        # Show function results
+        result_messages = [msg for msg in self.context.message_history[-2:] if msg.role == "tool"]
         for msg in result_messages:
             if "result" in msg.additional_info:
-                self._show_function(
-                    context_variables=self.context.context_variables,
+                self._show_function_details(
                     sender=self.context.current_agent.name,
                     function="tool_result",
                     result=msg.additional_info["result"],
                 )
 
+    def _handle_handoff(self, context: ProviderContextModel) -> Any:
+        """Handle agent handoff events."""
+        next_agent = context.current_agent
+        if not next_agent or not self.context:
+            return next_agent
+
+        for provider in next_agent.provider_configurations:
+            if isinstance(provider, DebugConfig):
+                provider.current_spent = self.config.current_spent
+                provider.current_tokens = self.config.current_tokens
+                logger.debug(
+                    f"Transferred budget state to {next_agent.name}: "
+                    f"spent=${self.config.current_spent:.2f}, "
+                    f"tokens={self.config.current_tokens}"
+                )
+                break
+
+        return next_agent
+
     def _ensure_log_directory(self) -> None:
         """Ensure the log directory exists."""
-        log_path = os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs"))
-        os.makedirs(log_path, exist_ok=True)
-
-    def _delete_logs(self) -> None:
-        """Delete all log files in the logs directory."""
-        log_dir = Path(APP_SETTINGS.DATA_FOLDER) / "logs"
-        if log_dir.exists():
-            for file in log_dir.glob("*.log"):
-                try:
-                    file.unlink(missing_ok=True)
-                except (PermissionError, OSError):
-                    logger.warning(f"Could not delete log file {file}, it may be in use")
-            for file in log_dir.glob("*.csv"):
-                try:
-                    file.unlink(missing_ok=True)
-                except (PermissionError, OSError):
-                    logger.warning(f"Could not delete log file {file}, it may be in use")
+        self._log_dir.mkdir(parents=True, exist_ok=True)
 
     def _write_to_log(self, filename: str, content: str, mode: str = "a") -> None:
-        """Write content to a log file."""
+        """Write content to log files."""
         if not self.config.save_logs:
             return
-
-        log_path = os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", filename))
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         content_with_timestamp = f"Timestamp: {timestamp}\n{content}\n"
 
         # Write to specific log file
-        with open(log_path, mode, encoding="utf-8") as f:
+        log_path = self._log_dir / filename
+        with log_path.open(mode=mode, encoding="utf-8") as f:
             f.write(content_with_timestamp)
 
-        # Write to combined log file
-        with open(
-            os.path.normpath(os.path.join(APP_SETTINGS.DATA_FOLDER, "logs", "all.log")), mode, encoding="utf-8"
-        ) as f:
+        # Write to combined log
+        all_log_path = self._log_dir / "all.log"
+        with all_log_path.open(mode=mode, encoding="utf-8") as f:
             f.write(content_with_timestamp)
 
-    def _show_instructions(self, event: ProviderContextModel) -> None:
-        """Show the instructions to the user."""
-        if not self.config.show_instructions:
+    def _update_budget(self, message: Message) -> None:
+        """Update budget tracking."""
+        if not message.info:
             return
-        agent_name = event.current_agent.name
 
-        if callable(event.current_agent.instructions):
-            instructions = event.instruction_str
-        else:
-            instructions = event.current_agent.instructions()
-        console.line()
-        console.print(Markdown(f"# 📝 Instructing 🤖 {agent_name}"), style="bold orange3")
-        console.line()
-        if isinstance(instructions, str):
-            console.print(Markdown(truncate_string(instructions, self.config.max_length)), style="italic")
+        self.config.current_spent += message.info.completion_cost
+        self.config.current_tokens += message.info.token_counter
 
-        # Write to instructions log
-        log_content = f"Agent: {agent_name}\nInstructions:\n{instructions}\n{'=' * 50}\n"
-        self._write_to_log("instructions.log", log_content)
+        if self.config.save_budget:
+            self._save_budget_to_csv()
 
-        if self.config.instructions_wait_for_user_input:
-            if self.config.application_frame == "cli":
-                console.line()
-                console.input("Press Enter to continue...")
-            else:
-                self.pause_execution()
+        self._check_budget_limits()
 
-    # def _show_budget(self, agent: Agent) -> None:
-    #     """Show the budget to the user."""
-    #     if not self.config.show_budget:
-    #         return
+    def _save_budget_to_csv(self) -> None:
+        """Save current budget state to CSV."""
+        filepath = self._log_dir / f"{self.context.current_agent.name}_budget.csv"
+        file_exists = filepath.exists()
 
-    #     console.line()
-    #     console.print(Markdown(f"# 💰 Budget - {agent.name}"), style="bold orange3")
-    #     manager = ProviderManager()
-    #     budget = manager.get_provider_by_id(agent.name, "budget")
+        with filepath.open(mode="a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["timestamp", "current_spent", "max_spent", "current_tokens", "max_tokens"])
+            writer.writerow(
+                [
+                    datetime.now().isoformat(),
+                    self.config.current_spent,
+                    self.config.max_spent,
+                    self.config.current_tokens,
+                    self.config.max_tokens,
+                ]
+            )
 
-    #     console.line()
-    #     # Initialize log_content with default empty values
-    #     log_content = f"Agent: {agent.name}\nNo budget information available\n{'=' * 50}\n"
+    def _check_budget_limits(self) -> None:
+        """Check if budget or token limits are exceeded."""
+        if self.config.current_spent > self.config.max_spent:
+            self._handle_limit_exceed(
+                f"Budget exceeded: current_spent={self.config.current_spent}, max_spent={self.config.max_spent}"
+            )
 
-    #     if isinstance(budget, BudgetProvider):
-    #         console.print(Markdown(f"**- Max Spent:** ${budget.config.max_spent:.5f}"), style="italic")
-    #         console.print(Markdown(f"**- Max Tokens:** {budget.config.max_tokens}"), style="italic")
-    #         console.print(Markdown(f"**- Current Spent:** ${budget.config.current_spent:.5f}"), style="italic")
-    #         console.print(Markdown(f"**- Current Tokens:** {budget.config.current_tokens}"), style="italic")
+        if self.config.current_tokens > self.config.max_tokens:
+            self._handle_limit_exceed(
+                f"Token limit exceeded: current_tokens={self.config.current_tokens}, max_tokens={self.config.max_tokens}"
+            )
 
-    #         # Update log_content with budget information
-    #         log_content = (
-    #             f"Agent: {agent.name}\n"
-    #             f"Max Spent: ${budget.config.max_spent:.5f}\n"
-    #             f"Max Tokens: {budget.config.max_tokens}\n"
-    #             f"Current Spent: ${budget.config.current_spent:.5f}\n"
-    #             f"Current Tokens: {budget.config.current_tokens}\n"
-    #             f"{'=' * 50}\n"
-    #         )
+    def _handle_limit_exceed(self, message: str) -> None:
+        """Handle exceeded limits based on configuration."""
+        if self.config.effect_on_exceed == "warning":
+            logger.warning(message)
+        elif self.config.effect_on_exceed == "error":
+            logger.error(message)
+            raise ValueError(message)
 
-    #     self._write_to_log("budget.log", log_content)
-
-    def _show_function(
+    def _display_section(
         self,
-        context_variables: dict[str, Any],
-        sender: str = "",
-        receiver: str | None = None,
-        function: str | None = "",
+        title: str,
+        content: str,
+        style: str = "italic",
+        log_file: str | None = None,
+        log_prefix: str = "",
+        wait_for_input: bool = False,
+    ) -> None:
+        """Display a section with consistent formatting."""
+        console.line()
+        console.print(Markdown(f"# {title}"), style="bold orange3")
+        console.line()
+        console.print(Markdown(truncate_string(content, self.config.max_length)), style=style)
+
+        if log_file and log_prefix:
+            log_content = f"{log_prefix}{content}\n{'=' * 50}\n"
+            self._write_to_log(log_file, log_content)
+
+        if wait_for_input:
+            self._wait_for_user_input()
+
+    def _show_function_details(
+        self,
+        sender: str,
+        function: str | None = None,
         parameters: dict[str, Any] | Any | None = None,
         result: Result | None = None,
     ) -> None:
-        """Show the function and parameters to the user."""
+        """Show function details with consistent formatting."""
         if not self.config.show_function_calls:
             return
 
-        console.line()
+        title = f"🤖 {sender} -> ⚡ {function}"
+        log_content = [f"Sender: {sender}", f"Function: {function}"]
 
-        if receiver:
-            console.print(Markdown(f"# 🤖 {sender} -> ⚡ {function} -> 🤖 {receiver}"), style="bold green")
-            log_header = f"Sender: {sender}\nFunction: {function}\nReceiver: {receiver}\n"
-        else:
-            console.print(Markdown(f"# 🤖 {sender} -> ⚡ {function}"), style="bold green")
-            log_header = f"Sender: {sender}\nFunction: {function}\n"
-
-        log_content = log_header
-
-        # Show parameters if provided
         if parameters:
-            console.print(Markdown(f"## Parameters"), style="bold green")
-            log_content += "Parameters:\n"
+            log_content.extend(self._format_parameters(parameters))
 
+        if result:
+            log_content.extend(self._format_result(result))
+
+        if self.config.function_calls_print_context_variables and self.context:
+            log_content.extend(self._format_context_variables())
+
+        self._display_section(
+            title=title,
+            content="\n".join(log_content),
+            log_file="functions.log",
+            wait_for_input=self.config.function_calls_wait_for_user_input,
+        )
+
+    def _format_parameters(self, parameters: dict[str, Any] | Any) -> list[str]:
+        """Format parameters for display."""
+        if not parameters:
+            return []
+
+        result = ["## Parameters"]
+        if isinstance(parameters, dict):
             for key, value in parameters.items():
                 if key == APP_SETTINGS.CONTEXT_VARS_KEY:
                     continue
-                console.line()
-                console.print(Markdown(f"**- {key}**"), style="bold italic")
-                console.line()
-                console.print(Markdown(f"   {truncate_string(str(value), self.config.max_length)}"), style="italic")
-                log_content += f"   {key}: {value}\n"
+                result.extend([f"**- {key}**", f"   {truncate_string(str(value), self.config.max_length)}"])
+        else:
+            result.append(truncate_string(str(parameters), self.config.max_length))
+        return result
 
-        # Show result if provided
-        if result:
-            console.rule()
-            console.print(Markdown(f"## Result"), style="bold green")
-            log_content += f"{'-' * 20}\nResult:\n"
+    def _format_result(self, result: Result) -> list[str]:
+        """Format result for display."""
+        formatted = ["## Result"]
+        dict_result = result.model_dump()
+        for key, value in dict_result.items():
+            formatted.extend([f"**- {key}**", f"   {truncate_string(str(value), self.config.max_length)}"])
+        return formatted
 
-            dict_result = result.model_dump()
-            for key, value in dict_result.items():
-                console.line()
-                console.print(Markdown(f"**- {key}**"), style="bold italic")
-                console.line()
-                console.print(Markdown(f"   {truncate_string(str(value), self.config.max_length)}"), style="italic")
-                log_content += f"   {key}: {value}\n"
+    def _format_context_variables(self) -> list[str]:
+        """Format context variables for display."""
+        return ["**- Context Variables**", truncate_string(str(self.context.context_variables), self.config.max_length)]
 
-        # Show context variables if configured
-        if self.config.function_calls_print_context_variables:
-            console.rule()
-            console.print(Markdown(f"**- Context Variables**"), style="bold italic")
-            log_content += f"{'-' * 20}\n"
-            console.print(truncate_string(str(context_variables), self.config.max_length))
-            log_content += f"Context Variables: {context_variables}\n"
+    def _wait_for_user_input(self) -> None:
+        """Wait for user input based on application frame."""
+        if self.config.application_frame == "cli":
+            console.line()
+            console.input("Press Enter to continue...")
+        else:
+            self._jupyter_pause_execution()
 
-        log_content += f"{'=' * 50}\n"
-        self._write_to_log("functions.log", log_content)
-
-        if self.config.function_calls_wait_for_user_input:
-            if self.config.application_frame == "cli":
-                console.line()
-                console.input("Press Enter to continue...")
-            else:
-                self.pause_execution()
-
-    def on_button_click(self, b):
-        continue_event.set()  # Set the event to continue execution
-        clear_output(wait=True)  # Clear the button output
-        print("Continuing...")
-
-    def pause_execution(self):
-        # Reset the event
+    def _jupyter_pause_execution(self) -> None:
+        """Handle pausing execution in Jupyter environment."""
+        continue_event = threading.Event()
         continue_event.clear()
 
-        # Create the button
-        button = widgets.Button(description="Continue")
-        button.on_click(self.on_button_click)
-        display(button)
+        def on_button_click(b):
+            continue_event.set()
+            clear_output(wait=True)
+            print("Continuing...")
 
-        # Wait for the event to be set by the button click
+        button = widgets.Button(description="Continue")
+        button.on_click(on_button_click)
+        display(button)
         continue_event.wait()

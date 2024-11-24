@@ -102,7 +102,10 @@ class ProviderManager:
         results = []
         for provider in providers:
             try:
-                result = provider._internal_event_handler(event)
+                result = provider.handle_event(event)
+                event.context = result
+                if result:
+                    self.telemetry_manager.send_trace(event)
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error triggering event for provider {type(provider).__name__}: {e}")
@@ -180,9 +183,6 @@ class ProviderManager:
             raise ProviderInitError(f"No provider implementation found for config type: {type(config).__name__}")
 
         provider = provider_class(config=config)
-        provider.init_tracer(
-            self.telemetry_manager.get_tracer(provider_id=provider._provider_id)
-        )  # Pass the shared tracer
         return provider
 
     def create_provider(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:
