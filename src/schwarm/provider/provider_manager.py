@@ -82,7 +82,7 @@ class ProviderManager:
     def wait_for_frontend(self) -> None:
         """Wait for the frontend to signal a global break."""
         self._global_break = True
-        logger.info("Waiting for frontend to switch global break")
+        logger.info("Waiting for frontend...")
         while self._global_break:
             pass
 

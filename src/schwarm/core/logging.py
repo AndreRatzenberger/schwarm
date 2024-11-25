@@ -13,6 +13,7 @@ from collections.abc import Callable
 from typing import Any, Literal, TypeVar, cast
 
 from loguru import logger
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -20,6 +21,10 @@ from schwarm.utils.settings import APP_SETTINGS
 logger.add(
     APP_SETTINGS.DATA_FOLDER + "/logs/debug.log", format="{time} {level} {message}", level="DEBUG", rotation="10 MB"
 )
+
+
+LoggingInstrumentor().instrument(set_logging_format=True)
+
 
 T = TypeVar("T")
 

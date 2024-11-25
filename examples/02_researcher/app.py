@@ -48,6 +48,5 @@ response = Schwarm().run(
     execute_tools=True,
     show_logs=False,
 )
-# override_model="ollama_chat/qwen2.5:7b-instruct-q8_0",
 inspect(response)
 console.print(f"Report: {response.messages}")

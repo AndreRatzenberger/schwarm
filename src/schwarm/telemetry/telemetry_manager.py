@@ -1,5 +1,7 @@
 """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
 
+import sys
+
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -30,6 +32,18 @@ class TelemetryManager:
             tracer_provider.add_span_processor(span_processor)
 
         self.global_tracer = trace.get_tracer(__name__)
+        sys.excepthook = self.log_exception_to_otel
+
+    def log_exception_to_otel(self, exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            # Allow normal handling of KeyboardInterrupt
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        # Use OpenTelemetry to record the exception
+        with self.global_tracer.start_as_current_span("UnhandledException") as span:
+            span.record_exception(exc_value)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc_value)))
 
     def add_agent(self, agent_name: str, config: TelemetryConfig):
         """Update the telemetry configuration."""

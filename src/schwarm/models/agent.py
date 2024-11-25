@@ -1,7 +1,7 @@
 """Agent model definition."""
 
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,3 +28,55 @@ class Agent(BaseModel):
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
     configs: list[BaseConfig] = Field(default_factory=list, description="List of configurations")
     provider_names: list[str] = Field(default_factory=list, description="List of provider IDs")
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "model": self.model,
+            "description": self.description,
+            "instructions": serialize_callable(self.instructions),
+            "functions": [serialize_callable(f) for f in self.functions],
+            "tool_choice": self.tool_choice,
+            "parallel_tool_calls": self.parallel_tool_calls,
+            "configs": [c.dict() if isinstance(c, BaseModel) else c for c in self.configs],
+            "provider_names": self.provider_names,
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            name=data["name"],
+            model=data["model"],
+            description=data["description"],
+            instructions=deserialize_callable(data["instructions"]),
+            functions=[deserialize_callable(f) for f in data["functions"]],
+            tool_choice=data["tool_choice"],
+            parallel_tool_calls=data["parallel_tool_calls"],
+            configs=data["configs"],  # Assuming configs are simple or deserializable
+            provider_names=data["provider_names"],
+        )
+
+
+class Result(BaseModel):
+    """Encapsulates the return value from an agent function execution.
+
+    Attributes:
+        value: The string result of the function execution
+        agent: Optional new agent to switch to after this result
+        context_variables: Updated context variables from this execution
+    """
+
+    value: str = Field(default="", description="String result of the function execution")
+    agent: "Agent | None" = Field(default=None, description="Optional new agent to switch to")
+    context_variables: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Updated context variables from this execution",
+    )
+
+    class Config:
+        """Pydantic configuration for better error messages."""
+
+        error_msg_templates: ClassVar[dict[str, str]] = {
+            "type_error": "Invalid type for {field_name}: {error_msg}",
+            "value_error": "Invalid value for {field_name}: {error_msg}",
+        }

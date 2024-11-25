@@ -16,6 +16,7 @@ dependencies = [
     "opentelemetry-api>=1.28.2",
     "opentelemetry-exporter-jaeger>=1.21.0",
     "opentelemetry-exporter-otlp>=1.28.2",
+    "opentelemetry-instrumentation-logging>=0.49b2",
     "opentelemetry-sdk>=1.28.2",
     "orjson>=3.10.11",
     "poethepoet>=0.29.0",

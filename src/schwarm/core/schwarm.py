@@ -96,6 +96,7 @@ class Schwarm:
         show_logs: bool = True,
     ) -> Response:
         """Run the agent through a conversation."""
+        self._provider_manager.wait_for_frontend()
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
         self._provider_context = ProviderContextModel()
         with self._telemetry_manager.global_tracer.start_as_current_span(f"SCHWARM_START") as span:

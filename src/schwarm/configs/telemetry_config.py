@@ -10,5 +10,13 @@ class TelemetryConfig(BaseModel):
 
     enabled: bool = Field(default=True)
     enable_provider_telemetry: bool = Field(default=True)
-    break_on_events: list[EventType] = Field(default=[EventType.START_TURN, EventType.POST_TOOL_EXECUTION])
-    log_on_events: list[EventType] = Field(default=[EventType.START_TURN, EventType.POST_TOOL_EXECUTION])
+    break_on_events: list[EventType] = Field(default=[])
+    log_on_events: list[EventType] = Field(
+        default=[
+            EventType.START_TURN,
+            EventType.INSTRUCT,
+            EventType.POST_MESSAGE_COMPLETION,
+            EventType.POST_TOOL_EXECUTION,
+            EventType.HANDOFF,
+        ]
+    )

@@ -1,7 +1,24 @@
 """Utility functions for handling data."""
 
+import importlib
 import json
 from typing import Any
+
+
+def serialize_callable(obj):
+    """Serialize a callable object into a string representation."""
+    if callable(obj):
+        return f"{obj.__module__}.{obj.__name__}"
+    return obj  # Assume it's a string or another serializable object
+
+
+def deserialize_callable(name):
+    """Deserialize a string representation of a callable object."""
+    if isinstance(name, str) and "." in name:
+        module_name, function_name = name.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        return getattr(module, function_name)
+    return name  # Assume it's already deserialized
 
 
 def make_serializable(obj: Any) -> dict | list | tuple | str:
