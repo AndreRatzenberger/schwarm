@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import ipywidgets as widgets
+from devtools import debug
 from IPython.display import clear_output, display
 from loguru import logger
 from pydantic import Field
@@ -19,6 +20,7 @@ from schwarm.events.event import Event, EventType
 from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.result import Result
+from schwarm.models.types import Response
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -80,7 +82,6 @@ class InformationProvider(BaseEventHandleProvider):
             EventType.POST_MESSAGE_COMPLETION: self._handle_message_completion,
             EventType.TOOL_EXECUTION: self._handle_tool_execution,
             EventType.POST_TOOL_EXECUTION: self._handle_post_tool_execution,
-            EventType.HANDOFF: self._handle_handoff,
         }
 
         handler = handlers.get(event.type)
@@ -97,6 +98,12 @@ class InformationProvider(BaseEventHandleProvider):
         """Handle instruction events."""
         if not self.config.show_instructions:
             return
+
+        response = Response(
+            messages=context.message_history, agent=context.current_agent, context_variables=context.context_variables
+        )
+
+        response.render_response()
 
         agent_name = context.current_agent.name if context.current_agent else "Unknown"
         instructions = context.instruction_str if isinstance(context.instruction_str, str) else ""
@@ -136,7 +143,7 @@ class InformationProvider(BaseEventHandleProvider):
             self._show_function_details(
                 sender=self.context.current_agent.name,
                 function=function_name,
-                parameters=function_args,
+                function_data=tool_call,
             )
 
     def _handle_post_tool_execution(self, context: ProviderContextModel) -> None:
@@ -150,27 +157,8 @@ class InformationProvider(BaseEventHandleProvider):
                 self._show_function_details(
                     sender=self.context.current_agent.name,
                     function="tool_result",
-                    result=msg.additional_info["result"],
+                    function_data=msg.additional_info["result"],
                 )
-
-    def _handle_handoff(self, context: ProviderContextModel) -> Any:
-        """Handle agent handoff events."""
-        next_agent = context.current_agent
-        if not next_agent or not self.context:
-            return next_agent
-
-        for provider in next_agent.provider_configurations:
-            if isinstance(provider, InformationConfig):
-                provider.current_spent = self.config.current_spent
-                provider.current_tokens = self.config.current_tokens
-                logger.debug(
-                    f"Transferred budget state to {next_agent.name}: "
-                    f"spent=${self.config.current_spent:.2f}, "
-                    f"tokens={self.config.current_tokens}"
-                )
-                break
-
-        return next_agent
 
     def _ensure_log_directory(self) -> None:
         """Ensure the log directory exists."""
@@ -206,6 +194,9 @@ class InformationProvider(BaseEventHandleProvider):
 
         if self.config.save_budget:
             self._save_budget_to_csv()
+
+        if self.config.show_budget and self.context:
+            self._show_budget(self.context)
 
         self._check_budget_limits()
         return result
@@ -257,10 +248,11 @@ class InformationProvider(BaseEventHandleProvider):
         log_file: str | None = None,
         log_prefix: str = "",
         wait_for_input: bool = False,
+        color: str = "orange3",
     ) -> None:
         """Display a section with consistent formatting."""
         console.line()
-        console.print(Markdown(f"# {title}"), style="bold orange3")
+        console.print(Markdown(f"# {title}"), style=color)
         console.line()
         console.print(Markdown(truncate_string(content, self.config.max_length)), style=style)
 
@@ -275,46 +267,55 @@ class InformationProvider(BaseEventHandleProvider):
         self,
         sender: str,
         function: str | None = None,
-        parameters: dict[str, Any] | Any | None = None,
-        result: Result | None = None,
+        function_data: dict[str, Any] | Any | None = None,
     ) -> None:
         """Show function details with consistent formatting."""
         if not self.config.show_function_calls:
             return
 
-        title = f"🤖 {sender} -> ⚡ {function}"
-        log_content = [f"Sender: {sender}", f"Function: {function}"]
+        title = f"🤖 {sender} is using ⚡ {function}"
 
-        if parameters:
-            log_content.extend(self._format_parameters(parameters))
+        console.line()
+        console.print(Markdown(f"# {title}"), style="bold cyan")
+        console.line()
 
-        if result:
-            log_content.extend(self._format_result(result))
+        debug(function_data)
 
-        if self.config.function_calls_print_context_variables and self.context:
-            log_content.extend(self._format_context_variables())
+        debug(self.context.context_variables)
 
-        self._display_section(
-            title=title,
-            content="\n".join(log_content),
-            log_file="functions.log",
-            wait_for_input=self.config.function_calls_wait_for_user_input,
+        self._write_to_log("functions.log", str(function_data))
+
+        if self.config.function_calls_wait_for_user_input:
+            self._wait_for_user_input()
+
+    def _show_budget(self, context: ProviderContextModel) -> None:
+        """Show the budget to the user."""
+        if not self.config.show_budget:
+            return
+
+        console.line()
+        console.print(Markdown(f"# 💰 Budget - {context.current_agent.name}"), style="bold orange3")
+
+        console.line()
+        # Initialize log_content with default empty values
+        log_content = f"Agent: {context.current_agent.name}\nNo budget information available\n{'=' * 50}\n"
+
+        console.print(Markdown(f"**- Max Spent:** ${self.config.max_spent:.5f}"), style="italic")
+        console.print(Markdown(f"**- Max Tokens:** {self.config.max_tokens}"), style="italic")
+        console.print(Markdown(f"**- Current Spent:** ${self.config.current_spent:.5f}"), style="italic")
+        console.print(Markdown(f"**- Current Tokens:** {self.config.current_tokens}"), style="italic")
+
+        # Update log_content with budget information
+        log_content = (
+            f"Agent: {context.current_agent.name}\n"
+            f"Max Spent: ${self.config.max_spent:.5f}\n"
+            f"Max Tokens: {self.config.max_tokens}\n"
+            f"Current Spent: ${self.config.current_spent:.5f}\n"
+            f"Current Tokens: {self.config.current_tokens}\n"
+            f"{'=' * 50}\n"
         )
 
-    def _format_parameters(self, parameters: dict[str, Any] | Any) -> list[str]:
-        """Format parameters for display."""
-        if not parameters:
-            return []
-
-        result = ["## Parameters"]
-        if isinstance(parameters, dict):
-            for key, value in parameters.items():
-                if key == APP_SETTINGS.CONTEXT_VARS_KEY:
-                    continue
-                result.extend([f"**- {key}**", f"   {truncate_string(str(value), self.config.max_length)}"])
-        else:
-            result.append(truncate_string(str(parameters), self.config.max_length))
-        return result
+        self._write_to_log("budget.log", log_content)
 
     def _format_result(self, result: Result) -> list[str]:
         """Format result for display."""

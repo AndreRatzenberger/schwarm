@@ -125,11 +125,11 @@ class LiteLLMProvider(BaseLLMProvider):
         Raises:
             ConfigurationError: If the configuration is invalid
         """
-        super().__init__(config, **data)
+        self.config = config
         if config.enable_cache:
             self._setup_caching()
-        self.config = cast(LiteLLMConfig, config)
         litellm.drop_params = True
+        super().__init__(config=config)
         self.initialize()
 
     def initialize(self) -> None:

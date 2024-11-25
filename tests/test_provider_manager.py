@@ -131,10 +131,10 @@ def test_get_provider(manager: ProviderManager):
     provider = manager.create_provider("test_agent", config)
     
     # Should find provider by name
-    assert manager.get_provider_by_id("test_agent", provider._provider_id) is provider
+    assert manager.get_provider_by_name("test_agent", provider._provider_id) is provider
     
     # Should return None for non-existent provider
-    assert manager.get_provider_by_id("test_agent", "non_existent") is None
+    assert manager.get_provider_by_name("test_agent", "non_existent") is None
 
 
 def test_get_providers_by_class(manager: ProviderManager):

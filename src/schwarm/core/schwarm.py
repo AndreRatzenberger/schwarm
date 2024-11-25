@@ -35,7 +35,9 @@ logger.add(
 class Schwarm:
     """Agent orchestrator class."""
 
-    def __init__(self, agent_list: list[Agent] = [], telemetry_exporters: list[TelemetryExporter] = []):
+    def __init__(
+        self, agent_list: list[Agent] = [], telemetry_exporters: list[TelemetryExporter] = [], server_mode: bool = False
+    ):
         """Initialize the orchestrator."""
         logger.remove()
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
@@ -48,6 +50,9 @@ class Schwarm:
         self._provider_manager = ProviderManager(telemetry_manager=self._telemetry_manager)
 
         logger.info("Schwarm instance initialized")
+        if server_mode:
+            logger.info("Server mode enabled")
+            input("Press Enter to continue...")
 
     def register_agent(self, agent: Agent):
         """Register an agent."""
@@ -99,41 +104,69 @@ class Schwarm:
     ) -> Response:
         """Run the agent through a conversation."""
         setup_logging(is_logging_enabled=show_logs, log_level="trace")
-        self._setup_context(agent, messages, context_variables, max_turns)
+        self._provider_context = ProviderContextModel()
+        with self._telemetry_manager.global_tracer.start_as_current_span(f"SCHWARM_START") as span:
+            while True:
+                with self._telemetry_manager.global_tracer.start_as_current_span(f"{agent.name}") as span:
+                    span.set_attribute("agent_id", agent.name)
+                    self._setup_context(agent, messages, context_variables, max_turns)
+                    self._trigger_event(EventType.START_TURN)
+                    logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
+                    self._process_turn(agent, context_variables, model_override, execute_tools)
+                    self._provider_context.current_turn += 1
+                    if not self._can_continue_conversation():
+                        break
+                    else:
+                        messages = self._provider_context.message_history
+                        agent = self._provider_context.current_agent
+                        context_variables = self._provider_context.context_variables
+                        max_turns = self._provider_context.max_turns
 
-        while self._can_continue_conversation():
-            self._trigger_event(EventType.START_TURN)
-            logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
-            self._process_turn(agent, context_variables, model_override, execute_tools)
-            self._provider_context.current_turn += 1
+            logger.info(f"Agent run completed after {self._provider_context.current_turn} turns")
+            self._restore_logging(show_logs)
 
-        logger.info(f"Agent run completed after {self._provider_context.current_turn} turns")
-        self._restore_logging(show_logs)
+            return Response(
+                messages=self._provider_context.message_history[len(messages) :],
+                agent=self._provider_context.current_agent,
+                context_variables=self._provider_context.context_variables,
+            )
 
-        return Response(
-            messages=self._provider_context.message_history[len(messages) :],
-            agent=self._provider_context.current_agent,
-            context_variables=self._provider_context.context_variables,
-        )
-
-    def _setup_context(self, agent: Agent, messages: list[Message], context_variables: dict[str, Any], max_turns: int):
-        """Initialize the provider context."""
+    def create_provider_configs(self, agent: Agent):
+        """Create provider configurations for an agent."""
         for config in agent.configs:
             if isinstance(config, BaseProviderConfig):
-                self._provider_manager.create_provider(agent.name, config)
+                provider = self._provider_manager.create_provider(agent.name, config)
+                agent.provider_names.append(provider.provider_name)
             if isinstance(config, TelemetryConfig):
                 self._telemetry_manager.add_agent(agent.name, config)
-        self._provider_context = ProviderContextModel(
-            max_turns=max_turns,
-            current_agent=agent,
-            available_agents=[agent],
-            available_tools=agent.functions,
-            context_variables=copy.deepcopy(context_variables),
-            message_history=copy.deepcopy(messages),
-            available_providers=self._provider_manager.get_all_provider_cfgs_as_dict(),
-        )
+
+    def _setup_context(
+        self,
+        agent: Agent,
+        messages: list[Message],
+        context_variables: dict[str, Any],
+        max_turns: int,
+    ):
+        """Initialize the provider context."""
+        if self._provider_context.current_turn == 0:
+            self._provider_context = ProviderContextModel()
+            self._provider_context.current_turn = 0
+            self._provider_context.available_agents = [agent]
+            self._provider_context.available_tools = agent.functions
+            self.create_provider_configs(agent)
+        else:
+            if agent not in self._provider_context.available_agents:
+                self._provider_context.available_agents.append(agent)
+                self.create_provider_configs(agent)
+            for function in agent.functions:
+                if function not in self._provider_context.available_tools:
+                    self._provider_context.available_tools.append(function)
+
+        self._provider_context.max_turns = max_turns
+        self._provider_context.current_agent = agent
+        self._provider_context.context_variables = copy.deepcopy(context_variables)
+        self._provider_context.message_history = copy.deepcopy(messages)
         self._provider_context.available_providers = self._provider_manager.get_all_provider_cfgs_as_dict()
-        self._provider_context.current_turn = 0
         self._trigger_event(EventType.START)
 
     def _set_instructions(self, agent: Agent):

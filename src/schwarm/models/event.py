@@ -72,7 +72,7 @@ class StartEventContext(BaseModel):
     current_agent: Any
     available_agents: list[Any] = Field(default_factory=list)
     available_tools: list[Any] = Field(default_factory=list)
-    available_providers: dict[str, Any] = Field(default_factory=dict)
+    available_providers: list[Any] = Field(default_factory=dict)
     model_override: str | None = None
 
 
@@ -105,7 +105,7 @@ class ToolExecutionContext(ToolContext):
 class HandoffContext(AgentContext, MessageContext):
     """Context needed for agent handoff events."""
 
-    available_providers: dict[str, Any] = Field(default_factory=dict)
+    available_providers: list[Any] = Field(default_factory=dict)
 
 
 # Context filter for converting full context to event-specific context

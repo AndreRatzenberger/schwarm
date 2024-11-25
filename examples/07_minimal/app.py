@@ -1,5 +1,6 @@
-from schwarm.models.agent import Agent
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.core.schwarm import Schwarm
 
-hello_agent = Agent(name="hello_agent", configs=[LiteLLMConfig(enable_cache=True, enable_debug=True)])
-hello_agent.quickstart(mode="interactive")
+# hello_agent = Agent(name="hello_agent", configs=DEFAULT)
+# Schwarm().quickstart(hello_agent)
+
+Schwarm(server_mode=True)

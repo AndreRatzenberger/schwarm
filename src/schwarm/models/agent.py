@@ -27,3 +27,4 @@ class Agent(BaseModel):
     )
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
     configs: list[BaseConfig] = Field(default_factory=list, description="List of configurations")
+    provider_names: list[str] = Field(default_factory=list, description="List of provider IDs")

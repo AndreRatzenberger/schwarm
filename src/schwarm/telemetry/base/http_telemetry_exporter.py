@@ -5,6 +5,7 @@ from threading import Thread
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
@@ -19,6 +20,16 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         self.api_host = api_host
         self.api_port = api_port
         self.app = FastAPI()
+
+        # Configure CORS
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allows all origins
+            allow_credentials=True,
+            allow_methods=["*"],  # Allows all methods
+            allow_headers=["*"],  # Allows all headers
+        )
+
         self._configure_api()
         self._start_api()
 

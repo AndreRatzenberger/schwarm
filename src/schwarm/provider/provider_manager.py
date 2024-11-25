@@ -69,7 +69,7 @@ class ProviderManager:
             # Stores global provider instances
             # {provider_id: provider_instance}
 
-            self._providers: dict[str, list[BaseProvider]] = {}
+            self._providers: list[BaseProvider] = []
 
             # Stores registered provider classes and their configs
             # {config_class: provider_class}
@@ -78,7 +78,7 @@ class ProviderManager:
             self.telemetry_manager = telemetry_manager
             self._initialized = True
 
-    def trigger_event(self, event: Event) -> list[ProviderContextModel]:
+    def trigger_event(self, event: Event, provider_list: list[str] | None = None) -> list[ProviderContextModel]:
         """Trigger an event across all relevant providers.
 
         Args:
@@ -92,20 +92,22 @@ class ProviderManager:
             This method handles both agent-specific and global scope providers,
             catching and logging any errors that occur during event processing.
         """
-        agent_name = event.agent_name
-        event.timestamp = datetime.now().isoformat()
+        if provider_list:
+            providers = [self.get_provider_by_name(provider) for provider in provider_list]
+        else:
+            providers = self.get_event_providers()
 
-        # Get providers for the agent and global scope
-        providers = self.get_event_providers(agent_name)
-        providers.extend(self.get_event_providers("global"))
+        event.timestamp = datetime.now().isoformat()
 
         results = []
         for provider in providers:
+            if not isinstance(provider, BaseEventHandleProvider):
+                continue
             try:
                 result = provider.handle_event(event)
                 event.context = result
                 if result:
-                    event.provider_id = provider._provider_id
+                    event.provider_id = provider.provider_name
                     self.telemetry_manager.send_trace(event)
                 results.append(result)
             except Exception as e:
@@ -167,25 +169,6 @@ class ProviderManager:
                     except Exception as e:
                         logger.warning(f"Failed to load module {module_name}: {e}")
 
-    def _create_provider(self, config: BaseProviderConfig) -> BaseProvider:
-        """Create a new provider instance based on the provided configuration.
-
-        Args:
-            config (BaseProviderConfig): Configuration for the provider to create
-
-        Returns:
-            BaseProvider: The newly created provider instance
-
-        Raises:
-            ProviderInitError: If no provider implementation is found for the config type
-        """
-        provider_class = self._config_to_provider_map.get(type(config))
-        if not provider_class:
-            raise ProviderInitError(f"No provider implementation found for config type: {type(config).__name__}")
-
-        provider = provider_class(config)
-        return provider
-
     def create_provider(self, agent_id: str, config: BaseProviderConfig) -> BaseProvider:
         """Creates a provider instance based on its configuration and registers it.
 
@@ -200,19 +183,25 @@ class ProviderManager:
             The provider is registered in either the global scope or agent-specific
             scope based on the configuration.
         """
-        scope = agent_id if config.scope != "global" else "global"
+        provider_class = self._config_to_provider_map.get(type(config))
+        if not provider_class:
+            raise ProviderInitError(f"No provider implementation found for config type: {type(config).__name__}")
 
-        provider = self._create_provider(config)
-        provider._provider_id = f"{provider.__class__.__name__.lower()}_{len(self._providers[scope])}"
+        for p in self._providers:
+            if p.provider_name == config.provider_name:
+                logger.debug(f"Provider {p.provider_name} already exists")
+                return p
+            if p.provider_name == provider_class.__name__.lower():
+                logger.debug(f"Provider {p.provider_name} already exists")
+                return p
 
-        if scope not in self._providers:
-            self._providers[scope] = []
+        provider = provider_class(config)
 
-        self._providers[scope].append(provider)
-        logger.info(f"Created {scope}-scoped {type(provider).__name__} with ID {provider._provider_id}")
+        self._providers.append(provider)
+        logger.debug(f"Created {type(provider).__name__} with ID {provider.provider_name}")
         return provider
 
-    def get_event_providers(self, scope: str) -> list[BaseEventHandleProvider]:
+    def get_event_providers(self) -> list[BaseEventHandleProvider]:
         """Get all event-handling providers for a given scope.
 
         Args:
@@ -225,9 +214,7 @@ class ProviderManager:
             Providers are sorted by priority in descending order, with default
             priority of 0 for providers without explicit priority.
         """
-        providers = [
-            provider for provider in self._providers.get(scope, []) if isinstance(provider, BaseEventHandleProvider)
-        ]
+        providers = [provider for provider in self._providers if isinstance(provider, BaseEventHandleProvider)]
         # Sort by priority (default is 0 if priority is not set)
         providers.sort(key=lambda p: getattr(p, "priority", 0), reverse=True)
         return providers
@@ -241,14 +228,9 @@ class ProviderManager:
         Returns:
             list[P]: List of all providers matching the specified class
         """
-        return [
-            provider
-            for provider_list in self._providers.values()
-            for provider in provider_list
-            if isinstance(provider, provider_class)
-        ]
+        return [provider for provider in self._providers if isinstance(provider, provider_class)]
 
-    def get_provider_by_id(self, scope: str, provider_id: str) -> BaseProvider | None:
+    def get_provider_by_name(self, provider_name: str) -> BaseProvider | None:
         """Get a provider instance by its ID within a given scope.
 
         Args:
@@ -258,21 +240,21 @@ class ProviderManager:
         Returns:
             Optional[BaseProvider]: The provider instance if found, None otherwise
         """
-        for provider in self._providers.get(scope, []):
-            if provider._provider_id == provider_id:
+        for provider in self._providers:
+            if provider.provider_name == provider_name:
                 return provider
         return None
 
-    def get_all_provider_cfgs_as_dict(self) -> dict[str, list[BaseProviderConfig]]:
+    def get_all_provider_cfgs_as_dict(self) -> list[BaseProviderConfig]:
         """Return a dictionary of all instantiated providers and their configs.
 
         Returns:
             dict[str, list[BaseProviderConfig]]: Dictionary mapping scopes to lists
             of provider configurations
         """
-        return {scope: [provider.config for provider in providers] for scope, providers in self._providers.items()}
+        return [provider.config for provider in self._providers]
 
-    def get_provider_to_agent_name_by_class(self, agent_name: str, provider_class: type[P]) -> list[P]:
+    def get_provider_to_class(self, provider_class: type[P]) -> list[P]:
         """Get a provider instance by its class which would trigger if an agent is triggering an event.
 
         Args:
@@ -285,28 +267,15 @@ class ProviderManager:
         Note:
             This method checks both global scope and agent-specific scope for matching providers.
         """
-        logger.debug(f"Looking for providers of type {provider_class.__name__} for agent {agent_name}")
+        logger.debug(f"Looking for providers of type {provider_class.__name__}")
 
         result = []
-        for scope, providers in self._providers.items():
-            for provider in providers:
-                if isinstance(provider, provider_class) and (scope == "global" or scope == agent_name):
-                    logger.debug(f"Found provider: {type(provider).__name__}, scope: {scope}")
-                    result.append(provider)
+        for provider in self._providers:
+            if isinstance(provider, provider_class):
+                result.append(provider)
 
         logger.debug(f"Total providers found: {len(result)}")
         return result
-
-    def get_all_providers_to_scope(self, scope: str) -> list[BaseProvider]:
-        """Get all providers for a given scope.
-
-        Args:
-            scope (str): The scope for which to retrieve providers (e.g., "global" or agent name).
-
-        Returns:
-            list[BaseProvider]: A list of all providers within the specified scope.
-        """
-        return self._providers.get(scope, [])
 
     def get_first_llm_provider(self, scope: str) -> BaseLLMProvider | None:
         """Get the first LLM provider for a given scope.
@@ -321,7 +290,7 @@ class ProviderManager:
             This is a convenience method for getting the first available LLM provider
             in cases where only one is needed.
         """
-        for provider in self.get_all_providers_to_scope(scope):
+        for provider in self._providers:
             if isinstance(provider, BaseLLMProvider):
                 return provider
         return None
