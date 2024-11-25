@@ -3,7 +3,6 @@
 import copy
 import sys
 from collections import defaultdict
-from collections.abc import Sequence
 from typing import Any, Literal
 
 from schwarm.configs.telemetry_config import TelemetryConfig
@@ -18,6 +17,7 @@ from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
+from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -33,7 +33,9 @@ logger.add(
 class Schwarm:
     """Agent orchestrator class."""
 
-    def __init__(self, agent_list: list[Agent] = [], telemetry_exporters: Sequence[TelemetryExporter] = []):
+    def __init__(
+        self, agent_list: list[Agent] = [], telemetry_exporters: list[TelemetryExporter] = [SqliteTelemetryExporter()]
+    ):
         """Initialize the orchestrator."""
         logger.remove()
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
@@ -57,7 +59,7 @@ class Schwarm:
         self,
         messages: list[Message],
         context_variables: dict[str, Any],
-        model_override: str,
+        override_model: str,
     ) -> Message | None:
         """Chat with an agent (method implementation pending)."""
         pass
@@ -68,7 +70,7 @@ class Schwarm:
         agent: Agent,
         input_text: str = "",
         context_variables: dict[str, Any] | None = None,
-        model_override: str = "",
+        override_model: str = "",
         mode: Literal["auto", "interactive"] = "interactive",
     ) -> Response:
         """Run a single agent input."""
@@ -76,7 +78,7 @@ class Schwarm:
             agent,
             messages=[Message(role="user", content=input_text)],
             context_variables=context_variables or {},
-            model_override=model_override,
+            override_model=override_model,
             max_turns=100,
             execute_tools=True,
             show_logs=True,
@@ -88,7 +90,7 @@ class Schwarm:
         agent: Agent,
         messages: list[Message],
         context_variables: dict[str, Any],
-        model_override: str | None = None,
+        override_model: str | None = None,
         max_turns: int = 10,
         execute_tools: bool = True,
         show_logs: bool = True,
@@ -103,7 +105,7 @@ class Schwarm:
                     self._setup_context(agent, messages, context_variables, max_turns)
                     self._trigger_event(EventType.START_TURN)
                     logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
-                    self._process_turn(agent, context_variables, model_override, execute_tools)
+                    self._process_turn(agent, context_variables, override_model, execute_tools)
                     self._provider_context.current_turn += 1
                     if not self._can_continue_conversation():
                         break
@@ -174,10 +176,10 @@ class Schwarm:
         return self._provider_context.current_turn < self._provider_context.max_turns
 
     def _process_turn(
-        self, agent: Agent, context_variables: dict[str, Any], model_override: str | None, execute_tools: bool
+        self, agent: Agent, context_variables: dict[str, Any], override_model: str | None, execute_tools: bool
     ):
         """Process a single turn in the conversation."""
-        completion = self._complete_agent_request(agent, context_variables, model_override)
+        completion = self._complete_agent_request(agent, context_variables, override_model)
         self._provider_context.current_message = completion
         self._provider_context.message_history.append(completion)
 

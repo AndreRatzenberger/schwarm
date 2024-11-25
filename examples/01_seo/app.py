@@ -175,7 +175,7 @@ def main():
         orchestrator_agent,
         messages=[Message(role="user", content=input)],
         context_variables={},
-        model_override="gpt-4o",
+        override_model="gpt-4o",
         max_turns=100,
         execute_tools=True,
     )

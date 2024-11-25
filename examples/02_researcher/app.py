@@ -43,11 +43,11 @@ response = Schwarm().run(
     ra.orchestrator_agent,
     messages=[Message(role="user", content=input)],
     context_variables={},
-    model_override="gpt-4o",
+    override_model="gpt-4o",
     max_turns=100,
     execute_tools=True,
     show_logs=False,
 )
-# model_override="ollama_chat/qwen2.5:7b-instruct-q8_0",
+# override_model="ollama_chat/qwen2.5:7b-instruct-q8_0",
 inspect(response)
 console.print(f"Report: {response.messages}")

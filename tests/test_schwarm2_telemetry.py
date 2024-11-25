@@ -61,7 +61,7 @@ def test_schwarm2_event_tracking(telemetry_manager, mock_agent, sqlite_exporter)
         agent=mock_agent,
         input_text="test input",
         context_variables={},
-        model_override="",
+        override_model="",
         mode="auto"
     )
     
@@ -88,7 +88,7 @@ def test_schwarm2_provider_telemetry_integration(telemetry_manager, mock_agent, 
         agent=mock_agent,
         input_text="test input",
         context_variables={},
-        model_override="",
+        override_model="",
         mode="auto"
     )
     
@@ -117,7 +117,7 @@ def test_schwarm2_telemetry_disabled_provider(telemetry_manager, mock_agent, sql
         agent=mock_agent,
         input_text="test input",
         context_variables={},
-        model_override="",
+        override_model="",
         mode="auto"
     )
     

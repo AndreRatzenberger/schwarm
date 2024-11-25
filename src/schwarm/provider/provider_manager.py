@@ -151,7 +151,7 @@ class ProviderManager:
 
         for root, _, files in os.walk(src_path):
             for file in files:
-                if file.endswith(".py"):
+                if file.endswith("_provider.py"):
                     module_path = os.path.join(root, file)
                     relative_path = os.path.relpath(module_path, src_path.parent)
                     module_name = os.path.splitext(relative_path)[0].replace(os.sep, ".")

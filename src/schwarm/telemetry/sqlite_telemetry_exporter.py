@@ -16,7 +16,7 @@ from schwarm.utils.settings import APP_SETTINGS
 class SqliteTelemetryExporter(HttpTelemetryExporter):
     """Exporter for storing OpenTelemetry spans in SQLite."""
 
-    def __init__(self, config: TelemetryConfig, db_path: str = "schwarm_events.db"):
+    def __init__(self, config: TelemetryConfig = TelemetryConfig(), db_path: str = "schwarm_events.db"):
         """Initialize the SQLite exporter.
 
         Args:

@@ -18,7 +18,7 @@ class ProviderContextModel(BaseModel):
 
     max_turns: int = Field(default=10, description="Maximum number of turns in a conversation")
     current_turn: int = Field(default=0, description="Current turn in the conversation")
-    model_override: str | None = Field(default=None, description="Model override for the current conversation")
+    override_model: str | None = Field(default=None, description="Model override for the current conversation")
     message_history: list[Message] = Field(
         default_factory=list, description="History of all messages in the current conversation"
     )

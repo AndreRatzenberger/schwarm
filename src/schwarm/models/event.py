@@ -40,7 +40,7 @@ class AgentContext(BaseModel):
 
     current_agent: Any
     available_agents: list[Any] = Field(default_factory=list)
-    model_override: str | None = None
+    override_model: str | None = None
 
 
 class ToolContext(BaseModel):
@@ -73,7 +73,7 @@ class StartEventContext(BaseModel):
     available_agents: list[Any] = Field(default_factory=list)
     available_tools: list[Any] = Field(default_factory=list)
     available_providers: list[Any] = Field(default_factory=dict)
-    model_override: str | None = None
+    override_model: str | None = None
 
 
 class StartTurnContext(MessageContext):
@@ -92,7 +92,7 @@ class InstructEventContext(InstructionContext):
 class MessageCompletionContext(MessageContext):
     """Context needed for message completion events."""
 
-    model_override: str | None = None
+    override_model: str | None = None
 
 
 class ToolExecutionContext(ToolContext):
@@ -120,7 +120,7 @@ class ContextFilter:
             available_agents=full_context.available_agents,
             available_tools=full_context.available_tools,
             available_providers=full_context.available_providers,
-            model_override=full_context.model_override,
+            override_model=full_context.override_model,
         )
 
     @staticmethod
@@ -151,7 +151,7 @@ class ContextFilter:
             current_message=full_context.current_message,
             current_turn=full_context.current_turn,
             max_turns=full_context.max_turns,
-            model_override=full_context.model_override,
+            override_model=full_context.override_model,
         )
 
     @staticmethod
