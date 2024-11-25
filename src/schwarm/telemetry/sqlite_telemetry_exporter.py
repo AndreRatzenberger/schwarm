@@ -4,6 +4,7 @@ import json
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
@@ -47,6 +48,25 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
             """)
             conn.commit()
 
+    def _convert_attributes(self, attributes: dict[str, Any]) -> str:
+        """Convert span attributes to a JSON string.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            JSON string representation of attributes
+        """
+        # Convert attributes to a serializable format
+        serializable_attrs = {}
+        for key, value in attributes.items():
+            # Convert complex types to strings if needed
+            if isinstance(value, (dict, list, tuple)):
+                serializable_attrs[key] = json.dumps(value)
+            else:
+                serializable_attrs[key] = str(value)
+        return json.dumps(serializable_attrs)
+
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Store spans in the SQLite database.
 
@@ -59,9 +79,17 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
         try:
             with sqlite3.connect(self.db_path) as conn:
                 for span in spans:
-                    # Convert span to dictionary format
+                    # Safely get span context and parent span ID
                     span_context = span.get_span_context()
-                    parent_span_id = span.parent.span_id if span.parent else None
+                    if span_context is None:
+                        continue
+
+                    parent_span_id = None
+                    if span.parent is not None:
+                        parent_span_id = format(span.parent.span_id, "016x")
+
+                    # Convert attributes to JSON string
+                    attributes_json = self._convert_attributes(dict(span.attributes))
 
                     conn.execute(
                         """
@@ -76,11 +104,11 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
                             format(span_context.span_id, "016x"),
                             format(span_context.trace_id, "032x"),
                             format(span_context.span_id, "016x"),
-                            format(parent_span_id, "016x") if parent_span_id else None,
+                            parent_span_id,
                             span.name,
                             span.start_time,
                             span.end_time,
-                            json.dumps(dict(span.attributes)),
+                            attributes_json,
                             span.status.status_code.name,
                             span.status.description,
                         ),
@@ -111,7 +139,7 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
                 for row in cursor.fetchall()
             ]
 
-    def query_span_by_id(self, span_id: str):
+    def query_span_by_id(self, span_id: str) -> dict[str, Any] | None:
         """Retrieve a specific span by its ID.
 
         Args:
@@ -137,6 +165,44 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
                     "status_description": row[9],
                 }
             return None
+
+    def query_spans_after_id(self, after_id: str) -> list[dict[str, Any]]:
+        """Retrieve all spans created after the given span ID.
+
+        Args:
+            after_id: The ID of the reference span
+
+        Returns:
+            List of spans created after the reference span
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            # First get the start_time of the reference span
+            cursor = conn.execute("SELECT start_time FROM traces WHERE id = ?", (after_id,))
+            ref_row = cursor.fetchone()
+            if not ref_row:
+                return []  # Return empty list if reference span not found
+
+            ref_start_time = ref_row[0]
+
+            # Then get all spans created after that time
+            cursor = conn.execute(
+                "SELECT * FROM traces WHERE start_time > ? ORDER BY start_time ASC", (ref_start_time,)
+            )
+            return [
+                {
+                    "id": row[0],
+                    "trace_id": row[1],
+                    "span_id": row[2],
+                    "parent_span_id": row[3],
+                    "name": row[4],
+                    "start_time": row[5],
+                    "end_time": row[6],
+                    "attributes": json.loads(row[7]),
+                    "status_code": row[8],
+                    "status_description": row[9],
+                }
+                for row in cursor.fetchall()
+            ]
 
     def force_flush(self, timeout_millis: float = 30000) -> bool:
         """Force flush any pending spans to the database.

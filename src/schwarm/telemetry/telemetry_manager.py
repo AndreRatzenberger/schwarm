@@ -1,7 +1,5 @@
 """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
 
-import json
-
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -9,7 +7,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.models.event import Event
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
-from schwarm.utils.handling import make_serializable
+from schwarm.utils.handling import flatten_attributes, make_serializable
 
 
 class TelemetryManager:
@@ -49,7 +47,7 @@ class TelemetryManager:
         """Send a trace with global context."""
         if not self.global_tracer:
             raise RuntimeError("Tracer not set. Did you forget to register the provider?")
-        context = json.dumps(make_serializable(global_context.context))
+        context = flatten_attributes(make_serializable(global_context.context))
 
         name = f"{global_context.agent_name} - {global_context.type}"
         if global_context.provider_id:
@@ -58,10 +56,10 @@ class TelemetryManager:
         with self.global_tracer.start_as_current_span(f"{name}") as span:
             span.set_attribute("event_type", str(global_context.type))
             span.set_attribute("agent_id", global_context.agent_name)
-            span.set_attribute("context", context)
-            # for key, value in context.items():
-            #     if isinstance(value, str | int | float | bool | bytes):
-            #         span.set_attribute(key, value)
+            # span.set_attribute("context", context)
+            for key, value in context.items():
+                if isinstance(value, str | int | float | bool | bytes):
+                    span.set_attribute(key, value)
 
     def get_tracer(self, provider_id: str) -> trace.Tracer:
         """Get a tracer for a specific provider.

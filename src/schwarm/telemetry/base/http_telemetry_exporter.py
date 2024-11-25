@@ -57,6 +57,11 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         """Retrieve a span by ID. To be implemented by subclasses."""
         raise NotImplementedError("Subclasses must implement the query_span_by_id method")
 
+    @abstractmethod
+    def query_spans_after_id(self, after_id):
+        """Retrieve all spans created after the given span ID. To be implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement the query_spans_after_id method")
+
     def _configure_api(self):
         """Set up API endpoints for querying spans."""
 
@@ -76,8 +81,10 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 return pm._global_break
 
         @self.app.get("/spans")
-        def get_spans():
-            """Retrieve all spans."""
+        def get_spans(after_id: str = None):
+            """Retrieve spans, optionally filtered by after_id."""
+            if after_id:
+                return self.query_spans_after_id(after_id)
             return self.query_spans()
 
         @self.app.get("/spans/{span_id}")
