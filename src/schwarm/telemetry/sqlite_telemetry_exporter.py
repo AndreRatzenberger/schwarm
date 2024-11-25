@@ -8,6 +8,7 @@ from pathlib import Path
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 
+from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.telemetry.base.http_telemetry_exporter import HttpTelemetryExporter
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -15,13 +16,13 @@ from schwarm.utils.settings import APP_SETTINGS
 class SqliteTelemetryExporter(HttpTelemetryExporter):
     """Exporter for storing OpenTelemetry spans in SQLite."""
 
-    def __init__(self, db_path: str = "schwarm_events.db"):
+    def __init__(self, config: TelemetryConfig, db_path: str = "schwarm_events.db"):
         """Initialize the SQLite exporter.
 
         Args:
             db_path: Path to the SQLite database file
         """
-        super().__init__()
+        super().__init__(config)
         self.telemetry_path = Path(APP_SETTINGS.TELEMETRY)
         self.telemetry_path.mkdir(parents=True, exist_ok=True)
         self.db_path = self.telemetry_path.joinpath(db_path).__str__()

@@ -1,6 +1,6 @@
 """Agent model definition."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -26,5 +26,5 @@ class Agent(BaseModel):
         description="Specific tool selection strategy. none = no tools get called, auto = llm decides if generating a text or calling a tool, required = tools are forced",
     )
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
-    configs: list[BaseConfig] = Field(default_factory=list, description="List of configurations")
+    configs: Sequence[BaseConfig] = Field(default_factory=list, description="List of configurations")
     provider_names: list[str] = Field(default_factory=list, description="List of provider IDs")

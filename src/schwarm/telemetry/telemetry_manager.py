@@ -1,6 +1,7 @@
 """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
 
 import json
+from collections.abc import Sequence
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -15,12 +16,12 @@ from schwarm.utils.handling import make_serializable
 class TelemetryManager:
     """Manages OpenTelemetry tracing configuration and provider-specific tracers."""
 
-    def __init__(self, telemetry_exporters: list[TelemetryExporter], enabled_providers: list[str]):
+    def __init__(self, telemetry_exporters: Sequence[TelemetryExporter], enabled_providers: list[str] = []):
         """TelemetryManager class for managing OpenTelemetry tracing configuration and provider-specific tracers."""
         self.enabled_providers = set(enabled_providers or [])
         self.enabled_agents: dict[str, TelemetryConfig] = {}
         self.tracers: dict[str, trace.Tracer] = {}
-        self.exporters: list[TelemetryExporter] = telemetry_exporters
+        self.exporters: Sequence[TelemetryExporter] = telemetry_exporters
 
         # Initialize OpenTelemetry
         tracer_provider = TracerProvider()

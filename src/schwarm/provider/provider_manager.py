@@ -70,6 +70,7 @@ class ProviderManager:
             # {provider_id: provider_instance}
 
             self._providers: list[BaseProvider] = []
+            self._global_break: bool = False
 
             # Stores registered provider classes and their configs
             # {config_class: provider_class}
@@ -77,6 +78,13 @@ class ProviderManager:
             self._scan_and_register_providers()
             self.telemetry_manager = telemetry_manager
             self._initialized = True
+
+    def wait_for_frontend(self) -> None:
+        """Wait for the frontend to signal a global break."""
+        self._global_break = True
+        logger.info("Waiting for frontend to switch global break")
+        while self._global_break:
+            pass
 
     def trigger_event(self, event: Event, provider_list: list[str] | None = None) -> list[ProviderContextModel]:
         """Trigger an event across all relevant providers.

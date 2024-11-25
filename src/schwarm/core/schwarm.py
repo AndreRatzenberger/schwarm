@@ -3,12 +3,11 @@
 import copy
 import sys
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Any, Literal
 
-from loguru import logger
-
 from schwarm.configs.telemetry_config import TelemetryConfig
-from schwarm.core.logging import log_function_call, setup_logging
+from schwarm.core.logging import log_function_call, logger, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import EventType
 from schwarm.models.event import create_event, create_full_event
@@ -19,7 +18,6 @@ from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProviderConfig
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
-from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
 from schwarm.telemetry.telemetry_manager import TelemetryManager
 from schwarm.utils.function import function_to_json
 from schwarm.utils.settings import APP_SETTINGS
@@ -35,24 +33,17 @@ logger.add(
 class Schwarm:
     """Agent orchestrator class."""
 
-    def __init__(
-        self, agent_list: list[Agent] = [], telemetry_exporters: list[TelemetryExporter] = [], server_mode: bool = False
-    ):
+    def __init__(self, agent_list: list[Agent] = [], telemetry_exporters: Sequence[TelemetryExporter] = []):
         """Initialize the orchestrator."""
         logger.remove()
         self._default_handler = logger.add(sys.stderr, level="DEBUG")
 
         self._agents = agent_list
+        self.telemetry_exporters = telemetry_exporters
         if telemetry_exporters:
-            self._telemetry_manager = TelemetryManager(telemetry_exporters, enabled_providers=["all"])
-        else:
-            self._telemetry_manager = TelemetryManager([SqliteTelemetryExporter()], enabled_providers=["all"])
-        self._provider_manager = ProviderManager(telemetry_manager=self._telemetry_manager)
+            self._telemetry_manager = TelemetryManager(telemetry_exporters)
 
-        logger.info("Schwarm instance initialized")
-        if server_mode:
-            logger.info("Server mode enabled")
-            input("Press Enter to continue...")
+        self._provider_manager = ProviderManager(telemetry_manager=self._telemetry_manager)
 
     def register_agent(self, agent: Agent):
         """Register an agent."""
@@ -257,11 +248,32 @@ class Schwarm:
         """Trigger a specific event."""
         logger.debug(f"Event triggered: {event_type}")
 
-        if self._telemetry_manager:
+        # If the global break is set, wait for the frontend to catch up
+        if self._provider_manager._global_break:
+            self._provider_manager.wait_for_frontend()
+
+        # Check if the event should be logged or break the execution
+        break_point = False
+        log_point = False
+        if self.telemetry_exporters:
+            for exporter in self.telemetry_exporters:
+                if event_type in exporter.config.break_on_events:
+                    break_point = True
+                if event_type in exporter.config.log_on_events:
+                    log_point = True
+
+        # Send the event to the telemetry manager
+        if log_point and self._telemetry_manager:
             event = create_event(self._provider_context, event_type)
             if event:
                 self._telemetry_manager.send_trace(event)
+
+        # Send the event to the provider manager
         if self._provider_context:
             event = create_full_event(self._provider_context, event_type)
             if event:
                 self._provider_manager.trigger_event(event)
+
+        # Wait for the frontend to catch up
+        if break_point:
+            self._provider_manager.wait_for_frontend()

@@ -8,15 +8,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.sdk.trace.export import SpanExportResult
 
+from schwarm.configs.telemetry_config import TelemetryConfig
+from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 
 
 class HttpTelemetryExporter(TelemetryExporter, ABC):
     """Base class for custom OpenTelemetry exporters."""
 
-    def __init__(self, api_host="127.0.0.1", api_port=8123):
+    def __init__(self, config: TelemetryConfig, api_host="127.0.0.1", api_port=8123):
         """Initialize the base exporter."""
-        super().__init__()
+        super().__init__(config)
         self.api_host = api_host
         self.api_port = api_port
         self.app = FastAPI()
@@ -57,6 +59,21 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
 
     def _configure_api(self):
         """Set up API endpoints for querying spans."""
+
+        @self.app.post("/break")
+        def set_break():
+            """Retrieve all spans."""
+            pm = ProviderManager._instance
+            if pm:
+                pm._global_break = not pm._global_break
+                return pm._global_break
+
+        @self.app.get("/break")
+        def get_break():
+            """Retrieve all spans."""
+            pm = ProviderManager._instance
+            if pm:
+                return pm._global_break
 
         @self.app.get("/spans")
         def get_spans():

@@ -4,12 +4,17 @@ from abc import ABC, abstractmethod
 
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from schwarm.configs.telemetry_config import TelemetryConfig
+
 
 class TelemetryExporter(SpanExporter, ABC):
     """Base class for custom OpenTelemetry exporters."""
 
-    def __init__(self):
+    config: TelemetryConfig
+
+    def __init__(self, config: TelemetryConfig):
         """Base class for custom OpenTelemetry exporters."""
+        self.config = config
         super().__init__()
 
     def _export(self, spans):
