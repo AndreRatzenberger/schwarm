@@ -19,6 +19,7 @@ class Settings:
 
     _defaults: ClassVar[dict[str, str]] = {
         "DATA_FOLDER": ".data/",
+        "TELEMETRY": ".telemetry/",
         "CONTEXT_VARS_KEY": "context_variables",
         "SYSTEM_ROLE": "system",
         "ASSISTANT_ROLE": "assistant",

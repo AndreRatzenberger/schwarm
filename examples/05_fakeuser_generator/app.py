@@ -29,8 +29,9 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 from tinydb import TinyDB
 
-from schwarm.core.schwarm import Schwarm
+from schwarm.core.schwarm import Schwarm2
 from schwarm.models.types import Agent, ContextVariables, Result
+from schwarm.provider.provider_presets import DEFAULT
 from schwarm.utils.settings import APP_SETTINGS
 
 fake = Faker()
@@ -61,8 +62,8 @@ class User(BaseModel):
 
 # Agents
 
-user_generator = Agent(name="User Generator")
-bio_generator = Agent(name="Biography Generator")
+user_generator = Agent(name="User Generator", configs=DEFAULT)
+bio_generator = Agent(name="Biography Generator", configs=DEFAULT)
 
 # Instructions
 
@@ -133,6 +134,7 @@ def transfer_user_data_to_biography_generator(context_variables: ContextVariable
     # Generate some fields with faker
 
     # Gender with a 80% chance of being male and 20% of being female
+    from schwarm.models.agent import Agent
 
     profile = fake.profile(sex=get_gender())  # type: ignore
     birthdate = get_birthdate()
@@ -153,7 +155,8 @@ def transfer_user_data_to_biography_generator(context_variables: ContextVariable
         social_views="",
     )
     context_variables["user"] = user
-    return Result(value=f"{user}", context_variables=context_variables, agent=bio_generator)
+    agent: Agent = bio_generator
+    return Result(value=f"{user}", context_variables=context_variables, agent=agent)
 
 
 def transer_user_bio_to_user_generator(
@@ -200,4 +203,4 @@ def transer_user_bio_to_user_generator(
 user_generator.functions = [transfer_user_data_to_biography_generator]
 bio_generator.functions = [transer_user_bio_to_user_generator]
 
-response = Schwarm().quickstart(user_generator, "Start generating!", mode="auto")
+response = Schwarm2().quickstart(user_generator, "Start generating!", mode="auto")

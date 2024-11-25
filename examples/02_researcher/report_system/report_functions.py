@@ -2,11 +2,11 @@
 
 import os
 
-import report_system.report_agents as ra
 from pydantic import BaseModel
 from rich.console import Console
 from tavily import TavilyClient
 
+import report_system.report_agents as ra
 from schwarm.models.message import Message
 from schwarm.models.types import ContextVariables, Result
 from schwarm.provider.litellm_provider import LiteLLMConfig, LiteLLMProvider
@@ -104,7 +104,7 @@ def do_set_next_part_to_work_on(context_variables: ContextVariables, next_part: 
 
 def do_generate_text(context_variables: ContextVariables) -> Result:
     """Write text for the report for the current active outline."""
-    provider = LiteLLMProvider("gpt-4o", config=LiteLLMConfig(enable_cache=True))
+    provider = LiteLLMProvider(LiteLLMConfig(enable_cache=True))
     report = context_variables.get("report")
 
     info = f"Write a lengthy text fitting for the report type '{report.report_type}' for the current active outline element. It should be of highest quality."  # type: ignore

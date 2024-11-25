@@ -60,6 +60,41 @@ def truncate_string(text: str, max_length: int = 200) -> str:
     )
 
 
+def setup_logging(
+    is_logging_enabled: bool = True,
+    log_level: LogLevel = "trace",
+) -> None:
+    """Set up logging with the specified log level.
+
+    Args:
+        log_level: The logging level to use ("trace", "debug", "info", "success",
+                  "warning", "error", "critical"). Case-insensitive.
+
+    Raises:
+        ValueError: If an invalid log level is provided.
+    """
+    if not is_logging_enabled:
+        # Disable logging
+        logger.info("Disabling console logging")
+        logger.remove()
+        return
+    logger.info("Setting up console logging")
+    # Convert log level to lowercase and validate
+    normalized_level = log_level.lower()
+    if not hasattr(logger, normalized_level):
+        valid_levels = ["trace", "debug", "info", "success", "warning", "error", "critical"]
+        raise ValueError(f"Invalid log level: {log_level}. Valid levels are: {', '.join(valid_levels)}")
+
+    # Set the log level
+    # logger.remove()
+    logger.add(
+        APP_SETTINGS.DATA_FOLDER + "/logs/debug.log",
+        format="{time} {level} {message}",
+        level=normalized_level.upper(),
+        rotation="10 MB",
+    )
+
+
 def format_args(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> tuple[str, str]:
     """Format the arguments of a function call for logging.
 
