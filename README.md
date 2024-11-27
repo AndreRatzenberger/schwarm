@@ -3,7 +3,8 @@
 
 **_An Opinionated Agent Framework inspired by OpenAI's swarm._**
 
-![image](https://github.com/user-attachments/assets/6827a57a-7961-433b-8235-a4d03ed74532)
+![image](https://github.com/user-attachments/assets/2abe0238-fd79-45ba-aa50-7abd088e4ab0)
+
 
 
 Incredibly simple yet amazingly deep, it literally wrote parts of it itself.
