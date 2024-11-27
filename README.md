@@ -12,16 +12,7 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
 ---
 
-_(THIS IS AN ALPHA)_  
-Seriously, this is alpha in every possible sense. It’s a playground for personal agent-based PoCs of all kinds. If you’re looking for an agent framework to perform automatic brain surgeries, you’re in the wrong place. 
 
-If you’re looking for something that’ll blow your mind as often as it crashes... hello!  
-
-Also, no support during alpha, but I promise the "Teachings of Schwarm" will always work.  
-
-Edit: Since Schwarm can already implement parts of itself, the UI is shaping up pretty nicely and quickly, and I estimate beta around q1 2025.
-
----
 
 ## Features
 
@@ -158,7 +149,118 @@ Edit: Since Schwarm can already implement parts of itself, the UI is shaping up 
 
 ## Examples
 
-TBD.
+### Self learning
+
+Want to see what real agent freedom looks like? Try this:
+
+```python
+
+# Create an agent that can evolve its own instructions
+def dynamic_instructions(context: ContextVariables) -> str:
+    base_instruction = "You are a creative problem solver."
+    
+    if "learning" in context:
+        # The agent can modify its own behavior based on what it learns
+        return base_instruction + f"\n\nLessons learned: {context['learning']}"
+    
+    return base_instruction
+
+evolving_agent = Agent(
+    name="learner",
+    configs=[LiteLLMConfig(enable_cache=True)],
+    instructions=dynamic_instructions,
+)
+
+# Let it learn and adapt
+def learn_and_improve(context: ContextVariables, insight: str) -> Result:
+    context["learning"] = context.get("learning", []) + [insight]
+    return Result(
+        value=f"I learned: {insight}",
+        context_variables=context,
+        agent=evolving_agent  # Keep going with new knowledge
+    )
+
+evolving_agent.functions = [learn_and_improve]
+
+```
+
+### Dynamic models
+
+Want a system where multiple specialized agents collaborate on a story? Here's how simple it can be:
+
+```python
+# Your writing dream team
+writer = Agent("novelist", configs=[
+    LiteLLMConfig(model="gpt-4"),
+    ZepConfig()  # For that infinite memory
+])
+
+editor = Agent("editor", configs=[
+    LiteLLMConfig(model="gpt-3.5-turbo"),  # Cheaper for edits
+    ZepConfig()
+])
+
+critic = Agent("critic", configs=[
+    LiteLLMConfig(model="claude-3"),  # Different perspective
+])
+
+# Let the writer work their magic
+def write_chapter(context: ContextVariables, chapter: str) -> Result:
+    # save your result
+    text = context.get("story", "") + "\n\n" + prompt
+    
+    # Hand it off to the editor
+    return Result(
+        value=text,
+        context_variables={"story": text},
+        agent=editor  # Smooth transition
+    )
+
+# Editor cleans it up
+def edit_chapter(context: ContextVariables, text: str) -> Result:
+    # Make it shine
+    edited_text = text + " [Edited for clarity]"
+    
+    # Let the critic have a look
+    return Result(
+        value=edited_text,
+        context_variables=context,
+        agent=critic
+    )
+
+```
+
+### Quickies
+
+#### The Power of True Freedom
+```python
+# Want to switch models mid-conversation? Sure!
+def switch_models(context: ContextVariables) -> Result:
+    if context.get("complexity") > 0.8:
+        agent.update_config(LiteLLMConfig(model="gpt-4"))
+    else:
+        agent.update_config(LiteLLMConfig(model="gpt-3.5-turbo"))
+```
+
+#### Infinite Memory When You Need It
+```python
+# Remember everything important
+zep = agent.get_typed_provider(ZepProvider)
+zep.add_to_memory("This is a crucial plot point")
+relevant_stuff = zep.search_memory("What happened in chapter 1?")
+```
+
+#### Budget Control That Makes Sense
+```python
+# Don't accidentally buy a Tesla in API calls
+agent = Agent(configs=[
+    LiteLLMConfig(enable_cache=True),  # Save money
+    BudgetConfig(
+        max_spend=100,
+        alert_at=80  # Get warned before it's too late
+    )
+])
+```
 
 ---
 
@@ -170,4 +272,19 @@ TBD.
 - An extensive arsenal of providers.
 - Dapr backend for true distributed agent shenanigans (also durable functions, aws lambdas etc will be looked at)
 - Evaluation/Optimization Framwork. State of the art tools helping your agents a production-ready state. And most of that optimization will be done by an schwarm agent system. Who would have thought!
+
+
+---
+_(THIS IS AN ALPHA)_  
+Seriously, this is alpha in every possible sense. It’s a playground for personal agent-based PoCs of all kinds. If you’re looking for an agent framework to perform automatic brain surgeries, you’re in the wrong place. 
+
+If you’re looking for something that’ll blow your mind as often as it crashes... hello!  
+
+Also, no support during alpha, but I promise the "Teachings of Schwarm" will always work.  
+
+Edit: Since Schwarm can already implement parts of itself, the UI is shaping up pretty nicely and quickly, and I estimate beta around q1 2025.
+
+
+
+
 
