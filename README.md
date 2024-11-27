@@ -6,7 +6,7 @@
 
 Incredibly simple yet amazingly deep, it literally wrote parts of itself.
 
-What’s its pull? Literally manipulate everything. No state graphs that need to make sense, no hidden prompts—everything works exactly as you define it. Want to split the agent system in half after 7 rounds, reverse the flow of agents while only doing animal sounds? Yeah. No problem.
+What’s its pull? Literally manipulate everything. No state graphs that need to make sense, no hidden prompts... everything works exactly as you define it. Want to split the agent system in half after 7 rounds, reverse the flow of agents while only doing animal sounds? Yeah. No problem.
 
 Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
@@ -15,7 +15,7 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 _(THIS IS AN ALPHA)_  
 Seriously, this is alpha in every possible sense. It’s a playground for personal agent-based PoCs of all kinds. If you’re looking for an agent framework to perform automatic brain surgeries, you’re in the wrong place. 
 
-If you’re looking for something that’ll blow your mind as often as it crashes—hello!  
+If you’re looking for something that’ll blow your mind as often as it crashes... hello!  
 
 Also, no support during alpha, but I promise the "Teachings of Schwarm" will always work.  
 
@@ -148,7 +148,7 @@ Edit: Since Schwarm can already implement parts of itself, the UI is shaping up 
    response = Schwarm(interaction_mode='stop_and_go').quickstart(stephen_king_agent, input)
    ```
 
-   Let your agent system loose! Don’t worry about losing all your money—this quickstart configuration will ask for your approval before performing any money-consuming task.
+   Let your agent system loose! Don’t worry about losing all your money... this quickstart configuration will ask for your approval before performing any money-consuming task.
 
 ---
 
