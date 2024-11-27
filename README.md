@@ -100,6 +100,8 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
    stephen_king_agent.instructions = instruction_stephen_king_agent
    ```
+    Did you see the amazing word count algorithm?
+
 
 5. The toolbox
 
