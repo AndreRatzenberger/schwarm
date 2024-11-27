@@ -1,0 +1,55 @@
+[
+  {
+    "title": "CACA Agent: Capability Collaboration based AI Agent",
+    "authors": [
+      "Peng Xu",
+      "Haoran Wang",
+      "Chuang Wang",
+      "Xu Liu"
+    ],
+    "published": "2024-03-22",
+    "abstract": "As AI Agents based on Large Language Models (LLMs) have shown potential in\npractical applications across various fields, how to quickly deploy an AI agent\nand how to conveniently expand the application scenario of AI agents has become\na challenge. Previous studies mainly focused on implementing all the reasoning\ncapabilities of AI agents within a single LLM, which often makes the model more\ncomplex and also reduces the extensibility of AI agent functionality. In this\npaper, we propose CACA Agent (Capability Collaboration based AI Agent), using\nan open architecture inspired by service computing. CACA Agent integrates a set\nof collaborative capabilities to implement AI Agents, not only reducing the\ndependence on a single LLM, but also enhancing the extensibility of both the\nplanning abilities and the tools available to AI agents. Utilizing the proposed\nsystem, we present a demo to illustrate the operation and the application\nscenario extension of CACA Agent.",
+    "pdf_url": "http://arxiv.org/pdf/2403.15137v1"
+  },
+  {
+    "title": "Generative AI as Economic Agents",
+    "authors": [
+      "Nicole Immorlica",
+      "Brendan Lucier",
+      "Aleksandrs Slivkins"
+    ],
+    "published": "2024-06-01",
+    "abstract": "Traditionally, AI has been modeled within economics as a technology that\nimpacts payoffs by reducing costs or refining information for human agents. Our\nposition is that, in light of recent advances in generative AI, it is\nincreasingly useful to model AI itself as an economic agent. In our framework,\neach user is augmented with an AI agent and can consult the AI prior to taking\nactions in a game. The AI agent and the user have potentially different\ninformation and preferences over the communication, which can result in\nequilibria that are qualitatively different than in settings without AI.",
+    "pdf_url": "http://arxiv.org/pdf/2406.00477v1"
+  },
+  {
+    "title": "Levels of AI Agents: from Rules to Large Language Models",
+    "authors": [
+      "Yu Huang"
+    ],
+    "published": "2024-03-06",
+    "abstract": "AI agents are defined as artificial entities to perceive the environment,\nmake decisions and take actions. Inspired by the 6 levels of autonomous driving\nby Society of Automotive Engineers, the AI agents are also categorized based on\nutilities and strongness, as the following levels: L0, no AI, with tools taking\ninto account perception plus actions; L1, using rule-based AI; L2, making\nrule-based AI replaced by IL/RL-based AI, with additional reasoning & decision\nmaking; L3, applying LLM-based AI instead of IL/RL-based AI, additionally\nsetting up memory & reflection; L4, based on L3, facilitating autonomous\nlearning & generalization; L5, based on L4, appending personality of emotion\nand character and collaborative behavior with multi-agents.",
+    "pdf_url": "http://arxiv.org/pdf/2405.06643v2"
+  },
+  {
+    "title": "Measuring an artificial intelligence agent's trust in humans using machine incentives",
+    "authors": [
+      "Tim Johnson",
+      "Nick Obradovich"
+    ],
+    "published": "2022-12-27",
+    "abstract": "Scientists and philosophers have debated whether humans can trust advanced\nartificial intelligence (AI) agents to respect humanity's best interests. Yet\nwhat about the reverse? Will advanced AI agents trust humans? Gauging an AI\nagent's trust in humans is challenging because--absent costs for\ndishonesty--such agents might respond falsely about their trust in humans. Here\nwe present a method for incentivizing machine decisions without altering an AI\nagent's underlying algorithms or goal orientation. In two separate experiments,\nwe then employ this method in hundreds of trust games between an AI agent (a\nLarge Language Model (LLM) from OpenAI) and a human experimenter (author TJ).\nIn our first experiment, we find that the AI agent decides to trust humans at\nhigher rates when facing actual incentives than when making hypothetical\ndecisions. Our second experiment replicates and extends these findings by\nautomating game play and by homogenizing question wording. We again observe\nhigher rates of trust when the AI agent faces real incentives. Across both\nexperiments, the AI agent's trust decisions appear unrelated to the magnitude\nof stakes. Furthermore, to address the possibility that the AI agent's trust\ndecisions reflect a preference for uncertainty, the experiments include two\nconditions that present the AI agent with a non-social decision task that\nprovides the opportunity to choose a certain or uncertain option; in those\nconditions, the AI agent consistently chooses the certain option. Our\nexperiments suggest that one of the most advanced AI language models to date\nalters its social behavior in response to incentives and displays behavior\nconsistent with trust toward a human interlocutor when incentivized.",
+    "pdf_url": "http://arxiv.org/pdf/2212.13371v1"
+  },
+  {
+    "title": "Voice-Enabled AI Agents can Perform Common Scams",
+    "authors": [
+      "Richard Fang",
+      "Dylan Bowman",
+      "Daniel Kang"
+    ],
+    "published": "2024-10-21",
+    "abstract": "Recent advances in multi-modal, highly capable LLMs have enabled\nvoice-enabled AI agents. These agents are enabling new applications, such as\nvoice-enabled autonomous customer service. However, with all AI capabilities,\nthese new capabilities have the potential for dual use.\n  In this work, we show that voice-enabled AI agents can perform the actions\nnecessary to perform common scams. To do so, we select a list of common scams\ncollected by the government and construct voice-enabled agents with directions\nto perform these scams. We conduct experiments on our voice-enabled agents and\nshow that they can indeed perform the actions necessary to autonomously perform\nsuch scams. Our results raise questions around the widespread deployment of\nvoice-enabled AI agents.",
+    "pdf_url": "http://arxiv.org/pdf/2410.15650v1"
+  }
+]
