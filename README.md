@@ -269,7 +269,7 @@ agent = Agent(configs=[
 - More examples and apps.
 - A real documentation.
 - Async / true multithreading.
-- Integrating dspy. If everything is dyncamic, what do you think will happen if you let a framw
+- Integrating dspy.
 - An extensive arsenal of providers.
 - Dapr backend for true distributed agent shenanigans (also durable functions, aws lambdas etc will be looked at)
 - Evaluation/Optimization Framwork. State of the art tools helping your agents a production-ready state. And most of that optimization will be done by an schwarm agent system. Who would have thought!
