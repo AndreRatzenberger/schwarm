@@ -58,6 +58,10 @@ Edit: Since Schwarm can already implement parts of itself, the UI is shaping up 
 
   - The light-hearted notebooks "The Teachings of Schwarm" (in `/lessons`) showcase theoretical agent concepts, everything the framework can do, and my random ramblings - all in one. Just hit play. Science definitely went too far.
 
+- **Feature parity to other agent frameworks** and it's amazing
+
+  - Implement SemanticKernel Agents with Schwarm and watch Schwarm outperforming SemanticKernel Agents, thanks to tool calling strategies, fallback mechanism and all that jazz.
+
 ---
 
 
@@ -85,7 +89,7 @@ Edit: Since Schwarm can already implement parts of itself, the UI is shaping up 
 
    (Caching means that every message interaction will be cached, so if you send the same exact prompt to the LLM, you will receive the cached answer instead of a newly generated one. Saves money and lets you debug!)
 
-4. How can I help you?
+4. Instructions, pls!
 
    Tell it what to do with dynamic instructions that can change every time it’s the agent’s turn again. Carry objects and other data from agent to agent and step to step with the help of `context_variables`.
 
@@ -164,6 +168,8 @@ TBD.
 - A real documentation.
 - Async / true multithreading.
 - An extensive arsenal of providers.
+- Dapr backend for true distributed agent shenanigans (also durable functions, aws lambdas etc will be looked at)
+- Evaluation/Optimization Framwork. State of the art tools helping your agents a production-ready state. And most of that optimization will be done by an schwarm agent system. Who would have thought!
 
 --- 
 
