@@ -10,7 +10,18 @@ What’s its pull? Literally manipulate everything. No state graphs that need to
 
 Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
----
+## Install
+
+Get `uv` (https://docs.astral.sh/uv)
+
+run/build/install/start ui/sync/what can't this command do:
+
+```sh
+uv venv
+uv sync --all-groups
+poe miau
+```
+
 
 ## Features
 
