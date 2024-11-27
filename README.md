@@ -6,7 +6,7 @@
 
 Incredibly simple yet amazingly deep, it literally wrote parts of itself.
 
-What’s its pull? Literally manipulate everything. No state graphs that need to make sense, no hidden prompts... everything works exactly as you define it. Want to split the agent system in half after 7 rounds, reverse the flow of agents while only doing animal sounds? Yeah. No problem.
+What’s its pull? Literally manipulate everything. No state graphs that need to make sense, no hidden prompts... everything works exactly as you define it. Want to split the agent system in half after 7 rounds, reverse the flow of agents while only communicating in emojis? Yeah. No problem.
 
 Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
