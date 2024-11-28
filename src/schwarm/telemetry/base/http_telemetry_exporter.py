@@ -33,7 +33,7 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         mimetypes.add_type("application/javascript", ".mjs")
 
         # Base directory for static files
-        self.base_dir = get_environment().parent.parent.joinpath("nektar", "dist")
+        self.base_dir = get_environment().parent.parent.joinpath("schwarm")
         index_file_path = self.base_dir.joinpath("index.html")
         assets_dir = self.base_dir.joinpath("assets")
 
@@ -51,7 +51,7 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             logger.info(f"Serving static files from: {self.base_dir}")
             self.app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         else:
-            logger.warning(f"Static files not found in {self.base_dir} - dev mode enabled")
+            raise FileNotFoundError(f"Static files not found in {self.base_dir}")
 
         self._configure_api()
         self._start_api()

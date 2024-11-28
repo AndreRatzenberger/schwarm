@@ -1,6 +1,6 @@
 [project]
 name = "schwarm"
-version = "0.1.70"
+version = "0.1.71"
 description = "A very opinionated package for building agent systems. Also very alpha."
 readme = "README.md"
 requires-python = ">=3.12"
