@@ -1,6 +1,7 @@
 """Base class for custom OpenTelemetry exporters."""
 
 import mimetypes
+import socket
 from abc import ABC, abstractmethod
 from threading import Thread
 
@@ -68,6 +69,18 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         finally:
             self.shutdown()
 
+    def find_free_port(self, start_port=8123, max_port=9000):
+        """Find a free port starting from `start_port`."""
+        for port in range(start_port, max_port + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    # Try binding to the port
+                    s.bind(("127.0.0.1", port))
+                    return port  # Port is free
+                except OSError:
+                    continue  # Port is in use, try next
+        raise RuntimeError("No free port found in the specified range.")
+
     @abstractmethod
     def query_spans(self):
         """Retrieve all spans. To be implemented by subclasses."""
@@ -127,9 +140,10 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             return f"{result}"
 
     def _start_api(self):
-        """Run the FastAPI app in a background thread."""
-
         def run():
+            free_port = self.find_free_port()
+            print(f"Starting server on port {free_port}...")
+            uvicorn.run(self.app, host="127.0.0.1", port=free_port)
             uvicorn.run(self.app, host=self.api_host, port=self.api_port, log_level="info")
 
         thread = Thread(target=run, daemon=True)

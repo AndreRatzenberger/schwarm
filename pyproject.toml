@@ -1,6 +1,6 @@
 [project]
 name = "schwarm"
-version = "0.1.72"
+version = "0.1.73"
 description = "A very opinionated package for building agent systems. Also very alpha."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -91,13 +91,30 @@ cwd = "."
 cmd = "uv run schwarm"
 cwd = "."
 
-[tool.poe.tasks]
-miau = [
+[tool.poe.tasks.schwarm_publish]
+cmd = "uv publish"
+cwd = "."
+
+[tool.poe.tasks.rm_dist]
+cmd = "rm -r dist"
+cwd = "."
+
+[tool.poe.tasks.miau]
+sequence = [
     "nektar_npm_install",
     "nektar_npm_build",
     "schwarm_sync",
     "schwarm_build",
     "schwarm_run",
+]
+
+[tool.poe.tasks.quack]
+sequence = [
+    "nektar_npm_install",
+    "nektar_npm_build",
+    "schwarm_sync",
+    "schwarm_build",
+    "schwarm_publish",
 ]
 
 
