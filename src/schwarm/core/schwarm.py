@@ -16,8 +16,8 @@ from schwarm.models.event import create_event, create_full_event
 from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.models.types import Agent, Response
-from schwarm.provider.base.base_llm_provider import BaseLLMProvider
 from schwarm.provider.base.base_provider import BaseProviderConfig
+from schwarm.provider.llm_provider import LLMProvider
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.telemetry.sqlite_telemetry_exporter import SqliteTelemetryExporter
@@ -272,7 +272,7 @@ class Schwarm:
         self._filter_context_vars_from_tools(tools)
         self._trigger_event(EventType.MESSAGE_COMPLETION)
         provider = self._provider_manager.get_first_llm_provider(agent.name)
-        if isinstance(provider, BaseLLMProvider):
+        if isinstance(provider, LLMProvider):
             result = provider.complete(
                 messages,
                 override_model=override_model,
