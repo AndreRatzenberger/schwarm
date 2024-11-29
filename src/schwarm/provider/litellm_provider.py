@@ -179,7 +179,7 @@ class LiteLLMProvider(BaseLLMProvider):
         """
         try:
             msg = Message(role="user", content="Test connection")
-            self.complete(messages=[msg])
+            self.complete(messages=[msg], streaming=False)
             return True
         except Exception as e:
             logger.error(f"Connection test failed: {e!s}")
@@ -281,6 +281,7 @@ class LiteLLMProvider(BaseLLMProvider):
         tool_choice: str = "",
         parallel_tool_calls: bool = True,
         agent_name: str = "",
+        streaming: bool = True,
     ) -> Message:
         """Internal completion method.
 
@@ -310,7 +311,7 @@ class LiteLLMProvider(BaseLLMProvider):
                 "model": model,
                 "messages": message_list,
                 "caching": config.enable_cache,
-                "stream": config.streaming,
+                "stream": config.streaming and streaming,
             }
             if tools:
                 completion_kwargs.update(
@@ -321,9 +322,7 @@ class LiteLLMProvider(BaseLLMProvider):
                     }
                 )
 
-            response = completion(**completion_kwargs)
-
-            if config.streaming:
+            if config.streaming and streaming:
                 response = completion(**completion_kwargs)
                 loop_manager = AsyncLoopManager()
                 return loop_manager.run_async(self._handle_streaming(response, message_list, model))
@@ -380,6 +379,7 @@ class LiteLLMProvider(BaseLLMProvider):
         tool_choice: str = "",
         parallel_tool_calls: bool = True,
         agent_name: str = "",
+        streaming: bool = True,
     ) -> Message:
         """Generate completion for given messages.
 
@@ -410,6 +410,7 @@ class LiteLLMProvider(BaseLLMProvider):
                     tool_choice=tool_choice,
                     parallel_tool_calls=parallel_tool_calls,
                     agent_name=agent_name,
+                    streaming=streaming,
                 )
         else:
             return self._complete(
@@ -419,4 +420,5 @@ class LiteLLMProvider(BaseLLMProvider):
                 tool_choice=tool_choice,
                 parallel_tool_calls=parallel_tool_calls,
                 agent_name=agent_name,
+                streaming=streaming,
             )
