@@ -68,9 +68,11 @@ class StreamManager:
                     break
                 yield chunk
         except asyncio.CancelledError:
+            self._is_streaming = False
             logger.warning("Stream iteration cancelled")
             raise
         except Exception as e:
+            self._is_streaming = False
             logger.error(f"Error during stream iteration: {e}")
             raise
         finally:

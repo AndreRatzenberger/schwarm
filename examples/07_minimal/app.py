@@ -22,4 +22,4 @@ input = """
  2. The person who keeps horses is in the first house.
 """
 
-Schwarm(interaction_mode="stop_and_go").quickstart(hello_agent, input_text=input)
+Schwarm().quickstart(hello_agent, input_text=input)
