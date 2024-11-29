@@ -56,13 +56,13 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
 ## Quickstart
 
-Install Schwarm with pip:
+ 1. Install Schwarm with pip:
 
    ```bash
    pip install schwarm
    ```
 
-or if you clone the repo and want to build it yourself:
+ 2. or if you clone the repo and want to build it yourself:
 
    ```sh
     uv venv
