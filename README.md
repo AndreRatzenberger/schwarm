@@ -10,17 +10,6 @@ What’s its pull? Literally manipulate everything. No state graphs that need to
 
 Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
-## Install
-
-Get `uv` (https://docs.astral.sh/uv)
-
-run/build/install/start ui/sync/what can't this command do:
-
-```sh
-uv venv
-uv sync --all-groups
-poe miau
-```
 
 
 ## Features
@@ -67,19 +56,29 @@ poe miau
 
 ## Quickstart
 
-1. Install Schwarm:
+Install Schwarm with pip:
 
    ```bash
    pip install schwarm
    ```
 
-2. Export your OpenAI API key:
+or if you clone the repo and want to build it yourself:
+
+   ```sh
+    uv venv
+    uv sync --all-groups
+    poe miau
+   ```
+  
+
+
+3. Export your OpenAI API key:
 
    ```bash
    export OPENAI_API_KEY=sk-xxx
    ```
 
-3. Create your agent:
+4. Create your agent:
 
    ```python
    stephen_king_agent = Agent(name="stephen_king69", configs=[LiteLLMConfig(enable_cache=True), ZepConfig()])
@@ -89,7 +88,7 @@ poe miau
 
    (Caching means that every message interaction will be cached, so if you send the same exact prompt to the LLM, you will receive the cached answer instead of a newly generated one. Saves money and lets you debug!)
 
-4. Instructions, pls!
+5. Instructions, pls!
 
    Tell it what to do with dynamic instructions that can change every time it’s the agent’s turn again. Carry objects and other data from agent to agent and step to step with the help of `context_variables`.
 
@@ -114,7 +113,7 @@ poe miau
     Did you see the amazing word count algorithm?
 
 
-5. The toolbox
+6. The toolbox
 
    Give your agent skills it wouldn’t have otherwise! Also, pass the stick to other agents by setting them in the `agent` property of the `Result` object. Just not in this example… Mr. King works alone!
 
@@ -142,7 +141,7 @@ poe miau
 
    (Based on the function name, variable names, types, and docstring, a valid OpenAI function spec JSON gets generated. So, this will only work if your model understands those. Support for other tool specs is coming!)
 
-6. Kick off!
+7. Kick off!
 
    ```python
    input = """
