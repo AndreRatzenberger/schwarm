@@ -1,5 +1,6 @@
 """Provider for the Lite LLM API."""
 
+import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -8,6 +9,7 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
+from schwarm.manager.stream_manager import StreamManager
 from schwarm.models.message import Message, MessageInfo
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
@@ -52,6 +54,7 @@ class LiteLLMConfig(BaseLLMProviderConfig):
     enable_debug: bool = Field(default=True, description="Enables debug mode for detailed logging")
     enable_mocking: bool = Field(default=False, description="Enables mock responses for testing purposes")
     sleep_on_cache_hit: float = Field(default=5, description="Sleep time in seconds when cache hit is detected")
+    streaming: bool = Field(default=False, description="Enable streaming completion")
 
 
 class LiteLLMError(Exception):
@@ -128,6 +131,7 @@ class LiteLLMProvider(BaseLLMProvider):
             ConfigurationError: If the configuration is invalid
         """
         self.config = config
+        self.streaming = config.streaming
         self.sleep_on_cache_hit = config.sleep_on_cache_hit
         if config.enable_cache:
             self._setup_caching()
@@ -278,6 +282,7 @@ class LiteLLMProvider(BaseLLMProvider):
                 "model": model,
                 "messages": message_list,
                 "caching": config.enable_cache,
+                "stream": config.streaming,
             }
             if tools:
                 completion_kwargs.update(
@@ -289,6 +294,19 @@ class LiteLLMProvider(BaseLLMProvider):
                 )
 
             response = completion(**completion_kwargs)
+
+            if config.streaming:
+                chunks = []
+                for part in response:
+                    logger.debug(f"Streaming part received: {part}")
+                    print(part.choices[0].delta.content)
+                    asyncio.get_event_loop().run_until_complete(
+                        StreamManager().add_chunk(agent_name=model, chunk=part.choices[0].delta.content or "")
+                    )
+                    chunks.append(part)
+                return self._create_completion_response(
+                    litellm.stream_chunk_builder(chunks, messages=messages), model, message_list
+                )
 
             return self._create_completion_response(response, model, message_list)
 

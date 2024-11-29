@@ -8,12 +8,13 @@ from threading import Thread
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.configs.telemetry_config import TelemetryConfig
+from schwarm.manager.stream_manager import StreamManager
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.utils.settings import get_environment
@@ -138,6 +139,12 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             for obj in self.loaded_modules:
                 result += obj[1].name
             return f"{result}"
+
+        @self.app.get("/stream/{agent_name}", response_model=None)
+        async def stream_agent(agent_name: str):
+            """Stream agent output."""
+            stream_manager = StreamManager()
+            return StreamingResponse(stream_manager.stream_messages(agent_name), media_type="text/plain")
 
     def _start_api(self):
         def run():

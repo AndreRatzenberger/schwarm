@@ -50,12 +50,21 @@
             "cwd": "${workspaceFolder}",
             "python": "${workspaceFolder}/.venv/Scripts/python",
             "preLaunchTask": "sync env"
-        },
-        {
+        },{
             "name": "06 - WIN - Mr. King",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/examples/06_stephen_king/app.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/.venv/Scripts/python",
+            "preLaunchTask": "sync env"
+        },
+        {
+            "name": "07 - WIN - Mr. Minimal",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/07_minimal/app.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "python": "${workspaceFolder}/.venv/Scripts/python",

@@ -294,17 +294,18 @@ class Schwarm:
             if APP_SETTINGS.CONTEXT_VARS_KEY in params["required"]:
                 params["required"].remove(APP_SETTINGS.CONTEXT_VARS_KEY)
 
-    def pause(self, event_type: EventType = EventType.INSTRUCT, do_pause: bool = True):
+    def pause(self, event_type: EventType = EventType.INSTRUCT):
         """Pause the conversation."""
         if self.interaction_mode == "stop_and_go" and (
             event_type == EventType.INSTRUCT
             or event_type == EventType.POST_MESSAGE_COMPLETION
             or event_type == EventType.POST_TOOL_EXECUTION
+            or event_type == EventType.HANDOFF
         ):
             self._provider_manager.wait_for_frontend()
             return
 
-        if do_pause:
+        if self._provider_manager._global_break:
             self._provider_manager.wait_for_frontend()
 
     def _trigger_event(self, event_type: EventType):
@@ -312,16 +313,13 @@ class Schwarm:
         logger.debug(f"Event triggered: {event_type}")
 
         # Check if the event should be logged or break the execution
-        break_point = False
         log_point = False
         if self.telemetry_exporters:
             for exporter in self.telemetry_exporters:
                 if event_type in exporter.config.break_on_events:
-                    break_point = True
+                    self._provider_manager._global_break = True
                 if event_type in exporter.config.log_on_events:
                     log_point = True
-
-        self.pause(event_type)
 
         # Send the event to the telemetry manager
         if log_point and self._telemetry_manager and self._run_id:
@@ -335,4 +333,4 @@ class Schwarm:
             if event:
                 self._provider_manager.trigger_event(event)
 
-        self.pause(event_type, self._provider_manager._global_break or break_point)
+        self.pause(event_type)
