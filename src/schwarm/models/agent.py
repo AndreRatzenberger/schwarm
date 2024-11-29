@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import BaseModel, Field
 
 from schwarm.configs.base.base_config import BaseConfig
+from schwarm.provider.llm_provider import LLMConfig
 from schwarm.utils.handling import deserialize_callable, serialize_callable
 
 
@@ -29,7 +30,7 @@ class Agent(BaseModel):
     token_spent: int = Field(default=0, description="Amount of tokens spent on this agent")
     total_cost: float = Field(default=0.0, description="Total cost of using")
     parallel_tool_calls: bool = Field(default=False, description="Whether multiple tools can be called in parallel")
-    configs: list[BaseConfig] = Field(default_factory=list, description="List of configurations")
+    configs: list[BaseConfig] = Field(default=[LLMConfig()], description="List of configurations")
     provider_names: list[str] = Field(default_factory=list, description="List of provider IDs")
 
     def to_dict(self):
@@ -52,7 +53,7 @@ class Agent(BaseModel):
             model=data["model"],
             description=data["description"],
             instructions=deserialize_callable(data["instructions"]),
-            functions=[deserialize_callable(f) for f in data["functions"]],
+            functions=[deserialize_callable(f) for f in data["functions"]],  # type: ignore
             tool_choice=data["tool_choice"],
             parallel_tool_calls=data["parallel_tool_calls"],
             configs=data["configs"],  # Assuming configs are simple or deserializable

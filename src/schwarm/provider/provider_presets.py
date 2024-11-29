@@ -1,5 +1,5 @@
 """Some default provider presets for Schwarm."""
 
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 
-DEFAULT = [LiteLLMConfig(enable_cache=True)]
+DEFAULT = [LLMConfig(enable_cache=True)]

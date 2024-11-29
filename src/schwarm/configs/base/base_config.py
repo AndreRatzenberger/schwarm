@@ -13,8 +13,8 @@ ProviderType = Literal["event", "llm"]
 class BaseConfig(BaseModel):
     """Base configuration for all providers."""
 
-    config_type: Literal["telemetry", "event_provider", "llm_provider"] = Field(
-        default="provider", description="Configuration type"
+    config_type: Literal["event_provider", "llm_provider"] = Field(
+        default="event_provider", description="Configuration type"
     )
 
     class Config:

@@ -104,14 +104,14 @@ class Schwarm:
     def quickstart(
         self,
         agent: Agent,
-        input_text: str = "",
+        input: str = "",
         context_variables: dict[str, Any] | None = None,
         override_model: str = "",
     ) -> Response:
         """Run a single agent input."""
         return self.run(
             agent,
-            messages=[Message(role="user", content=input_text)],
+            messages=[Message(role="user", content=input)],
             context_variables=context_variables or {},
             override_model=override_model,
             max_turns=100,
@@ -281,7 +281,7 @@ class Schwarm:
                 parallel_tool_calls=agent.parallel_tool_calls,
                 agent_name=agent.name,
             )
-            if result.info:
+            if result and result.info:
                 self._provider_context.current_agent.token_spent = result.info.token_counter
                 self._provider_context.current_agent.total_cost = result.info.completion_cost
 

@@ -203,7 +203,7 @@ class InformationProvider(BaseEventHandleProvider):
 
     def _save_budget_to_csv(self) -> None:
         """Save current budget state to CSV."""
-        filepath = self._log_dir / f"{self.context.current_agent.name}_budget.csv"
+        filepath = self._log_dir / f"{self.context.current_agent.name}_budget.csv"  # type: ignore
         file_exists = filepath.exists()
 
         with filepath.open(mode="a", newline="") as f:
@@ -281,7 +281,7 @@ class InformationProvider(BaseEventHandleProvider):
 
         debug(function_data)
 
-        debug(self.context.context_variables)
+        debug(self.context.context_variables)  # type: ignore
 
         self._write_to_log("functions.log", str(function_data))
 
@@ -327,7 +327,7 @@ class InformationProvider(BaseEventHandleProvider):
 
     def _format_context_variables(self) -> list[str]:
         """Format context variables for display."""
-        return ["**- Context Variables**", truncate_string(str(self.context.context_variables), self.config.max_length)]
+        return ["**- Context Variables**", truncate_string(str(self.context.context_variables), self.config.max_length)]  # type: ignore
 
     def _wait_for_user_input(self) -> None:
         """Wait for user input based on application frame."""

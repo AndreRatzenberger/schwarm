@@ -30,7 +30,7 @@ from schwarm.core.schwarm import Schwarm
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, ContextVariables, Result
 from schwarm.provider.information_provider import InformationConfig
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 from schwarm.utils.file import save_dictionary_list, save_text_to_file
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -50,7 +50,7 @@ os.makedirs(APP_SETTINGS.DATA_FOLDER)
 google_search_agent = Agent(
     name="google_search_agent",
     configs=[
-        LiteLLMConfig(enable_cache=True),
+        LLMConfig(enable_cache=True),
         InformationConfig(
             show_function_calls=True,
             function_calls_wait_for_user_input=True,
@@ -63,7 +63,7 @@ google_search_agent = Agent(
 arxiv_search_agent = Agent(
     name="arxiv_search_agent",
     configs=[
-        LiteLLMConfig(enable_cache=True),
+        LLMConfig(enable_cache=True),
         InformationConfig(
             show_function_calls=True,
             function_calls_wait_for_user_input=True,
@@ -76,7 +76,7 @@ arxiv_search_agent = Agent(
 report_agent = Agent(
     name="report_agent",
     configs=[
-        LiteLLMConfig(enable_cache=True),
+        LLMConfig(enable_cache=True),
         InformationConfig(
             show_function_calls=True,
             function_calls_wait_for_user_input=True,
@@ -90,7 +90,7 @@ user_agent = Agent(
     name="user_agent",
     tool_choice="none",
     configs=[
-        LiteLLMConfig(enable_cache=True),
+        LLMConfig(enable_cache=True),
         InformationConfig(
             show_function_calls=True,
             function_calls_wait_for_user_input=True,

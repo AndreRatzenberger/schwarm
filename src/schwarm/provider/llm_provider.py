@@ -31,7 +31,7 @@ class EnvironmentConfig(BaseModel):
     )
 
 
-class LiteLLMConfig(BaseLLMProviderConfig):
+class LLMConfig(BaseLLMProviderConfig):
     """Configuration for the LiteLLM provider.
 
     This configuration class manages settings for the LiteLLM provider,
@@ -106,7 +106,7 @@ class LoggingHandler(CustomLogger):
             logger.debug(f"Request messages: {kwargs['messages']}")
 
 
-class LiteLLMProvider(BaseLLMProvider):
+class LLMProvider(BaseLLMProvider):
     """Provider for the Lite LLM API.
 
     This provider implements the LLMProvider interface using the LiteLLM library,
@@ -119,7 +119,7 @@ class LiteLLMProvider(BaseLLMProvider):
 
     _provider_id: str = Field(default="lite_llm", description="Provider ID")
 
-    def __init__(self, config: LiteLLMConfig, **data) -> None:
+    def __init__(self, config: LLMConfig, **data) -> None:
         """Initialize the Lite LLM provider.
 
         Args:
@@ -152,7 +152,7 @@ class LiteLLMProvider(BaseLLMProvider):
             if not self.test_connection():
                 raise ConfigurationError("Failed to connect to LLM service")
 
-            config = cast(LiteLLMConfig, self.config)
+            config = cast(LLMConfig, self.config)
 
             if config.enable_debug:
                 litellm.set_verbose = True  # type: ignore
@@ -302,8 +302,8 @@ class LiteLLMProvider(BaseLLMProvider):
         if not messages:
             raise ValueError("At least one message is required")
 
-        config = cast(LiteLLMConfig, self.config)
-        model = override_model or config.llm_model_id
+        config = cast(LLMConfig, self.config)
+        model = override_model or config.name
         message_list = self._prepare_messages(messages)
 
         try:
@@ -400,7 +400,7 @@ class LiteLLMProvider(BaseLLMProvider):
         if not messages:
             raise ValueError("At least one message is required")
 
-        config = cast(LiteLLMConfig, self.config)
+        config = cast(LLMConfig, self.config)
         if config.environment.variables and config.environment.override:
             with temporary_env_vars(config.environment.variables):
                 return self._complete(

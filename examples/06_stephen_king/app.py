@@ -11,7 +11,7 @@ from rich.console import Console
 
 from schwarm.core.schwarm import Schwarm
 from schwarm.models.types import Agent, ContextVariables, Result
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.provider.zep_provider import ZepConfig, ZepProvider
 from schwarm.utils.settings import APP_SETTINGS
@@ -50,7 +50,7 @@ zep_config = ZepConfig(
                                     """,
 )
 
-stephen_king_agent = Agent(name="stephen_king69", configs=[LiteLLMConfig(enable_cache=True), zep_config])
+stephen_king_agent = Agent(name="stephen_king69", configs=[LLMConfig(enable_cache=True), zep_config])
 
 
 def instruction_stephen_king_agent(context_variables: ContextVariables) -> str:

@@ -14,6 +14,7 @@ T = TypeVar("T")
 class EventType(Enum):
     """Core system events."""
 
+    START = "on_start"
     START_TURN = "on_start_turn"  # agent starts a new turn
     INSTRUCT = "on_instruct"  # agent gets instructed (before instruction gets generated)
     MESSAGE_COMPLETION = "on_message_completion"  # LLM chat completion (before message gets send)
@@ -71,7 +72,7 @@ class StartEventContext(BaseModel):
     current_agent: Any
     available_agents: list[Any] = Field(default_factory=list)
     available_tools: list[Any] = Field(default_factory=list)
-    available_providers: list[Any] = Field(default_factory=dict)
+    available_providers: list[Any] = Field(default_factory=list)
     override_model: str | None = None
 
 
@@ -105,7 +106,7 @@ class ToolExecutionContext(ToolContext):
 class HandoffContext(AgentContext, MessageContext):
     """Context needed for agent handoff events."""
 
-    available_providers: list[Any] = Field(default_factory=dict)
+    available_providers: list[Any] = Field(default_factory=list)
 
 
 class SpanEvent(BaseModel):
@@ -220,7 +221,7 @@ class Event(BaseModel):
     type: EventType = Field(default=EventType.NONE, description="Event type")
     agent_name: str = Field(default="", description="Name of the agent")
     provider_id: str = Field(default="", description="Name of the provider")
-    timestamp: str = Field(default=datetime.now(), description="Event timestamp")
+    timestamp: str = Field(default=datetime.now(), description="Event timestamp")  # type: ignore
     context: Any = Field(default=None, description="Event context")
 
 

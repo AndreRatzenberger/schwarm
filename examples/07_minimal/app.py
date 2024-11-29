@@ -2,9 +2,9 @@
 
 from schwarm.core.schwarm import Schwarm
 from schwarm.models.agent import Agent
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 
-hello_agent = Agent(name="hello_agent", configs=[LiteLLMConfig(llm_model_id="ollama_chat/qwq", streaming=True)])
+hello_agent = Agent(name="hello_agent", configs=[LLMConfig(name="ollama_chat/qwq", streaming=True)])
 
 hello_agent.instructions = (
     "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."

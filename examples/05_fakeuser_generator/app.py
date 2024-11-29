@@ -31,7 +31,7 @@ from tinydb import TinyDB
 
 from schwarm.core.schwarm import Schwarm
 from schwarm.models.types import Agent, ContextVariables, Result
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 from schwarm.utils.settings import APP_SETTINGS
 
 fake = Faker()
@@ -62,8 +62,8 @@ class User(BaseModel):
 
 # Agents
 
-user_generator = Agent(name="User Generator", configs=[LiteLLMConfig()])  # a("user",llm())
-bio_generator = Agent(name="Biography Generator", configs=[LiteLLMConfig()])
+user_generator = Agent(name="User Generator", configs=[LLMConfig()])  # a("user",llm())
+bio_generator = Agent(name="Biography Generator", configs=[LLMConfig()])
 
 # Instructions
 

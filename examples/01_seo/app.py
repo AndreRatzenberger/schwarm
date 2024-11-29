@@ -12,7 +12,7 @@ from rich.markdown import Markdown
 from schwarm.core.schwarm import Schwarm
 from schwarm.models.message import Message
 from schwarm.models.types import Agent, ContextVariables, Result
-from schwarm.provider.litellm_provider import LiteLLMConfig
+from schwarm.provider.llm_provider import LLMConfig
 from schwarm.utils.file import save_text_to_file
 from schwarm.utils.settings import APP_SETTINGS
 
@@ -68,25 +68,25 @@ def main():
         name="orchestrator",
         instructions=orchestrator_instructions,
         parallel_tool_calls=False,
-        configs=[LiteLLMConfig(enable_cache=True)],
+        configs=[LLMConfig(enable_cache=True)],
     )
 
     blog_writer = Agent(
         name="blog_writer",
         instructions=blog_writer_instructions,
-        configs=[LiteLLMConfig(enable_cache=True)],
+        configs=[LLMConfig(enable_cache=True)],
     )
 
     seo_optimizer = Agent(
         name="seo_optimizer",
         instructions=seo_optimizer_instructions,
-        configs=[LiteLLMConfig(enable_cache=True)],
+        configs=[LLMConfig(enable_cache=True)],
     )
 
     user_agent = Agent(
         name="user_agent",
         instructions="Print the final blog post.",
-        configs=[LiteLLMConfig(enable_cache=True)],
+        configs=[LLMConfig(enable_cache=True)],
         tool_choice="none",  # forces to print the final blog post
     )
 
