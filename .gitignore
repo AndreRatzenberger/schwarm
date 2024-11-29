@@ -15,9 +15,9 @@ logs/
 .pytest_cache/
 .cache/
 .data/
-uv.lock
+
 db.json
-docs/
+
 # Logs
 logs
 *.log
