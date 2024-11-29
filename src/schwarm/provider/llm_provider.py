@@ -1,5 +1,6 @@
 """Provider for the Lite LLM API."""
 
+import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -8,7 +9,7 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
-from schwarm.manager.stream_manager import AsyncLoopManager, StreamManager
+from schwarm.manager.stream_manager import StreamManager
 from schwarm.models.message import Message, MessageInfo
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
@@ -205,50 +206,55 @@ class LLMProvider(BaseLLMProvider):
         ]
 
     def _create_completion_response(self, response: Any, model: str, message_list: list[dict[str, Any]]) -> Message:
-        """Create a Message from a completion response.
-
-        Args:
-            response: Raw response from LiteLLM
-            model: The model used for completion
-            message_list: The original messages sent
-
-        Returns:
-            Message: Formatted completion response
-
-        Raises:
-            CompletionError: If the response format is invalid
-        """
-        choices = getattr(response, "choices", None)
-        if not choices:
-            raise CompletionError("Invalid response format from LLM service")
-
+        """Create a Message from a completion response."""
         try:
-            cost = completion_cost(completion_response=response)
-        except Exception:
-            cost = 0
-            logger.warning("Failed to calculate completion cost")
+            choices = getattr(response, "choices", [])
+            if not choices:
+                choices = [{"message": {"content": "", "role": "assistant", "tool_calls": []}}]
 
-        token_count = token_counter(model, messages=message_list)
-        info = MessageInfo(token_counter=token_count, completion_cost=cost)
+            try:
+                cost = completion_cost(completion_response=response)
+            except Exception as e:
+                logger.warning(f"Failed to calculate completion cost: {e}")
+                cost = 0
 
-        choice = choices[0]
-        model_extra = getattr(choice, "model_extra", {})
-        message = model_extra.get("message", {})
-        tool_calls = message.get("tool_calls", [])
+            try:
+                token_count = token_counter(model, messages=message_list)
+            except Exception as e:
+                logger.warning(f"Failed to count tokens: {e}")
+                token_count = 0
 
-        return Message(
-            content=message.get("content", ""),
-            role=message.get("role", "assistant"),
-            name=model,
-            tool_calls=tool_calls,
-            info=info,
-            additional_info={"raw_response": response},
-        )
+            info = MessageInfo(token_counter=token_count, completion_cost=cost)
+
+            choice = choices[0]
+            message = getattr(choice, "message", {}) or {}
+            if isinstance(message, dict):
+                content = message.get("content", "")
+                role = message.get("role", "assistant")
+                tool_calls = message.get("tool_calls", [])
+            else:
+                content = getattr(message, "content", "")
+                role = getattr(message, "role", "assistant")
+                tool_calls = getattr(message, "tool_calls", [])
+
+            return Message(
+                content=content or "",
+                role=role,
+                name=model,
+                tool_calls=tool_calls,
+                info=info,
+                additional_info={"raw_response": response},
+            )
+
+        except Exception as e:
+            logger.error(f"Error creating completion response: {e}")
+            raise CompletionError(f"Failed to process LLM response: {e!s}")
 
     async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
         """Handle streaming response from LiteLLM."""
         chunks = []
-        stream = StreamManager()
+        full_response = ""
+        stream_manager = StreamManager()
 
         try:
             for part in response:
@@ -257,18 +263,31 @@ class LLMProvider(BaseLLMProvider):
 
                 content = part.choices[0].delta.content
                 if content:
-                    await stream.write(content)
+                    await stream_manager.write(content)
+                    full_response += content
                     chunks.append(part)
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
         finally:
-            await stream.close()
+            await stream_manager.close()
 
-        if not chunks:
-            logger.error("No valid chunks received during streaming")
+        # Create a mock response object if no chunks were received
+        if not chunks and full_response:
+            mock_response = type(
+                "MockResponse",
+                (),
+                {"choices": [{"message": {"content": full_response, "role": "assistant", "tool_calls": []}}]},
+            )
+            return self._create_completion_response(mock_response, model, messages)
+        elif not chunks:
+            mock_response = type(
+                "MockResponse",
+                (),
+                {"choices": [{"message": {"content": "No response generated", "role": "assistant", "tool_calls": []}}]},
+            )
+            return self._create_completion_response(mock_response, model, messages)
 
-        chunks = []
         return self._create_completion_response(
             litellm.stream_chunk_builder(chunks, messages=messages), model, messages
         )
@@ -283,24 +302,10 @@ class LLMProvider(BaseLLMProvider):
         agent_name: str = "",
         streaming: bool = True,
     ) -> Message:
-        """Internal completion method.
+        """Internal completion method."""
+        import nest_asyncio
 
-        Args:
-            messages: List of messages for completion
-            override_model: Optional model override
-            tools: Available tools for the model
-            tool_choice: Selected tool
-            parallel_tool_calls: Whether to run tool calls in parallel
-
-        Returns:
-            Message: The completion response
-
-        Raises:
-            ValueError: If no messages are provided
-            CompletionError: If completion fails
-        """
-        if not messages:
-            raise ValueError("At least one message is required")
+        nest_asyncio.apply()
 
         config = cast(LLMConfig, self.config)
         model = override_model or config.name
@@ -324,8 +329,8 @@ class LLMProvider(BaseLLMProvider):
 
             if config.streaming and streaming:
                 response = completion(**completion_kwargs)
-                loop_manager = AsyncLoopManager()
-                return loop_manager.run_async(self._handle_streaming(response, message_list, model))
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(self._handle_streaming(response, message_list, model))
 
             response = completion(**completion_kwargs)
             return self._create_completion_response(response, model, message_list)

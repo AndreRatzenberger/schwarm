@@ -5,7 +5,7 @@ from schwarm.models.types import Agent
 from schwarm.provider.llm_provider import LLMConfig
 
 my_first_agent = Agent(
-    name="my_first_agent", configs=[LLMConfig(name="ollama_chat/marco-o1:7b-q8_0", streaming=True)]
+    name="my_first_agent", configs=[LLMConfig(name="ollama_chat/qwen2.5:7b-instruct-q8_0", streaming=True)]
 )  # enter "ollama_chat/<model_name>"
 
 my_first_agent.instructions = ""
