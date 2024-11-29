@@ -43,6 +43,7 @@ class BaseLLMProvider(BaseProvider, ABC):
         tools: list[dict[str, Any]] = [],
         tool_choice: str = "",
         parallel_tool_calls: bool = True,
+        agent_name: str = "",
     ) -> Message:
         """Generate completion for given messages."""
         pass

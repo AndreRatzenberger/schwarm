@@ -279,6 +279,7 @@ class Schwarm:
                 tools=tools,
                 tool_choice=str(agent.tool_choice),
                 parallel_tool_calls=agent.parallel_tool_calls,
+                agent_name=agent.name,
             )
             if result.info:
                 self._provider_context.current_agent.token_spent = result.info.token_counter

@@ -140,11 +140,11 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 result += obj[1].name
             return f"{result}"
 
-        @self.app.get("/stream/{agent_name}", response_model=None)
-        async def stream_agent(agent_name: str):
-            """Stream agent output."""
+        @self.app.get("/stream/")
+        async def stream_endpoint():
+            """Stream LLM outputs."""
             stream_manager = StreamManager()
-            return StreamingResponse(stream_manager.stream_messages(agent_name), media_type="text/plain")
+            return StreamingResponse(stream_manager.stream_messages(), media_type="text/plain")
 
     def _start_api(self):
         def run():

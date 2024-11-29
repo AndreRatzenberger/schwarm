@@ -1,6 +1,5 @@
 """Provider for the Lite LLM API."""
 
-import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -9,7 +8,7 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
-from schwarm.manager.stream_manager import StreamManager
+from schwarm.manager.stream_manager import AsyncLoopManager, StreamManager
 from schwarm.models.message import Message, MessageInfo
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
@@ -246,6 +245,34 @@ class LiteLLMProvider(BaseLLMProvider):
             additional_info={"raw_response": response},
         )
 
+    async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
+        """Handle streaming response from LiteLLM."""
+        chunks = []
+        stream = StreamManager()
+
+        try:
+            for part in response:
+                if not part or not part.choices:
+                    continue
+
+                content = part.choices[0].delta.content
+                if content:
+                    await stream.write(content)
+                    chunks.append(part)
+        except Exception as e:
+            logger.error(f"Error during streaming: {e}")
+            raise CompletionError(f"Streaming failed: {e}") from e
+        finally:
+            await stream.close()
+
+        if not chunks:
+            logger.error("No valid chunks received during streaming")
+
+        chunks = []
+        return self._create_completion_response(
+            litellm.stream_chunk_builder(chunks, messages=messages), model, messages
+        )
+
     def _complete(
         self,
         messages: list[Message],
@@ -253,6 +280,7 @@ class LiteLLMProvider(BaseLLMProvider):
         tools: list[dict[str, Any]] = [],
         tool_choice: str = "",
         parallel_tool_calls: bool = True,
+        agent_name: str = "",
     ) -> Message:
         """Internal completion method.
 
@@ -296,18 +324,11 @@ class LiteLLMProvider(BaseLLMProvider):
             response = completion(**completion_kwargs)
 
             if config.streaming:
-                chunks = []
-                for part in response:
-                    logger.debug(f"Streaming part received: {part}")
-                    print(part.choices[0].delta.content)
-                    asyncio.get_event_loop().run_until_complete(
-                        StreamManager().add_chunk(agent_name=model, chunk=part.choices[0].delta.content or "")
-                    )
-                    chunks.append(part)
-                return self._create_completion_response(
-                    litellm.stream_chunk_builder(chunks, messages=messages), model, message_list
-                )
+                response = completion(**completion_kwargs)
+                loop_manager = AsyncLoopManager()
+                return loop_manager.run_async(self._handle_streaming(response, message_list, model))
 
+            response = completion(**completion_kwargs)
             return self._create_completion_response(response, model, message_list)
 
         except Exception as e:
@@ -358,6 +379,7 @@ class LiteLLMProvider(BaseLLMProvider):
         tools: list[dict[str, Any]] = [],
         tool_choice: str = "",
         parallel_tool_calls: bool = True,
+        agent_name: str = "",
     ) -> Message:
         """Generate completion for given messages.
 
@@ -387,6 +409,7 @@ class LiteLLMProvider(BaseLLMProvider):
                     tools=tools,
                     tool_choice=tool_choice,
                     parallel_tool_calls=parallel_tool_calls,
+                    agent_name=agent_name,
                 )
         else:
             return self._complete(
@@ -395,4 +418,5 @@ class LiteLLMProvider(BaseLLMProvider):
                 tools=tools,
                 tool_choice=tool_choice,
                 parallel_tool_calls=parallel_tool_calls,
+                agent_name=agent_name,
             )
