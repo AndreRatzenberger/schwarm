@@ -100,7 +100,11 @@ class EventDispatcher:
         """
         if event.type in self._listeners:
             for listener in self._listeners[event.type]:
-                await listener(event)
+                try:
+                    await listener(event)
+                except Exception:
+                    # Swallow exceptions from listeners to prevent them from affecting other listeners
+                    pass
                 
     def clear_listeners(self, event_type: Optional[EventType] = None) -> None:
         """Clear listeners for a specific event type or all listeners.
@@ -112,4 +116,4 @@ class EventDispatcher:
         if event_type is None:
             self._listeners.clear()
         elif event_type in self._listeners:
-            self._listeners[event_type].clear()
+            del self._listeners[event_type]

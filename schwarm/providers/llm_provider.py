@@ -93,12 +93,17 @@ class LLMProvider(Provider):
             "model": self.model,
             "messages": messages,
             "temperature": self.temperature,
-            **self.additional_params,
-            **kwargs
+            **self.additional_params
         }
         
-        if self.max_tokens is not None:
+        # Apply max_tokens if set, allowing override from kwargs
+        if "max_tokens" in kwargs:
+            params["max_tokens"] = kwargs.pop("max_tokens")
+        elif self.max_tokens is not None:
             params["max_tokens"] = self.max_tokens
+            
+        # Apply any remaining kwargs
+        params.update(kwargs)
             
         # Execute the query
         response = await completion(**params)

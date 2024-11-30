@@ -1,6 +1,6 @@
 """Tests for the LLMProvider implementation."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -27,17 +27,20 @@ async def test_llm_provider_initialization():
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_execution(mock_completion):
     """Test LLMProvider execution with mocked completion."""
     # Setup mock response
-    mock_completion.return_value.choices = [
-        type("Choice", (), {
-            "message": type("Message", (), {
-                "content": "Mocked response"
+    mock_response = type("Response", (), {
+        "choices": [
+            type("Choice", (), {
+                "message": type("Message", (), {
+                    "content": "Mocked response"
+                })
             })
-        })
-    ]
+        ]
+    })
+    mock_completion.return_value = mock_response
     
     provider = LLMProvider(
         model="gpt-3.5-turbo",
@@ -64,16 +67,19 @@ async def test_llm_provider_execution(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_without_system_message(mock_completion):
     """Test LLMProvider execution without a system message."""
-    mock_completion.return_value.choices = [
-        type("Choice", (), {
-            "message": type("Message", (), {
-                "content": "Mocked response"
+    mock_response = type("Response", (), {
+        "choices": [
+            type("Choice", (), {
+                "message": type("Message", (), {
+                    "content": "Mocked response"
+                })
             })
-        })
-    ]
+        ]
+    })
+    mock_completion.return_value = mock_response
     
     provider = LLMProvider(model="gpt-3.5-turbo")
     result = await provider.execute(prompt="Test prompt")
@@ -88,16 +94,19 @@ async def test_llm_provider_without_system_message(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_parameter_override(mock_completion):
     """Test that execution parameters can override initialization parameters."""
-    mock_completion.return_value.choices = [
-        type("Choice", (), {
-            "message": type("Message", (), {
-                "content": "Mocked response"
+    mock_response = type("Response", (), {
+        "choices": [
+            type("Choice", (), {
+                "message": type("Message", (), {
+                    "content": "Mocked response"
+                })
             })
-        })
-    ]
+        ]
+    })
+    mock_completion.return_value = mock_response
     
     provider = LLMProvider(
         model="gpt-3.5-turbo",
@@ -117,16 +126,19 @@ async def test_llm_provider_parameter_override(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_additional_params(mock_completion):
     """Test that additional parameters are properly passed through."""
-    mock_completion.return_value.choices = [
-        type("Choice", (), {
-            "message": type("Message", (), {
-                "content": "Mocked response"
+    mock_response = type("Response", (), {
+        "choices": [
+            type("Choice", (), {
+                "message": type("Message", (), {
+                    "content": "Mocked response"
+                })
             })
-        })
-    ]
+        ]
+    })
+    mock_completion.return_value = mock_response
     
     provider = LLMProvider(
         model="gpt-3.5-turbo",
@@ -142,7 +154,7 @@ async def test_llm_provider_additional_params(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_error_handling(mock_completion):
     """Test that provider properly handles API errors."""
     mock_completion.side_effect = Exception("API Error")
@@ -154,11 +166,12 @@ async def test_llm_provider_error_handling(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion")
+@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
 async def test_llm_provider_empty_response_handling(mock_completion):
     """Test handling of empty or invalid responses."""
     # Mock an empty response
-    mock_completion.return_value.choices = []
+    mock_response = type("Response", (), {"choices": []})
+    mock_completion.return_value = mock_response
     
     provider = LLMProvider(model="gpt-3.5-turbo")
     
