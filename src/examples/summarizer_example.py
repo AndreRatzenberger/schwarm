@@ -2,16 +2,14 @@
 
 import asyncio
 import os
-from typing import Optional
 
-
-from schwarm.agents.agents.agent_builder import AgentBuilder
+from schwarm.agents.agent_builder import AgentBuilder
 from schwarm.events.events import Event, EventType
 from schwarm.functions.text_functions import summarize_function
 from schwarm.providers.simple_llm_provider import SimpleLLMProvider
 
 
-async def log_event(event: Event) -> None:
+def log_event(event: Event) -> None:
     """Simple event listener that logs events to the console."""
     print(f"Event: {event.type.name}")
     if event.data:
@@ -22,31 +20,25 @@ async def log_event(event: Event) -> None:
 async def main() -> None:
     """Run the summarizer example."""
     # Create an LLM provider (using environment variable for API key)
-    provider = SimpleLLMProvider(
-        model="gpt-3.5-turbo",
-        temperature=0.7,
-        max_tokens=150
-    )
-    
+    provider = SimpleLLMProvider(model="gpt-3.5-turbo", temperature=0.7, max_tokens=150)
+
     # Build an agent with the provider and summarize function
     agent = (
         AgentBuilder("SummarizerAgent")
-        .with_instructions(
-            "I am an agent specialized in summarizing text using AI."
-        )
+        .with_instructions("I am an agent specialized in summarizing text using AI.")
         .with_provider(provider)
         .with_function(summarize_function)
         .with_event_listener(EventType.BEFORE_FUNCTION_EXECUTION, log_event)
         .with_event_listener(EventType.AFTER_FUNCTION_EXECUTION, log_event)
         .build()
     )
-    
+
     # Initialize the agent
     await agent.initialize()
-    
+
     # Store the provider in the context for the function to use
     agent.context.set("llm_provider", provider)
-    
+
     # Example text to summarize
     text = """
     Artificial Intelligence (AI) is a broad field of computer science focused on 
@@ -61,22 +53,22 @@ async def main() -> None:
     into various aspects of our daily lives, from virtual assistants and 
     recommendation systems to autonomous vehicles and medical diagnosis tools.
     """
-    
+
     try:
         # Execute the summarize function
         print("Original text:")
         print(text)
         print("\nGenerating summary...")
-        
+
         summary = await agent.execute_function(
             "summarize",
             text,
-            max_length=50  # Target length in words
+            max_length=50,  # Target length in words
         )
-        
+
         print("\nSummary:")
         print(summary)
-        
+
     except Exception as e:
         print(f"Error: {e}")
 
