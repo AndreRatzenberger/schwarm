@@ -1,51 +1,64 @@
-"""Agent builder module providing a fluent API for agent construction."""
+"""Agent builder module providing fluent API for agent creation."""
 
-from typing import Callable, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
 
 from .agent import Agent
 from .context import Context
-from .events import EventDispatcher, EventType, EventListener
 from .function import Function
 from .provider import Provider
 
 
+@dataclass
+class AgentConfig:
+    """Configuration for agent creation."""
+    name: str
+    instructions: Optional[str | Callable[[Context], str]] = None
+    functions: List[Function] = field(default_factory=list)
+    providers: List[Provider] = field(default_factory=list)
+    memory_config: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
 class AgentBuilder:
-    """Builder class providing a fluent interface for constructing agents.
-    
-    The AgentBuilder allows for step-by-step configuration of an agent
-    using method chaining, making agent creation more readable and maintainable.
+    """Fluent builder for agent creation.
     
     Example:
-        agent = (
-            AgentBuilder("AssistantAgent")
-            .with_instructions("You are a helpful assistant.")
-            .with_function(greet_function)
+        agent = (AgentBuilder()
+            .name("assistant")
+            .with_instructions("You are a helpful assistant")
+            .with_memory(memory_config)
+            .with_tool(summarize_tool)
             .with_provider(llm_provider)
-            .with_event_listener(
-                EventType.AFTER_FUNCTION_EXECUTION,
-                log_execution
-            )
-            .build()
-        )
+            .build())
     """
     
-    def __init__(self, name: str) -> None:
-        """Initialize a new agent builder.
+    def __init__(self):
+        """Initialize an empty agent builder."""
+        self._config = AgentConfig(
+            name="",
+            instructions=None,
+            functions=[],
+            providers=[],
+            memory_config=None,
+            metadata={}
+        )
+        
+    def name(self, name: str) -> 'AgentBuilder':
+        """Set the agent's name.
         
         Args:
-            name: The name of the agent to build
+            name: The name for the agent
+            
+        Returns:
+            The builder instance for chaining
         """
-        self._name = name
-        self._instructions: Optional[Union[str, Callable[[Context], str]]] = None
-        self._functions: List[Function] = []
-        self._providers: List[Provider] = []
-        self._context: Optional[Context] = None
-        self._event_dispatcher: Optional[EventDispatcher] = None
-        self._event_listeners: List[tuple[EventType, EventListener]] = []
+        self._config.name = name
+        return self
         
     def with_instructions(
         self,
-        instructions: Union[str, Callable[[Context], str]]
+        instructions: str | Callable[[Context], str]
     ) -> 'AgentBuilder':
         """Set the agent's instructions.
         
@@ -53,33 +66,21 @@ class AgentBuilder:
             instructions: Static string or callable that generates instructions
             
         Returns:
-            self for method chaining
+            The builder instance for chaining
         """
-        self._instructions = instructions
+        self._config.instructions = instructions
         return self
         
-    def with_function(self, function: Function) -> 'AgentBuilder':
-        """Add a function to the agent.
+    def with_tool(self, function: Function) -> 'AgentBuilder':
+        """Add a tool (function) to the agent.
         
         Args:
             function: The function to add
             
         Returns:
-            self for method chaining
+            The builder instance for chaining
         """
-        self._functions.append(function)
-        return self
-        
-    def with_functions(self, functions: List[Function]) -> 'AgentBuilder':
-        """Add multiple functions to the agent.
-        
-        Args:
-            functions: List of functions to add
-            
-        Returns:
-            self for method chaining
-        """
-        self._functions.extend(functions)
+        self._config.functions.append(function)
         return self
         
     def with_provider(self, provider: Provider) -> 'AgentBuilder':
@@ -89,87 +90,51 @@ class AgentBuilder:
             provider: The provider to add
             
         Returns:
-            self for method chaining
+            The builder instance for chaining
         """
-        self._providers.append(provider)
+        self._config.providers.append(provider)
         return self
         
-    def with_providers(self, providers: List[Provider]) -> 'AgentBuilder':
-        """Add multiple providers to the agent.
+    def with_memory(self, config: Dict[str, Any]) -> 'AgentBuilder':
+        """Configure the agent's memory system.
         
         Args:
-            providers: List of providers to add
+            config: Memory configuration parameters
             
         Returns:
-            self for method chaining
+            The builder instance for chaining
         """
-        self._providers.extend(providers)
+        self._config.memory_config = config
         return self
         
-    def with_context(self, context: Context) -> 'AgentBuilder':
-        """Set the agent's context.
+    def with_metadata(self, metadata: Dict[str, Any]) -> 'AgentBuilder':
+        """Add metadata to the agent configuration.
         
         Args:
-            context: The context to use
+            metadata: Key-value pairs of metadata
             
         Returns:
-            self for method chaining
+            The builder instance for chaining
         """
-        self._context = context
-        return self
-        
-    def with_event_dispatcher(self, dispatcher: EventDispatcher) -> 'AgentBuilder':
-        """Set the agent's event dispatcher.
-        
-        Args:
-            dispatcher: The event dispatcher to use
-            
-        Returns:
-            self for method chaining
-        """
-        self._event_dispatcher = dispatcher
-        return self
-        
-    def with_event_listener(
-        self,
-        event_type: EventType,
-        listener: EventListener
-    ) -> 'AgentBuilder':
-        """Add an event listener to the agent.
-        
-        Args:
-            event_type: The type of event to listen for
-            listener: The callback function to execute when the event occurs
-            
-        Returns:
-            self for method chaining
-        """
-        self._event_listeners.append((event_type, listener))
+        self._config.metadata.update(metadata)
         return self
         
     def build(self) -> Agent:
         """Build and return the configured agent.
         
         Returns:
-            The constructed Agent instance with all configured components
+            A new Agent instance configured with the builder's settings
             
-        Note:
-            If no event dispatcher was set, a new one will be created.
-            Event listeners will be registered with the dispatcher.
+        Raises:
+            ValueError: If required configuration is missing
         """
-        # Create or use provided event dispatcher
-        event_dispatcher = self._event_dispatcher or EventDispatcher()
-        
-        # Register all event listeners
-        for event_type, listener in self._event_listeners:
-            event_dispatcher.add_listener(event_type, listener)
+        if not self._config.name:
+            raise ValueError("Agent name is required")
             
-        # Create the agent with all configured components
         return Agent(
-            name=self._name,
-            instructions=self._instructions,
-            functions=self._functions,
-            providers=self._providers,
-            context=self._context,
-            event_dispatcher=event_dispatcher,
+            name=self._config.name,
+            instructions=self._config.instructions,
+            functions=self._config.functions,
+            providers=self._config.providers,
+            context=Context()  # TODO: Add memory configuration
         )

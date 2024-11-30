@@ -1,11 +1,18 @@
-"""Events module containing the event system implementation."""
+"""Enhanced event system with fluent API."""
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol
+import uuid
+
+EventHandler = Callable[['Event'], None]
+EventMiddleware = Callable[['Event'], 'Event']
+
 
 class EventType(Enum):
-    """Enumeration of possible event types in the system."""
+    """Enumeration of possible event types."""
     
     # Agent lifecycle events
     AGENT_INITIALIZED = auto()
@@ -21,6 +28,16 @@ class EventType(Enum):
     AFTER_PROVIDER_EXECUTION = auto()
     PROVIDER_ERROR = auto()
     
+    # Memory events
+    MEMORY_STORED = auto()
+    MEMORY_RETRIEVED = auto()
+    MEMORY_CLEARED = auto()
+    
+    # Tool events
+    BEFORE_TOOL_EXECUTION = auto()
+    AFTER_TOOL_EXECUTION = auto()
+    TOOL_ERROR = auto()
+    
     # Context events
     CONTEXT_VARIABLE_SET = auto()
     CONTEXT_VARIABLE_REMOVED = auto()
@@ -28,92 +45,255 @@ class EventType(Enum):
 
 
 @dataclass
+class EventContext:
+    """Context for event tracking."""
+    trace_id: str
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class Event:
-    """Represents an event in the system.
-    
-    Attributes:
-        type: The type of the event
-        data: Optional data associated with the event
-        source: Optional source that triggered the event
-    """
-    
+    """Represents an event in the system."""
     type: EventType
     data: Optional[Dict[str, Any]] = None
     source: Optional[str] = None
+    context: Optional[EventContext] = None
 
 
-EventListener = Callable[[Event], None]
+class EventBuilder:
+    """Fluent builder for events.
+    
+    Example:
+        event = (EventBuilder(EventType.TOOL_ERROR)
+            .with_data({"error": str(error)})
+            .from_source("tool_executor")
+            .with_metadata({"severity": "high"})
+            .build())
+    """
+    
+    def __init__(self, event_type: EventType):
+        """Initialize event builder.
+        
+        Args:
+            event_type: Type of event to build
+        """
+        self._type = event_type
+        self._data: Dict[str, Any] = {}
+        self._source: Optional[str] = None
+        self._metadata: Dict[str, Any] = {}
+        
+    def with_data(self, data: Dict[str, Any]) -> 'EventBuilder':
+        """Add event data.
+        
+        Args:
+            data: Event data
+            
+        Returns:
+            Self for chaining
+        """
+        self._data.update(data)
+        return self
+        
+    def from_source(self, source: str) -> 'EventBuilder':
+        """Set event source.
+        
+        Args:
+            source: Event source
+            
+        Returns:
+            Self for chaining
+        """
+        self._source = source
+        return self
+        
+    def with_metadata(self, metadata: Dict[str, Any]) -> 'EventBuilder':
+        """Add event metadata.
+        
+        Args:
+            metadata: Event metadata
+            
+        Returns:
+            Self for chaining
+        """
+        self._metadata.update(metadata)
+        return self
+        
+    def build(self) -> Event:
+        """Build the event.
+        
+        Returns:
+            Configured event
+        """
+        return Event(
+            type=self._type,
+            data=self._data or None,
+            source=self._source,
+            context=EventContext(
+                trace_id=str(uuid.uuid4()),
+                metadata=self._metadata
+            )
+        )
 
 
 class EventDispatcher:
-    """Manages event dispatching and listener registration.
-    
-    The EventDispatcher allows components to register listeners for specific
-    event types and handles the dispatching of events to appropriate listeners.
+    """Enhanced event dispatcher with middleware support.
     
     Example:
         dispatcher = EventDispatcher()
         
-        async def log_function_execution(event: Event):
-            print(f"Function executed: {event.data}")
-            
-        dispatcher.add_listener(
-            EventType.AFTER_FUNCTION_EXECUTION,
-            log_function_execution
-        )
+        # Add middleware
+        dispatcher.add_middleware(logging_middleware)
+        
+        # Subscribe to events
+        dispatcher.on(EventType.TOOL_ERROR).do(handle_error)
+        
+        # Dispatch event
+        await dispatcher.dispatch(error_event)
     """
     
-    def __init__(self) -> None:
-        """Initialize an empty event dispatcher."""
-        self._listeners: Dict[EventType, List[EventListener]] = {}
+    def __init__(self):
+        """Initialize event dispatcher."""
+        self._listeners: Dict[EventType, List[EventHandler]] = {}
+        self._middleware: List[EventMiddleware] = []
+        self._lock = asyncio.Lock()
         
-    def add_listener(self, event_type: EventType, listener: EventListener) -> None:
-        """Add a listener for a specific event type.
+    def on(self, event_type: EventType) -> 'EventSubscriber':
+        """Create subscription for event type.
         
         Args:
-            event_type: The type of event to listen for
-            listener: The callback function to execute when the event occurs
+            event_type: Type of event to subscribe to
+            
+        Returns:
+            Subscription builder
+        """
+        return EventSubscriber(self, event_type)
+        
+    def add_middleware(self, middleware: EventMiddleware) -> None:
+        """Add event middleware.
+        
+        Args:
+            middleware: Middleware function
+        """
+        self._middleware.append(middleware)
+        
+    async def dispatch(self, event: Event) -> None:
+        """Dispatch an event.
+        
+        Args:
+            event: Event to dispatch
+        """
+        # Apply middleware
+        processed_event = await self._apply_middleware(event)
+        
+        # Notify listeners
+        await self._notify_listeners(processed_event)
+        
+    async def _apply_middleware(self, event: Event) -> Event:
+        """Apply middleware chain to event.
+        
+        Args:
+            event: Original event
+            
+        Returns:
+            Processed event
+        """
+        current_event = event
+        for middleware in self._middleware:
+            try:
+                current_event = await middleware(current_event)
+            except Exception as e:
+                # Log middleware error but continue chain
+                print(f"Middleware error: {e}")
+        return current_event
+        
+    async def _notify_listeners(self, event: Event) -> None:
+        """Notify all listeners of an event.
+        
+        Args:
+            event: Event to notify about
+        """
+        if event.type in self._listeners:
+            async with self._lock:
+                for listener in self._listeners[event.type]:
+                    try:
+                        await listener(event)
+                    except Exception as e:
+                        # Log listener error but continue notifications
+                        print(f"Listener error: {e}")
+                        
+    def _add_listener(
+        self,
+        event_type: EventType,
+        handler: EventHandler
+    ) -> None:
+        """Add event listener.
+        
+        Args:
+            event_type: Type of event to listen for
+            handler: Event handler
         """
         if event_type not in self._listeners:
             self._listeners[event_type] = []
-        self._listeners[event_type].append(listener)
-        
-    def remove_listener(self, event_type: EventType, listener: EventListener) -> None:
-        """Remove a listener for a specific event type.
+        self._listeners[event_type].append(handler)
+
+
+class EventSubscriber:
+    """Fluent interface for event subscription.
+    
+    Example:
+        dispatcher.on(EventType.TOOL_ERROR)
+            .with_filter(lambda e: e.data["severity"] == "high")
+            .do(handle_error)
+    """
+    
+    def __init__(
+        self,
+        dispatcher: EventDispatcher,
+        event_type: EventType
+    ):
+        """Initialize subscriber.
         
         Args:
-            event_type: The type of event the listener was registered for
-            listener: The callback function to remove
+            dispatcher: Event dispatcher
+            event_type: Type of event to subscribe to
+        """
+        self._dispatcher = dispatcher
+        self._event_type = event_type
+        self._filter: Optional[Callable[[Event], bool]] = None
+        
+    def with_filter(
+        self,
+        filter_func: Callable[[Event], bool]
+    ) -> 'EventSubscriber':
+        """Add event filter.
+        
+        Args:
+            filter_func: Filter function
             
-        If the listener wasn't registered, this operation is a no-op.
+        Returns:
+            Self for chaining
         """
-        if event_type in self._listeners:
-            self._listeners[event_type] = [
-                l for l in self._listeners[event_type] if l != listener
-            ]
-            
-    async def dispatch(self, event: Event) -> None:
-        """Dispatch an event to all registered listeners.
+        self._filter = filter_func
+        return self
+        
+    def do(self, handler: EventHandler) -> None:
+        """Register event handler.
         
         Args:
-            event: The event to dispatch
+            handler: Event handler
         """
-        if event.type in self._listeners:
-            for listener in self._listeners[event.type]:
-                try:
-                    await listener(event)
-                except Exception:
-                    # Swallow exceptions from listeners to prevent them from affecting other listeners
-                    pass
-                
-    def clear_listeners(self, event_type: Optional[EventType] = None) -> None:
-        """Clear listeners for a specific event type or all listeners.
-        
-        Args:
-            event_type: The event type to clear listeners for.
-                       If None, clears all listeners.
-        """
-        if event_type is None:
-            self._listeners.clear()
-        elif event_type in self._listeners:
-            del self._listeners[event_type]
+        if self._filter:
+            # Wrap handler with filter
+            async def filtered_handler(event: Event) -> None:
+                if self._filter(event):
+                    await handler(event)
+            self._dispatcher._add_listener(
+                self._event_type,
+                filtered_handler
+            )
+        else:
+            self._dispatcher._add_listener(
+                self._event_type,
+                handler
+            )
