@@ -2,11 +2,13 @@
 
 from typing import Callable, List, Optional, Union
 
+from schwarm.context.context import Context
+from schwarm.events.events import EventDispatcher, EventType,EventListener
+from schwarm.functions.function import Function
+from schwarm.providers.provider import Provider
+
 from .agent import Agent
-from .context import Context
-from .events import EventDispatcher, EventType, EventListener
-from .function import Function
-from .provider import Provider
+
 
 
 class AgentBuilder:
@@ -41,7 +43,7 @@ class AgentBuilder:
         self._providers: List[Provider] = []
         self._context: Optional[Context] = None
         self._event_dispatcher: Optional[EventDispatcher] = None
-        self._event_listeners: List[tuple[EventType, EventListener]] = []
+        self._event_listeners: List[tuple[EventType, EventListener]] = [] 
         
     def with_instructions(
         self,

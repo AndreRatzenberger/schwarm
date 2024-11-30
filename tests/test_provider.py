@@ -2,7 +2,7 @@
 
 import pytest
 
-from schwarm.provider import Provider
+from schwarm.providers.provider import Provider
 
 
 def test_provider_is_abstract():

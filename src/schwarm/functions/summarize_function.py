@@ -2,8 +2,8 @@
 
 from typing import Optional
 
-from ..context import Context
-from ..function import Function
+from ..context.context import Context
+from .function import Function
 from ..providers.llm_provider import LLMProvider
 
 

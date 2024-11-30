@@ -2,7 +2,7 @@
 
 import pytest
 
-from schwarm.context import Context
+from schwarm.context.context import Context
 
 
 def test_context_initialization():

@@ -2,8 +2,8 @@
 
 import pytest
 
-from schwarm.context import Context
-from schwarm.function import Function
+from schwarm.context.context import Context
+from schwarm.functions.function import Function
 
 
 def test_function_initialization():

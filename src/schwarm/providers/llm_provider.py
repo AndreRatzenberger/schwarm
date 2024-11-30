@@ -2,9 +2,9 @@
 
 from typing import Any, Dict, Optional
 
-from litellm import completion
+from litellm import acompletion, completion
 
-from ..provider import Provider
+from .provider import Provider
 
 
 class LLMProvider(Provider):
@@ -106,7 +106,7 @@ class LLMProvider(Provider):
         params.update(kwargs)
             
         # Execute the query
-        response = await completion(**params)
+        response = await acompletion(**params)
         
         # Extract and return the response text
         return response.choices[0].message.content

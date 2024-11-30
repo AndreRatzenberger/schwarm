@@ -2,7 +2,7 @@
 
 import pytest
 
-from schwarm.events import Event, EventDispatcher, EventType
+from schwarm.events.events import Event, EventDispatcher, EventType
 
 
 def test_event_creation():

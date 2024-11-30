@@ -2,12 +2,13 @@
 
 import pytest
 
-from schwarm.agent import Agent
-from schwarm.agent_builder import AgentBuilder
-from schwarm.context import Context
-from schwarm.events import Event, EventDispatcher, EventType
-from schwarm.function import Function
-from schwarm.provider import Provider
+
+from schwarm.context.context import Context
+from schwarm.core.agents.agent import Agent
+from schwarm.core.agents.agent_builder import AgentBuilder
+from schwarm.events.events import Event, EventDispatcher, EventType
+from schwarm.functions.function import Function
+from schwarm.providers.provider import Provider
 
 
 class MockProvider(Provider):

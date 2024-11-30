@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from schwarm.context import Context
+from schwarm.context.context import Context
 from schwarm.functions.summarize_function import summarize_function
 from schwarm.providers.llm_provider import LLMProvider
 

@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from schwarm.agent_builder import AgentBuilder
-from schwarm.events import Event, EventType
+from schwarm.events.events import Event, EventType
 from schwarm.functions.summarize_function import summarize_function
 from schwarm.providers.llm_provider import LLMProvider
 
