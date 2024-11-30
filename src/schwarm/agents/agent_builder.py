@@ -6,7 +6,7 @@ from schwarm.context.context import Context
 from schwarm.events.events import EventDispatcher, EventType, EventListener
 from schwarm.functions.function import Function
 from schwarm.providers.provider import Provider
-from schwarm.agents.cli import CLIFunction, Parameter
+from schwarm.functions.cli import CLIFunction, Parameter
 from schwarm.providers.cli_llm_provider import CLILLMProvider
 
 from .agent import Agent

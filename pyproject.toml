@@ -11,11 +11,16 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.3",
-    "pytest-asyncio>=0.24.0",
     "pytest-clarity>=1.0.1",
     "pytest-cov>=6.0.0",
     "pytest-sugar>=1.0.0",
-    "ruff>=0.8.1",
+    "ipykernel>=6.29.5",
+    "ruff>=0.7.2",
+    "pytest-asyncio>=0.24.0",
+    "faker>=30.8.2",
+    "tinydb>=4.8.2",
+    "ipywidgets>=8.1.5",
+    "poethepoet>=0.30.0",
 ]
 
 
@@ -29,5 +34,57 @@ build-backend = "hatchling.build"
 packages = ["src/schwarm"]
 
 
+[tool.pyright]
+include = ["."]
+exclude = [
+    "**/.venv",
+    "**/dump",          # exclude virtual environment - exclude means that it will not be scanned
+    "**/settings.json",
+]
+useLibraryCodeForTypes = true
+ignore = [
+    "**/settings.json",
+] # ignore means that it will be scanned but not checked
+defineConstant = { DEBUG = true }
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+typeCheckingMode = "basic"
+
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
+line-length = 120
+## formatting
+format.quote-style = "double"
+format.indent-style = "space"
+format.skip-magic-trailing-comma = false
+format.line-ending = "auto"
+format.docstring-code-format = true
+format.docstring-code-line-length = "dynamic"
+## linting
+lint.select = [
+    'D',   #pydocstyle
+    'E',
+    'W',   # pycodestyle
+    'F',   #pyflakes
+    'I',   # sort imports
+    'UP',  #pyupgrade
+    "RUF", # ruff dev's own rules
+    "SIM", # pyflakes simplicity
+    "C90", # more complexity rules
+]
+lint.ignore = ["E203", "E266", "E501", "F541", "D417"]
+lint.exclude = ["logs/", "data/", "tests/", "docs/", "dump/"]
+lint.pydocstyle.convention = "google"
+lint.isort.combine-as-imports = true
+exclude = ["logs/", "data/", "tests/", "docs/", "src/templates/", "dump/"]
+
+[tool.pytest.ini_options]
+addopts = "--cov src/schwarm --cov-report html -v"
+minversion = "6.0"
+python_files = "test_*.py"
+python_classes = "Test"
+python_functions = "test"
+verbosity_test_cases = 2
 
 

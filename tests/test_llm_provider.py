@@ -27,7 +27,7 @@ async def test_llm_provider_initialization():
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_execution(mock_completion):
     """Test LLMProvider execution with mocked completion."""
     # Setup mock response
@@ -67,7 +67,7 @@ async def test_llm_provider_execution(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_without_system_message(mock_completion):
     """Test LLMProvider execution without a system message."""
     mock_response = type("Response", (), {
@@ -94,7 +94,7 @@ async def test_llm_provider_without_system_message(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_parameter_override(mock_completion):
     """Test that execution parameters can override initialization parameters."""
     mock_response = type("Response", (), {
@@ -126,7 +126,7 @@ async def test_llm_provider_parameter_override(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_additional_params(mock_completion):
     """Test that additional parameters are properly passed through."""
     mock_response = type("Response", (), {
@@ -154,7 +154,7 @@ async def test_llm_provider_additional_params(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_error_handling(mock_completion):
     """Test that provider properly handles API errors."""
     mock_completion.side_effect = Exception("API Error")
@@ -166,7 +166,7 @@ async def test_llm_provider_error_handling(mock_completion):
 
 
 @pytest.mark.asyncio
-@patch("schwarm.providers.llm_provider.completion", new_callable=AsyncMock)
+@patch("schwarm.providers.simple_llm_provider.acompletion", new_callable=AsyncMock)
 async def test_llm_provider_empty_response_handling(mock_completion):
     """Test handling of empty or invalid responses."""
     # Mock an empty response

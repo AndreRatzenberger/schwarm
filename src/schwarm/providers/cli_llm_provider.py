@@ -2,8 +2,10 @@
 
 from typing import Any, Dict, List, Optional
 
-from .simple_llm_provider import SimpleLLMProvider
-from ..agents.cli.cli_function import CLIFunction
+from schwarm.functions.cli.cli_function import CLIFunction
+from schwarm.providers.simple_llm_provider import SimpleLLMProvider
+
+
 
 
 class CLILLMProvider(SimpleLLMProvider):
