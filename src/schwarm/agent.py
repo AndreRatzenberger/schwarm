@@ -2,10 +2,10 @@
 
 from typing import Any, Callable, Dict, List, Optional
 
-from .context import Context
-from .events import Event, EventDispatcher, EventType
-from .function import Function
-from .provider import Provider
+from schwarm.context import Context
+from schwarm.events import Event, EventDispatcher, EventType
+from schwarm.function import Function
+from schwarm.provider import Provider
 
 
 class Agent:

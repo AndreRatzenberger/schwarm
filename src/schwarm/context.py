@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional, TypeVar
 
-from .events import Event, EventBuilder, EventDispatcher, EventType
+from schwarm.events import Event, EventBuilder, EventDispatcher, EventType
 
 T = TypeVar('T')
 

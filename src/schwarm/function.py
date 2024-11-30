@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, Optional
 
-from .context import Context
+from schwarm.context import Context
 
 
 class Function:

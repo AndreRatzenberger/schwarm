@@ -3,10 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from .agent import Agent
-from .context import Context
-from .function import Function
-from .provider import Provider
+from schwarm.agent import Agent
+from schwarm.context import Context
+from schwarm.function import Function
+from schwarm.provider import Provider
 
 
 @dataclass
