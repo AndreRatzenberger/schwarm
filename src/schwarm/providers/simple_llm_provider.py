@@ -7,8 +7,8 @@ from litellm import acompletion, completion
 from .provider import Provider
 
 
-class LLMProvider(Provider):
-    """Provider for interacting with Language Models through litellm.
+class SimpleLLMProvider(Provider):
+    """Simple provider for interacting with Language Models through litellm.
     
     This provider offers a unified interface to various LLM providers
     (like OpenAI, Anthropic, etc.) through litellm.

@@ -4,10 +4,11 @@ import asyncio
 import os
 from typing import Optional
 
-from schwarm.agent_builder import AgentBuilder
+
+from schwarm.agents.agents.agent_builder import AgentBuilder
 from schwarm.events.events import Event, EventType
-from schwarm.functions.summarize_function import summarize_function
-from schwarm.providers.llm_provider import LLMProvider
+from schwarm.functions.text_functions import summarize_function
+from schwarm.providers.simple_llm_provider import SimpleLLMProvider
 
 
 async def log_event(event: Event) -> None:
@@ -21,7 +22,7 @@ async def log_event(event: Event) -> None:
 async def main() -> None:
     """Run the summarizer example."""
     # Create an LLM provider (using environment variable for API key)
-    provider = LLMProvider(
+    provider = SimpleLLMProvider(
         model="gpt-3.5-turbo",
         temperature=0.7,
         max_tokens=150

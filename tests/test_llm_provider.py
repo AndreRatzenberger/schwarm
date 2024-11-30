@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from schwarm.providers.llm_provider import LLMProvider
+from schwarm.providers.simple_llm_provider import SimpleLLMProvider
 
 
 @pytest.mark.asyncio
 async def test_llm_provider_initialization():
     """Test LLMProvider initialization with various parameters."""
-    provider = LLMProvider(
+    provider = SimpleLLMProvider(
         model="gpt-3.5-turbo",
         temperature=0.7,
         max_tokens=100,
@@ -42,7 +42,7 @@ async def test_llm_provider_execution(mock_completion):
     })
     mock_completion.return_value = mock_response
     
-    provider = LLMProvider(
+    provider = SimpleLLMProvider(
         model="gpt-3.5-turbo",
         temperature=0.7
     )
@@ -81,7 +81,7 @@ async def test_llm_provider_without_system_message(mock_completion):
     })
     mock_completion.return_value = mock_response
     
-    provider = LLMProvider(model="gpt-3.5-turbo")
+    provider = SimpleLLMProvider(model="gpt-3.5-turbo")
     result = await provider.execute(prompt="Test prompt")
     
     assert result == "Mocked response"
@@ -108,7 +108,7 @@ async def test_llm_provider_parameter_override(mock_completion):
     })
     mock_completion.return_value = mock_response
     
-    provider = LLMProvider(
+    provider = SimpleLLMProvider(
         model="gpt-3.5-turbo",
         temperature=0.7,
         max_tokens=100
@@ -140,7 +140,7 @@ async def test_llm_provider_additional_params(mock_completion):
     })
     mock_completion.return_value = mock_response
     
-    provider = LLMProvider(
+    provider = SimpleLLMProvider(
         model="gpt-3.5-turbo",
         presence_penalty=0.5,
         frequency_penalty=0.3
@@ -159,7 +159,7 @@ async def test_llm_provider_error_handling(mock_completion):
     """Test that provider properly handles API errors."""
     mock_completion.side_effect = Exception("API Error")
     
-    provider = LLMProvider(model="gpt-3.5-turbo")
+    provider = SimpleLLMProvider(model="gpt-3.5-turbo")
     
     with pytest.raises(Exception, match="API Error"):
         await provider.execute(prompt="Test prompt")
@@ -173,7 +173,7 @@ async def test_llm_provider_empty_response_handling(mock_completion):
     mock_response = type("Response", (), {"choices": []})
     mock_completion.return_value = mock_response
     
-    provider = LLMProvider(model="gpt-3.5-turbo")
+    provider = SimpleLLMProvider(model="gpt-3.5-turbo")
     
     with pytest.raises(IndexError):
         await provider.execute(prompt="Test prompt")

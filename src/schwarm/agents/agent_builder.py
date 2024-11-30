@@ -1,14 +1,15 @@
 """Agent builder module providing a fluent API for agent construction."""
 
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from schwarm.context.context import Context
-from schwarm.events.events import EventDispatcher, EventType,EventListener
+from schwarm.events.events import EventDispatcher, EventType, EventListener
 from schwarm.functions.function import Function
 from schwarm.providers.provider import Provider
+from schwarm.agents.cli import CLIFunction, Parameter
+from schwarm.providers.cli_llm_provider import CLILLMProvider
 
 from .agent import Agent
-
 
 
 class AgentBuilder:
@@ -22,6 +23,15 @@ class AgentBuilder:
             AgentBuilder("AssistantAgent")
             .with_instructions("You are a helpful assistant.")
             .with_function(greet_function)
+            .with_cli_function(
+                name="image-gen",
+                implementation=generate_image,
+                description="Generate images from text",
+                parameters=[
+                    Parameter("-p", "prompt text", required=True),
+                    Parameter("--style", choices=["realistic", "anime"])
+                ]
+            )
             .with_provider(llm_provider)
             .with_event_listener(
                 EventType.AFTER_FUNCTION_EXECUTION,
@@ -82,6 +92,64 @@ class AgentBuilder:
             self for method chaining
         """
         self._functions.extend(functions)
+        return self
+        
+    def with_cli_function(
+        self,
+        name: str,
+        implementation: Callable[..., Any],
+        description: str,
+        parameters: List[Parameter]
+    ) -> 'AgentBuilder':
+        """Add a CLI-style function to the agent.
+        
+        This is a convenience method that creates and adds a CLIFunction
+        with the specified parameters.
+        
+        Args:
+            name: The name of the function
+            implementation: The callable that implements the function
+            description: Description of what the function does
+            parameters: List of CLI-style parameters
+            
+        Returns:
+            self for method chaining
+            
+        Example:
+            builder.with_cli_function(
+                name="image-gen",
+                implementation=generate_image,
+                description="Generate images from text",
+                parameters=[
+                    Parameter("-p", "prompt text", required=True),
+                    Parameter("--style", choices=["realistic", "anime"])
+                ]
+            )
+        """
+        cli_function = CLIFunction(
+            name=name,
+            implementation=implementation,
+            description=description,
+            parameters=parameters
+        )
+        return self.with_function(cli_function)
+        
+    def with_cli_functions(
+        self,
+        functions: List[tuple[str, Callable[..., Any], str, List[Parameter]]]
+    ) -> 'AgentBuilder':
+        """Add multiple CLI-style functions to the agent.
+        
+        Args:
+            functions: List of tuples containing CLI function parameters
+                Each tuple should contain:
+                (name, implementation, description, parameters)
+            
+        Returns:
+            self for method chaining
+        """
+        for name, impl, desc, params in functions:
+            self.with_cli_function(name, impl, desc, params)
         return self
         
     def with_provider(self, provider: Provider) -> 'AgentBuilder':
@@ -158,6 +226,8 @@ class AgentBuilder:
         Note:
             If no event dispatcher was set, a new one will be created.
             Event listeners will be registered with the dispatcher.
+            If CLI functions are used without a CLILLMProvider, one will
+            be added automatically.
         """
         # Create or use provided event dispatcher
         event_dispatcher = self._event_dispatcher or EventDispatcher()
@@ -165,6 +235,21 @@ class AgentBuilder:
         # Register all event listeners
         for event_type, listener in self._event_listeners:
             event_dispatcher.add_listener(event_type, listener)
+            
+        # Check if we have CLI functions but no CLILLMProvider
+        has_cli_functions = any(
+            isinstance(f, CLIFunction) for f in self._functions
+        )
+        has_cli_provider = any(
+            isinstance(p, CLILLMProvider) for p in self._providers
+        )
+        
+        # Add CLILLMProvider if needed
+        if has_cli_functions and not has_cli_provider:
+            self._providers.append(CLILLMProvider(
+                model="gpt-3.5-turbo",
+                temperature=0.7
+            ))
             
         # Create the agent with all configured components
         return Agent(

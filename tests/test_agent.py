@@ -4,8 +4,8 @@ import pytest
 
 
 from schwarm.context.context import Context
-from schwarm.core.agents.agent import Agent
-from schwarm.core.agents.agent_builder import AgentBuilder
+from schwarm.agents.agent import Agent
+from schwarm.agents.agent_builder import AgentBuilder
 from schwarm.events.events import Event, EventDispatcher, EventType
 from schwarm.functions.function import Function
 from schwarm.providers.provider import Provider

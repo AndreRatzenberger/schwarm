@@ -5,8 +5,8 @@ from unittest.mock import Mock
 import pytest
 
 from schwarm.context.context import Context
-from schwarm.functions.summarize_function import summarize_function
-from schwarm.providers.llm_provider import LLMProvider
+from schwarm.functions.text_functions import summarize_function
+from schwarm.providers.simple_llm_provider import SimpleLLMProvider
 
 
 @pytest.mark.asyncio
@@ -40,7 +40,7 @@ async def test_summarize_basic():
     context = Context()
     
     # Create a mock provider
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.return_value = "Summarized text"
     context.set("llm_provider", mock_provider)
     
@@ -57,7 +57,7 @@ async def test_summarize_basic():
 async def test_summarize_with_max_length():
     """Test summarization with max length parameter."""
     context = Context()
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.return_value = "Short summary"
     context.set("llm_provider", mock_provider)
     
@@ -76,7 +76,7 @@ async def test_summarize_with_max_length():
 async def test_summarize_provider_error():
     """Test handling of provider errors during summarization."""
     context = Context()
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.side_effect = Exception("Provider error")
     context.set("llm_provider", mock_provider)
     
@@ -91,7 +91,7 @@ async def test_summarize_provider_error():
 async def test_summarize_empty_text():
     """Test summarization of empty text."""
     context = Context()
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.return_value = ""
     context.set("llm_provider", mock_provider)
     
@@ -103,7 +103,7 @@ async def test_summarize_empty_text():
 async def test_summarize_long_text():
     """Test summarization of a longer text."""
     context = Context()
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.return_value = "Summary of long text"
     context.set("llm_provider", mock_provider)
     
@@ -118,7 +118,7 @@ async def test_summarize_long_text():
 async def test_summarize_system_message():
     """Test that the system message is properly formatted."""
     context = Context()
-    mock_provider = Mock(spec=LLMProvider)
+    mock_provider = Mock(spec=SimpleLLMProvider)
     mock_provider.execute.return_value = "Summary"
     context.set("llm_provider", mock_provider)
     

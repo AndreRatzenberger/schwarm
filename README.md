@@ -10,6 +10,7 @@ A powerful and intuitive Python framework for creating and combining AI agents w
 - **Event-Driven**: Built-in event system for monitoring and extending agent behavior
 - **Type-Safe**: Comprehensive type hints for better development experience
 - **Well-Tested**: Extensive test suite ensuring reliability
+- **CLI-Style Tools**: Natural command-line interface for LLM tool interactions
 
 ## Installation
 
@@ -105,6 +106,44 @@ greet_function = Function(
 )
 ```
 
+### CLI-Style Tools
+
+A natural way for LLMs to interact with tools using CLI-style commands:
+
+```python
+from schwarm.core.cli import CLIFunction, Parameter
+
+# Define a function with CLI-style parameters
+async def generate_image(context, p: str, style: str = "realistic") -> str:
+    """Generate an image from a text prompt."""
+    return f"Generated {style} image from prompt: {p}"
+
+# Create an agent with CLI-style function
+agent = (
+    AgentBuilder("ImageAgent")
+    .with_cli_function(
+        name="image-gen",
+        implementation=generate_image,
+        description="Generate images from text",
+        parameters=[
+            Parameter("-p", "prompt text", required=True),
+            Parameter("--style", "image style", choices=["realistic", "anime"])
+        ]
+    )
+    .build()
+)
+
+# The LLM will interact with the function using natural CLI commands:
+# "image-gen -p 'cat on windowsill' --style anime"
+```
+
+Key benefits of CLI-style tools:
+- Natural format that LLMs deeply understand from training data
+- Clear parameter validation and error messages
+- Easier error recovery than JSON schemas
+- Familiar interface for developers
+- Works reliably with smaller models
+
 ### Provider
 
 Interfaces with external capabilities:
@@ -198,6 +237,7 @@ Check out the [examples](examples/) directory for more usage examples:
 - Custom provider implementation
 - Event handling
 - Complex function composition
+- CLI-style tool usage
 - And more!
 
 ## Support
