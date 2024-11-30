@@ -13,9 +13,7 @@
         "source.organizeImports.ruff": "always",
         "source.fixAll.ruff": "always"
     },
-    // we try to make semantic highlighting look good
     "editor.semanticHighlighting.enabled": true,
-    // prevent VSCode from modifying the terminal colors
     "terminal.integrated.minimumContrastRatio": 0,
     "cSpell.words": [
         "deptry",
