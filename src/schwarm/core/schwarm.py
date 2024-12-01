@@ -93,12 +93,39 @@ class Schwarm:
 
     def chat(
         self,
+        agent: Agent,
         messages: list[Message],
         context_variables: dict[str, Any],
         override_model: str,
     ) -> Message | None:
         """Chat with an agent (method implementation pending)."""
-        pass
+        with self._telemetry_manager.global_tracer.start_as_current_span(f"SCHWARM_START") as parent_span:
+            self._run_id = uuid.uuid4().hex
+            self._telemetry_manager.run_id = self._run_id
+            self._provider_manager.wait_for_frontend()
+            setup_logging(is_logging_enabled=show_logs, log_level="trace")
+            self._provider_context = ProviderContextModel()
+
+            while True:
+                with self._telemetry_manager.global_tracer.start_as_current_span(f"{agent.name}") as span:
+                    parent_span.add_event(agent.name + " START")
+                    self._telemetry_manager.send_any_object(agent, span)
+                    span.set_attribute("agent_id", agent.name)
+                    self._setup_context(agent, messages, context_variables, max_turns)
+                    self._trigger_event(EventType.START_TURN)
+                    logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
+                    self._process_turn(agent, context_variables, override_model, execute_tools)
+                    self._provider_context.current_turn += 1
+                    if not self._can_continue_conversation():
+                        break
+                    else:
+                        messages = self._provider_context.message_history
+                        agent = self._provider_context.current_agent
+                        context_variables = self._provider_context.context_variables
+                        max_turns = self._provider_context.max_turns
+
+            logger.info(f"Agent run completed after {self._provider_context.current_turn} turns")
+            self._restore_logging(show_logs)
 
     @log_function_call(log_level="debug")
     def quickstart(

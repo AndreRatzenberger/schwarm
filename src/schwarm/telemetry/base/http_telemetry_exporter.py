@@ -113,6 +113,14 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 pm._global_break = not pm._global_break
                 return pm._global_break
 
+        @self.app.post("/chat")
+        def post_chat():
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                pm._global_break = not pm._global_break
+                return pm._global_break
+
         @self.app.get("/break")
         def get_break():
             """Get the current break state."""
