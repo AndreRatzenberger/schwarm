@@ -58,17 +58,23 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
  1. Install Schwarm with pip:
 
-   ```bash
-   pip install schwarm
-   ```
+    ```bash
+    pip install schwarm 
+    ```
 
  2. or if you clone the repo and want to build it yourself:
 
-   ```sh
-    uv venv
-    uv sync --all-groups
-    poe miau
-   ```
+    ```sh
+    git clone --recurse-submodules https://github.com/AndreRatzenberger/Schwarm
+    ```
+
+    install uv
+
+    ```sh
+        uv venv
+        uv sync --all-groups
+        poe miau
+    ```
   
 
 
