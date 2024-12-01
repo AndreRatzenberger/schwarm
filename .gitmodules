@@ -1,3 +1,0 @@
-[submodule "src/nektar"]
-	path = src/nektar
-	url = https://github.com/AndreRatzenberger/Schwarm.Nektar
