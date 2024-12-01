@@ -64,16 +64,17 @@ Because I’m creative, I called it *Schwarm* - the German word for *swarm*.
 
  2. or if you clone the repo and want to build it yourself:
 
-    ```sh
-    git clone --recurse-submodules https://github.com/AndreRatzenberger/Schwarm
-    ```
-
-    install uv
+    install uv 
+    
 
     ```sh
+        git clone --recurse-submodules https://github.com/AndreRatzenberger/Schwarm
+        cd schwarm
+
         uv venv
         uv sync --all-groups
-        poe miau
+
+        poe miau # will build and run. for only build run poe quack
     ```
   
 
