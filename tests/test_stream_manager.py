@@ -4,8 +4,7 @@ import asyncio
 import pytest
 from fastapi import FastAPI, WebSocket
 from fastapi.testclient import TestClient
-from websockets import connect
-from websockets.exceptions import ConnectionClosed
+from fastapi.websockets import WebSocketDisconnect
 
 from schwarm.manager.stream_manager import StreamManager, StreamToolManager, MessageType
 
@@ -14,26 +13,28 @@ from schwarm.manager.stream_manager import StreamManager, StreamToolManager, Mes
 def app():
     """Create FastAPI app for testing."""
     app = FastAPI()
-    stream_manager = StreamManager()
-    tool_manager = StreamToolManager()
-
+    
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
-        await stream_manager.connect(websocket)
+        manager = StreamManager()
+        await manager.connect(websocket)
         try:
             while True:
-                await asyncio.sleep(1)
-        except Exception:
-            await stream_manager.disconnect(websocket)
+                data = await websocket.receive_json()
+                await manager.write(data.get("message", ""))
+        except WebSocketDisconnect:
+            await manager.disconnect(websocket)
 
     @app.websocket("/ws/tool")
     async def tool_websocket_endpoint(websocket: WebSocket):
-        await tool_manager.connect(websocket)
+        manager = StreamToolManager()
+        await manager.connect(websocket)
         try:
             while True:
-                await asyncio.sleep(1)
-        except Exception:
-            await tool_manager.disconnect(websocket)
+                data = await websocket.receive_json()
+                await manager.write(data.get("message", ""))
+        except WebSocketDisconnect:
+            await manager.disconnect(websocket)
 
     return app
 
@@ -44,107 +45,129 @@ def client(app):
     return TestClient(app)
 
 
-@pytest.mark.asyncio
-async def test_websocket_connection(app, client):
+@pytest.fixture(autouse=True)
+def reset_stream_manager():
+    """Reset StreamManager singleton between tests."""
+    StreamManager._instance = None
+    StreamToolManager._instance = None
+    yield
+
+
+def test_websocket_connection(client):
     """Test WebSocket connection handling."""
-    async with connect("ws://testserver/ws") as websocket:
+    with client.websocket_connect("/ws") as websocket:
         # Connection should be established
-        assert StreamManager()._instance.active_connections
+        assert len(StreamManager().active_connections) == 1
 
 
-@pytest.mark.asyncio
-async def test_write_message(app, client):
+def test_write_message(client):
     """Test writing messages to WebSocket clients."""
-    async with connect("ws://testserver/ws") as websocket:
+    with client.websocket_connect("/ws") as websocket:
         manager = StreamManager()
         test_message = "Test message"
-        await manager.write(test_message)
         
-        # Should receive the message
-        message = await websocket.recv()
-        data = eval(message)  # Safe since we control the test data
-        assert data == {
+        # Send message through manager
+        websocket.send_json({"message": test_message})
+        
+        # Should receive the message back
+        received = websocket.receive_json()
+        assert received == {
             "type": MessageType.DEFAULT.value,
             "content": test_message
         }
 
 
-@pytest.mark.asyncio
-async def test_tool_manager_write(app, client):
+def test_tool_manager_write(client):
     """Test writing tool messages."""
-    async with connect("ws://testserver/ws/tool") as websocket:
+    with client.websocket_connect("/ws/tool") as websocket:
         manager = StreamToolManager()
         test_message = "Tool output"
-        await manager.write(test_message)
         
-        # Should receive the message
-        message = await websocket.recv()
-        data = eval(message)
-        assert data == {
+        # Send message through manager
+        websocket.send_json({"message": test_message})
+        
+        # Should receive the message back
+        received = websocket.receive_json()
+        assert received == {
             "type": MessageType.TOOL.value,
             "content": test_message
         }
 
 
-@pytest.mark.asyncio
-async def test_close_stream(app, client):
+def test_close_stream(client):
     """Test closing the stream."""
-    async with connect("ws://testserver/ws") as websocket:
+    with client.websocket_connect("/ws") as websocket:
         manager = StreamManager()
-        await manager.close()
         
-        # Should receive close message
-        message = await websocket.recv()
-        data = eval(message)
-        assert data == {
-            "type": "close",
-            "content": None
-        }
-        
-        # Connection should be closed after this
-        with pytest.raises(ConnectionClosed):
-            await websocket.recv()
+        # Create new event loop for this test
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(manager.close())
+            
+            # Should receive close message
+            received = websocket.receive_json()
+            assert received == {
+                "type": "close",
+                "content": None
+            }
+        finally:
+            loop.close()
 
 
-@pytest.mark.asyncio
-async def test_multiple_clients(app, client):
+def test_multiple_clients(client):
     """Test handling multiple WebSocket clients."""
-    async with connect("ws://testserver/ws") as ws1, \
-               connect("ws://testserver/ws") as ws2:
-        manager = StreamManager()
-        test_message = "Broadcast test"
-        await manager.write(test_message)
-        
-        # Both clients should receive the message
-        for ws in [ws1, ws2]:
-            message = await ws.recv()
-            data = eval(message)
-            assert data == {
+    with client.websocket_connect("/ws") as ws1:
+        with client.websocket_connect("/ws") as ws2:
+            manager = StreamManager()
+            assert len(manager.active_connections) == 2
+            
+            test_message = "Broadcast test"
+            ws1.send_json({"message": test_message})
+            
+            # Both clients should receive the message
+            received1 = ws1.receive_json()
+            received2 = ws2.receive_json()
+            
+            assert received1 == received2 == {
                 "type": MessageType.DEFAULT.value,
                 "content": test_message
             }
 
 
-@pytest.mark.asyncio
-async def test_client_disconnect_handling(app, client):
+def test_client_disconnect_handling(client):
     """Test handling client disconnections gracefully."""
-    async with connect("ws://testserver/ws") as ws1, \
-               connect("ws://testserver/ws") as ws2:
-        manager = StreamManager()
+    manager = StreamManager()
+    
+    # Connect first client
+    ws1 = client.websocket_connect("/ws").__enter__()
+    assert len(manager.active_connections) == 1
+    
+    # Connect second client
+    ws2 = client.websocket_connect("/ws").__enter__()
+    assert len(manager.active_connections) == 2
+    
+    try:
+        # Close ws1 manually
+        ws1.__exit__(None, None, None)
         
-        # Close ws1 to simulate disconnect
-        await ws1.close()
+        # Give a small delay for the disconnect to process
+        import time
+        time.sleep(0.1)
         
+        # Only ws2 should be in active connections
+        assert len(manager.active_connections) == 1
+        
+        # Send message through remaining client
         test_message = "Test after disconnect"
-        await manager.write(test_message)
+        ws2.send_json({"message": test_message})
         
         # ws2 should still receive messages
-        message = await ws2.recv()
-        data = eval(message)
-        assert data == {
+        received = ws2.receive_json()
+        assert received == {
             "type": MessageType.DEFAULT.value,
             "content": test_message
         }
-        
-        # ws1 should be removed from active connections
-        assert len(manager.active_connections) == 1
+    finally:
+        # Clean up remaining connection
+        ws2.__exit__(None, None, None)

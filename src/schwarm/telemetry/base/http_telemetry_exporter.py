@@ -11,6 +11,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.websockets import WebSocketDisconnect
 from loguru import logger
 from opentelemetry.sdk.trace.export import SpanExportResult
 
@@ -194,7 +195,13 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             await stream_manager.connect(websocket)
             try:
                 while True:
-                    await asyncio.sleep(1)  # Keep connection alive
+                    try:
+                        # Wait for messages but allow for graceful shutdown
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("WebSocket disconnected normally")
             except Exception as e:
                 logger.error(f"WebSocket error: {e}")
             finally:
@@ -207,7 +214,13 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             await stream_manager.connect(websocket)
             try:
                 while True:
-                    await asyncio.sleep(1)  # Keep connection alive
+                    try:
+                        # Wait for messages but allow for graceful shutdown
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("WebSocket disconnected normally")
             except Exception as e:
                 logger.error(f"Tool WebSocket error: {e}")
             finally:

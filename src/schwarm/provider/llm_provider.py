@@ -252,69 +252,185 @@ class LLMProvider(BaseLLMProvider):
             logger.error(f"Error creating completion response: {e}")
             raise CompletionError(f"Failed to process LLM response: {e!s}")
 
+    # async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
+    #     """Handle streaming response from LiteLLM."""
+    #     chunks = []
+    #     full_response = ""
+    #     stream_manager = StreamManager()
+    #     stream_tool_manager = StreamToolManager()
+    #     tool_calls = []
+    #     try:
+    #         for part in response:
+    #             time.sleep(0.1)
+    #             if not part or not part.choices:
+    #                 continue
+    #             delta = part.choices[0].delta
+    #             chunk = {"choices": [{"delta": {}}]}
+
+    #             if delta and delta.content:
+    #                 content = delta.content
+    #                 # Process the content chunk as needed
+    #                 if content:
+    #                     logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
+    #                     await stream_manager.write(content)
+    #                     full_response += content
+    #                     chunk["choices"][0]["delta"]["content"] = content
+
+    #             elif delta and delta.function_call:
+    #                 function_call_data = {
+    #                     "name": delta.function_call.name,
+    #                     "arguments": delta.function_call.arguments,
+    #                 }
+    #                 logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
+    #                 await stream_tool_manager.write(
+    #                     str(delta.function_call.arguments)
+    #                 )  # Write function_call to the stream
+    #                 chunk["choices"][0]["delta"]["function_call"] = function_call_data
+    #             elif delta and delta.tool_calls:
+    #                 tool_calls_list = []
+    #                 for tool_call in delta.tool_calls:
+    #                     tool_call_data = {
+    #                         "id": tool_call.id,
+    #                         "function": {
+    #                             "name": tool_call.function.name,
+    #                             "arguments": tool_call.function.arguments,
+    #                         },
+    #                     }
+    #                     logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
+    #                     tool_calls_list.append(tool_call_data)
+    #                     await stream_tool_manager.write(str(tool_call.function.arguments))
+
+    #                 chunk["choices"][0]["delta"]["tool_calls"] = tool_calls_list
+
+    #             if chunk["choices"][0]["delta"]:
+    #                 chunks.append(part)
+
+    #     except Exception as e:
+    #         logger.error(f"Error during streaming: {e}")
+    #         raise CompletionError(f"Streaming failed: {e}") from e
+    #     finally:
+    #         await stream_manager.close()
+    #         await stream_tool_manager.close()
+
+    #     msg = litellm.stream_chunk_builder(chunks, messages=messages)
+
+    #     return self._create_completion_response(msg, model, messages)
+    
     async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
-        """Handle streaming response from LiteLLM."""
+        """Handle streaming response from LiteLLM.
+        
+        Args:
+            response: The streaming response from LiteLLM
+            messages: List of message dictionaries
+            model: The model name being used
+            
+        Returns:
+            Message: A complete message built from all chunks
+            
+        Raises:
+            CompletionError: If streaming fails
+        """
         chunks = []
         full_response = ""
-        stream_manager = StreamManager()
-        stream_tool_manager = StreamToolManager()
-        tool_calls = []
+        stream_manager = None
+        stream_tool_manager = None
+        
         try:
+            # Initialize stream managers
+            stream_manager = StreamManager()
+            stream_tool_manager = StreamToolManager()
+            
             for part in response:
-                time.sleep(0.1)
                 if not part or not part.choices:
                     continue
+                    
                 delta = part.choices[0].delta
                 chunk = {"choices": [{"delta": {}}]}
 
-                if delta and delta.content:
-                    content = delta.content
-                    # Process the content chunk as needed
-                    if content:
-                        logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
-                        await stream_manager.write(content)
-                        full_response += content
-                        chunk["choices"][0]["delta"]["content"] = content
+                try:
+                    # Handle content streaming
+                    if delta and delta.content:
+                        content = delta.content
+                        if content:
+                            logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
+                            try:
+                                await stream_manager.write(content)
+                                full_response += content
+                                chunk["choices"][0]["delta"]["content"] = content
+                            except Exception as e:
+                                logger.error(f"Error writing content chunk: {e}")
+                                # Continue processing even if one chunk fails
 
-                elif delta and delta.function_call:
-                    function_call_data = {
-                        "name": delta.function_call.name,
-                        "arguments": delta.function_call.arguments,
-                    }
-                    logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
-                    await stream_tool_manager.write(
-                        str(delta.function_call.arguments)
-                    )  # Write function_call to the stream
-                    chunk["choices"][0]["delta"]["function_call"] = function_call_data
-                elif delta and delta.tool_calls:
-                    tool_calls_list = []
-                    for tool_call in delta.tool_calls:
-                        tool_call_data = {
-                            "id": tool_call.id,
-                            "function": {
-                                "name": tool_call.function.name,
-                                "arguments": tool_call.function.arguments,
-                            },
+                    # Handle function call streaming
+                    elif delta and delta.function_call:
+                        function_call_data = {
+                            "name": delta.function_call.name,
+                            "arguments": delta.function_call.arguments,
                         }
-                        logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
-                        tool_calls_list.append(tool_call_data)
-                        await stream_tool_manager.write(str(tool_call.function.arguments))
+                        logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
+                        try:
+                            await stream_tool_manager.write(str(delta.function_call.arguments))
+                            chunk["choices"][0]["delta"]["function_call"] = function_call_data
+                        except Exception as e:
+                            logger.error(f"Error writing function call chunk: {e}")
+                            # Continue processing even if one chunk fails
 
-                    chunk["choices"][0]["delta"]["tool_calls"] = tool_calls_list
+                    # Handle tool calls streaming
+                    elif delta and delta.tool_calls:
+                        tool_calls_list = []
+                        for tool_call in delta.tool_calls:
+                            tool_call_data = {
+                                "id": tool_call.id,
+                                "function": {
+                                    "name": tool_call.function.name,
+                                    "arguments": tool_call.function.arguments,
+                                },
+                            }
+                            logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
+                            tool_calls_list.append(tool_call_data)
+                            try:
+                                await stream_tool_manager.write(str(tool_call.function.arguments))
+                            except Exception as e:
+                                logger.error(f"Error writing tool call chunk: {e}")
+                                # Continue processing even if one chunk fails
 
-                if chunk["choices"][0]["delta"]:
-                    chunks.append(part)
+                        chunk["choices"][0]["delta"]["tool_calls"] = tool_calls_list
+
+                    if chunk["choices"][0]["delta"]:
+                        chunks.append(part)
+
+                except Exception as e:
+                    logger.error(f"Error processing stream chunk: {e}")
+                    # Continue processing other chunks even if one fails
+                    
+                # Small delay to prevent overwhelming the stream
+                await asyncio.sleep(0.1)
 
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
+            
         finally:
-            await stream_manager.close()
-            await stream_tool_manager.close()
+            # Ensure both managers are properly closed
+            if stream_manager:
+                try:
+                    await stream_manager.close()
+                except Exception as e:
+                    logger.error(f"Error closing stream manager: {e}")
+                    
+            if stream_tool_manager:
+                try:
+                    await stream_tool_manager.close()
+                except Exception as e:
+                    logger.error(f"Error closing stream tool manager: {e}")
 
-        msg = litellm.stream_chunk_builder(chunks, messages=messages)
-
-        return self._create_completion_response(msg, model, messages)
+        # Build final message from chunks
+        try:
+            msg = litellm.stream_chunk_builder(chunks, messages=messages)
+            return self._create_completion_response(msg, model, messages)
+        except Exception as e:
+            logger.error(f"Error building final message: {e}")
+            raise CompletionError(f"Failed to build message from chunks: {e}")
 
     def _complete(
         self,
