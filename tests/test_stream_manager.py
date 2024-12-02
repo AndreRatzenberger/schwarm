@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from fastapi import FastAPI, WebSocket
 from fastapi.testclient import TestClient
-from websockets.client import connect
+from websockets import connect
 from websockets.exceptions import ConnectionClosed
 
 from schwarm.manager.stream_manager import StreamManager, StreamToolManager, MessageType
