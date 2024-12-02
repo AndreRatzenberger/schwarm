@@ -32,6 +32,9 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         self.api_port = api_port
         self.app = FastAPI()
         self.loaded_modules = {}
+        self.chat_status_connections = set()
+        self.break_status_connections = set()
+        self.span_connections = set()  # New: WebSocket connections for span updates
 
         mimetypes.add_type("application/javascript", ".js")
         mimetypes.add_type("application/javascript", ".mjs")
@@ -64,6 +67,9 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         """Forward spans to the backend."""
         try:
             result = self.export(spans)
+            # Broadcast each span via WebSocket
+            for span in spans:
+                asyncio.create_task(self.broadcast_span(span))
             if result is None:
                 return SpanExportResult.SUCCESS
             return result
@@ -71,6 +77,47 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             return SpanExportResult.FAILURE
         finally:
             self.shutdown()
+
+    async def broadcast_span(self, span):
+        """Broadcast a single span to all connected clients."""
+        if not self.span_connections:
+            return
+
+        # Convert span to dict for JSON serialization
+        span_data = {
+            "id": span.id,
+            "name": span.name,
+            "start_time": span.start_time,
+            "end_time": span.end_time,
+            "status_code": span.status_code,
+            "parent_span_id": span.parent_span_id,
+            "attributes": span.attributes,
+        }
+
+        for connection in self.span_connections.copy():
+            try:
+                await connection.send_json({"type": "span", "data": span_data})
+            except Exception as e:
+                logger.error(f"Failed to send span: {e}")
+                self.span_connections.remove(connection)
+
+    async def broadcast_chat_status(self, status: bool):
+        """Broadcast chat status to all connected clients."""
+        for connection in self.chat_status_connections.copy():
+            try:
+                await connection.send_json({"chat_requested": status})
+            except Exception as e:
+                logger.error(f"Failed to send chat status: {e}")
+                self.chat_status_connections.remove(connection)
+
+    async def broadcast_break_status(self, status: bool):
+        """Broadcast break status to all connected clients."""
+        for connection in self.break_status_connections.copy():
+            try:
+                await connection.send_json({"is_paused": status})
+            except Exception as e:
+                logger.error(f"Failed to send break status: {e}")
+                self.break_status_connections.remove(connection)
 
     def find_free_port(self, start_port=8123, max_port=9000):
         """Find a free port starting from `start_port`."""
@@ -107,13 +154,54 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             """Serve the index.html file."""
             return FileResponse(str(self.base_dir.joinpath("index.html")))
 
-        @self.app.post("/break")
-        def set_break():
-            """Toggle the global break state."""
-            pm = ProviderManager._instance
-            if pm:
-                pm._global_break = not pm._global_break
-                return pm._global_break
+        @self.app.websocket("/ws/spans")
+        async def span_websocket(websocket: WebSocket):
+            """Stream individual spans via WebSocket."""
+            await websocket.accept()
+            self.span_connections.add(websocket)
+            try:
+                while True:
+                    try:
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("Span WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"Span WebSocket error: {e}")
+            finally:
+                self.span_connections.remove(websocket)
+
+        @self.app.websocket("/ws/break-status")
+        async def break_status_websocket(websocket: WebSocket):
+            """Handle break status via WebSocket."""
+            await websocket.accept()
+            self.break_status_connections.add(websocket)
+            try:
+                while True:
+                    try:
+                        # Check for incoming break commands
+                        data = await websocket.receive_json()
+                        if "set_break" in data:
+                            pm = ProviderManager._instance
+                            if pm:
+                                pm._global_break = data["set_break"]
+                                # Broadcast new status to all clients
+                                await self.broadcast_break_status(pm._global_break)
+
+                        # Send current status periodically
+                        pm = ProviderManager._instance
+                        if pm:
+                            await websocket.send_json({"is_paused": pm._global_break})
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("Break status WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"Break status WebSocket error: {e}")
+            finally:
+                self.break_status_connections.remove(websocket)
 
         @self.app.post("/breakpoint/turns")
         def set_breakpoint_number(turn_amount: int):
@@ -145,28 +233,57 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             if pm:
                 return pm.breakpoint
 
-        @self.app.post("/chat")
-        def post_chat(user_input: str):
-            """Toggle the global break state."""
-            pm = ProviderManager._instance
-            if pm:
-                pm._global_break = not pm._global_break
-                pm.last_user_input = user_input
-                return user_input
+        @self.app.websocket("/ws/chat-status")
+        async def chat_status_websocket(websocket: WebSocket):
+            """Stream chat status via WebSocket."""
+            await websocket.accept()
+            self.chat_status_connections.add(websocket)
+            try:
+                while True:
+                    try:
+                        # Check provider manager status
+                        pm = ProviderManager._instance
+                        if pm:
+                            chat_requested = pm._global_break & pm.wait_for_user_input
+                            await websocket.send_json({"chat_requested": chat_requested})
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("Chat status WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"Chat status WebSocket error: {e}")
+            finally:
+                self.chat_status_connections.remove(websocket)
 
-        @self.app.get("/chat")
-        def is_waiting_for_user_input():
-            """Toggle the global break state."""
-            pm = ProviderManager._instance
-            if pm:
-                return pm._global_break & pm.wait_for_user_input
+        @self.app.websocket("/ws/chat")
+        async def chat_websocket_endpoint(websocket: WebSocket):
+            """Handle chat via WebSocket."""
+            await websocket.accept()
+            try:
+                while True:
+                    try:
+                        # Wait for user input
+                        user_input = await websocket.receive_text()
 
-        @self.app.get("/break")
-        def get_break():
-            """Get the current break state."""
-            pm = ProviderManager._instance
-            if pm:
-                return pm._global_break
+                        # Get provider manager instance
+                        pm = ProviderManager._instance
+                        if pm:
+                            # Set user input and toggle break
+                            pm.last_user_input = user_input
+                            pm._global_break = False
+
+                            # Send confirmation back to client
+                            await websocket.send_json({"status": "success", "message": "Input received"})
+
+                            # Broadcast new break status
+                            await self.broadcast_break_status(False)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("Chat WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"Chat WebSocket error: {e}")
 
         @self.app.get("/spans")
         def get_spans(after_id: str | None = None):
