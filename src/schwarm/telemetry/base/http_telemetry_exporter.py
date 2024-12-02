@@ -14,7 +14,7 @@ from loguru import logger
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.configs.telemetry_config import TelemetryConfig
-from schwarm.manager.stream_manager import StreamManager
+from schwarm.manager.stream_manager import StreamManager, StreamToolManager
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.utils.settings import get_environment
@@ -190,6 +190,12 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         async def stream_endpoint():
             """Stream LLM outputs."""
             stream_manager = StreamManager()
+            return StreamingResponse(stream_manager.stream_messages(), media_type="text/plain")
+
+        @self.app.get("/stream/tool")
+        async def stream_tool_endpoint():
+            """Stream LLM outputs."""
+            stream_manager = StreamToolManager()
             return StreamingResponse(stream_manager.stream_messages(), media_type="text/plain")
 
     def _start_api(self):

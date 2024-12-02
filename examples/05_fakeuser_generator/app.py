@@ -21,7 +21,6 @@ social_views:
 
 """
 
-import asyncio
 import random
 from datetime import date
 
@@ -36,7 +35,7 @@ from schwarm.provider.llm_provider import LLMConfig
 from schwarm.utils.settings import APP_SETTINGS
 
 
-async def main():
+def main():
     fake = Faker()
     console = Console()
     console.clear()
@@ -198,5 +197,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    # main()
-    asyncio.run(main(), debug=True)
+    main()
+    # asyncio.run(main(), debug=True)

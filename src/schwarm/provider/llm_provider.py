@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -10,7 +11,7 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
-from schwarm.manager.stream_manager import StreamManager
+from schwarm.manager.stream_manager import StreamManager, StreamToolManager
 from schwarm.models.message import Message, MessageInfo
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
@@ -256,67 +257,62 @@ class LLMProvider(BaseLLMProvider):
         chunks = []
         full_response = ""
         stream_manager = StreamManager()
+        stream_tool_manager = StreamToolManager()
         tool_calls = []
         try:
             for part in response:
+                time.sleep(0.1)
                 if not part or not part.choices:
                     continue
                 delta = part.choices[0].delta
+                chunk = {"choices": [{"delta": {}}]}
 
                 if delta and delta.content:
                     content = delta.content
                     # Process the content chunk as needed
                     if content:
+                        logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
                         await stream_manager.write(content)
                         full_response += content
-                        chunks.append(part)
+                        chunk["choices"][0]["delta"]["content"] = content
+
                 elif delta and delta.function_call:
-                    
+                    function_call_data = {
+                        "name": delta.function_call.name,
+                        "arguments": delta.function_call.arguments,
+                    }
+                    logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
+                    await stream_manager.write(json.dumps(function_call_data))  # Write function_call to the stream
+                    chunk["choices"][0]["delta"]["function_call"] = function_call_data
                 elif delta and delta.tool_calls:
-                    for tc_chunk in delta.tool_calls:
-                        while len(chunks) <= tc_chunk.index:
-                            chunks.append({"id": "", "function": {"name": "", "arguments": ""}})
+                    tool_calls_list = []
+                    for tool_call in delta.tool_calls:
+                        tool_call_data = {
+                            "id": tool_call.id,
+                            "function": {
+                                "name": tool_call.function.name,
+                                "arguments": tool_call.function.arguments,
+                            },
+                        }
+                        logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
+                        tool_calls_list.append(tool_call_data)
+                        await stream_tool_manager.write(tool_call.function.arguments)
 
-                        # Accumulate the tool call information
-                        tc = chunks[tc_chunk.index]
-                        if tc_chunk.id:
-                            tc["id"] += tc_chunk.id
-                        if tc_chunk.function.name:
-                            tc["function"]["name"] += tc_chunk.function.name
-                        if tc_chunk.function.arguments:
-                            tc["function"]["arguments"] += tc_chunk.function.arguments
+                    chunk["choices"][0]["delta"]["tool_calls"] = tool_calls_list
 
-                        await stream_manager.write(json.dumps(tc))
-                        # full_response += content
-                        # chunks.append(part)
+                if chunk["choices"][0]["delta"]:
+                    chunks.append(part)
 
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
         finally:
             await stream_manager.close()
+            await stream_tool_manager.close()
 
-        print(tool_calls)
+        msg = litellm.stream_chunk_builder(chunks, messages=messages)
 
-        # Create a mock response object if no chunks were received
-        if not chunks and full_response:
-            mock_response = type(
-                "MockResponse",
-                (),
-                {"choices": [{"message": {"content": full_response, "role": "assistant", "tool_calls": []}}]},
-            )
-            return self._create_completion_response(mock_response, model, messages)
-        elif not chunks:
-            mock_response = type(
-                "MockResponse",
-                (),
-                {"choices": [{"message": {"content": "No response generated", "role": "assistant", "tool_calls": []}}]},
-            )
-            return self._create_completion_response(mock_response, model, messages)
-
-        return self._create_completion_response(
-            litellm.stream_chunk_builder(chunks, messages=messages), model, messages
-        )
+        return self._create_completion_response(msg, model, messages)
 
     def _complete(
         self,
