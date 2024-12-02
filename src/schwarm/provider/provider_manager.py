@@ -93,6 +93,8 @@ class ProviderManager:
             self.breakpoint_counter: int = 0
             self.wait_for_user_input: bool = False
             self.last_user_input: str = ""
+            self.is_streaming: bool = False
+            self.chunk = ""
 
             # Stores registered provider classes and their configs
             # {config_class: provider_class}

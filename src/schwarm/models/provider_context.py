@@ -39,4 +39,5 @@ class ProviderContextModel(BaseModel):
     instruction_str: str | None = Field(default=None, description="Resolved instruction (always text)")
     token_spent: int = Field(default=0, description="Number of tokens spent in the current conversation")
     token_cost: float = Field(default=0, description="Number of tokens spent in the current conversation")
+    streamed_output: str | None = Field(default=None, description="Streamed output from the provider")
     model_config = {"arbitrary_types_allowed": True}

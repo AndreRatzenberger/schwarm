@@ -5,6 +5,8 @@ from enum import Enum
 from fastapi import WebSocket
 from loguru import logger
 
+from schwarm.provider.provider_manager import ProviderManager
+
 
 class MessageType(Enum):
     """Types of messages that can be streamed."""
@@ -58,6 +60,13 @@ class StreamManager:
         if not chunk:  # Avoid empty chunks
             return
 
+        pm = ProviderManager._instance
+        if pm and not pm.is_streaming:
+            pm.chunk = ""
+            pm.is_streaming = True
+        if pm:
+            pm.chunk += chunk
+
         message = {"type": message_type.value, "content": chunk}
 
         disconnected = set()
@@ -89,6 +98,10 @@ class StreamManager:
         # Clean up disconnected clients
         for connection in disconnected:
             self.active_connections.remove(connection)
+
+        pm = ProviderManager._instance
+        if pm:
+            pm.is_streaming = False
 
         logger.debug("Stream close signal sent")
 

@@ -124,6 +124,7 @@ class SpanEvent(BaseModel):
     token_cost: float
     current_turn: int
     max_turns: int
+    streamed_output: str | None = None
     context_variables: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -147,6 +148,7 @@ class ContextFilter:
             token_cost=full_context.token_cost,
             context_variables=full_context.context_variables,
             current_turn=full_context.current_turn,
+            streamed_output=full_context.streamed_output,
             max_turns=full_context.max_turns,
         )
 

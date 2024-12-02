@@ -232,6 +232,11 @@ class Schwarm:
         else:
             completion = self._complete_agent_request(agent, context_variables, override_model)
 
+        if self._provider_manager.chunk:
+            self._provider_context.streamed_output = self._provider_manager.chunk
+        else:
+            self._provider_context.streamed_output = completion.content
+
         self._provider_context.current_message = completion
         self._provider_context.message_history.append(completion)
         self._provider_context.current_tools = completion.tool_calls
