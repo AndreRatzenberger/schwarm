@@ -12,6 +12,7 @@ from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.core.logging import log_function_call, logger, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import EventType
+from schwarm.models.agents.user_agent import UserAgent
 from schwarm.models.event import create_event, create_full_event
 from schwarm.models.message import Message
 from schwarm.models.provider_context import ProviderContextModel
@@ -40,7 +41,6 @@ class Schwarm:
         self,
         agent_list: list[Agent] = [],
         telemetry_exporters: list[TelemetryExporter] = [SqliteTelemetryExporter()],
-        interaction_mode: Literal["auto", "stop_and_go"] = "auto",
         application_mode: Literal["code", "server"] = "code",
     ):
         """Initialize the orchestrator."""
@@ -49,7 +49,6 @@ class Schwarm:
         self._environment = self.get_environment()
 
         self._agents = agent_list
-        self.interaction_mode = interaction_mode
         self.telemetry_exporters = telemetry_exporters
         if telemetry_exporters:
             self._telemetry_manager = TelemetryManager(telemetry_exporters)
@@ -91,42 +90,6 @@ class Schwarm:
         self._agents.append(agent)
         logger.info(f"Agent {agent.name} registered successfully.")
 
-    def chat(
-        self,
-        agent: Agent,
-        messages: list[Message],
-        context_variables: dict[str, Any],
-        override_model: str,
-    ) -> Message | None:
-        """Chat with an agent (method implementation pending)."""
-        with self._telemetry_manager.global_tracer.start_as_current_span(f"SCHWARM_START") as parent_span:
-            self._run_id = uuid.uuid4().hex
-            self._telemetry_manager.run_id = self._run_id
-            self._provider_manager.wait_for_frontend()
-            setup_logging(is_logging_enabled=show_logs, log_level="trace")
-            self._provider_context = ProviderContextModel()
-
-            while True:
-                with self._telemetry_manager.global_tracer.start_as_current_span(f"{agent.name}") as span:
-                    parent_span.add_event(agent.name + " START")
-                    self._telemetry_manager.send_any_object(agent, span)
-                    span.set_attribute("agent_id", agent.name)
-                    self._setup_context(agent, messages, context_variables, max_turns)
-                    self._trigger_event(EventType.START_TURN)
-                    logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
-                    self._process_turn(agent, context_variables, override_model, execute_tools)
-                    self._provider_context.current_turn += 1
-                    if not self._can_continue_conversation():
-                        break
-                    else:
-                        messages = self._provider_context.message_history
-                        agent = self._provider_context.current_agent
-                        context_variables = self._provider_context.context_variables
-                        max_turns = self._provider_context.max_turns
-
-            logger.info(f"Agent run completed after {self._provider_context.current_turn} turns")
-            self._restore_logging(show_logs)
-
     @log_function_call(log_level="debug")
     def quickstart(
         self,
@@ -164,6 +127,7 @@ class Schwarm:
             self._provider_manager.wait_for_frontend()
             setup_logging(is_logging_enabled=show_logs, log_level="trace")
             self._provider_context = ProviderContextModel()
+            self._provider_context.breakpoint_counter = self._provider_manager.breakpoint_counter
 
             while True:
                 with self._telemetry_manager.global_tracer.start_as_current_span(f"{agent.name}") as span:
@@ -175,7 +139,10 @@ class Schwarm:
                     logger.info(f"Processing turn {self._provider_context.current_turn}/{max_turns}")
                     self._process_turn(agent, context_variables, override_model, execute_tools)
                     self._provider_context.current_turn += 1
-                    if not self._can_continue_conversation():
+                    self._provider_manager.breakpoint_counter -= 1
+                    if self._provider_manager.breakpoint_counter < 0:
+                        self._provider_manager.breakpoint_counter = self._provider_context.breakpoint_counter
+                    if not self._can_continue_conversation(agent):
                         break
                     else:
                         messages = self._provider_context.message_history
@@ -226,6 +193,9 @@ class Schwarm:
                 if function not in self._provider_context.available_tools:
                     self._provider_context.available_tools.append(function)
 
+        if isinstance(agent, UserAgent) and agent.default_handoff_agent:
+            self._provider_context.default_handoff_agent = agent
+
         self._provider_context.max_turns = max_turns
         self._provider_context.current_agent = agent
         self._provider_context.context_variables = copy.deepcopy(context_variables)
@@ -241,15 +211,27 @@ class Schwarm:
             self._provider_context.instruction_func = None
             self._provider_context.instruction_str = agent.instructions
 
-    def _can_continue_conversation(self):
+    def _can_continue_conversation(self, current_agent: Agent):
         """Check if the conversation can continue."""
+        pm = self._provider_manager
+        if isinstance(current_agent, UserAgent) and pm.last_user_input == "stop":
+            return False
+        if self._provider_context.max_turns == -1:
+            return True
         return self._provider_context.current_turn < self._provider_context.max_turns
 
     def _process_turn(
         self, agent: Agent, context_variables: dict[str, Any], override_model: str | None, execute_tools: bool
     ):
         """Process a single turn in the conversation."""
-        completion = self._complete_agent_request(agent, context_variables, override_model)
+        user_handoff = None
+        if isinstance(agent, UserAgent):
+            self._provider_manager.wait_for_frontend(True)
+            completion = Message(role="user", content=self._provider_manager.last_user_input)
+            user_handoff = agent.agent_to_pass_to
+        else:
+            completion = self._complete_agent_request(agent, context_variables, override_model)
+
         self._provider_context.current_message = completion
         self._provider_context.message_history.append(completion)
         self._provider_context.current_tools = completion.tool_calls
@@ -257,6 +239,13 @@ class Schwarm:
 
         if not completion.tool_calls or not execute_tools:
             logger.info("No tools to execute or tool execution disabled")
+            if self._provider_context.default_handoff_agent and not user_handoff:
+                user_handoff = self._provider_context.default_handoff_agent
+            if user_handoff:
+                logger.info(f"Agent handoff: {agent.name} -> {user_handoff.name}")
+                self._provider_context.current_agent = user_handoff
+                self._provider_context.previous_agent = agent
+                self._trigger_event(EventType.HANDOFF)
             return
 
         self._trigger_event(EventType.TOOL_EXECUTION)
@@ -324,12 +313,7 @@ class Schwarm:
 
     def pause(self, event_type: EventType = EventType.INSTRUCT):
         """Pause the conversation."""
-        if self.interaction_mode == "stop_and_go" and (
-            event_type == EventType.INSTRUCT
-            or event_type == EventType.POST_MESSAGE_COMPLETION
-            or event_type == EventType.POST_TOOL_EXECUTION
-            or event_type == EventType.HANDOFF
-        ):
+        if self._provider_manager.breakpoint[event_type]:
             self._provider_manager.wait_for_frontend()
             return
 

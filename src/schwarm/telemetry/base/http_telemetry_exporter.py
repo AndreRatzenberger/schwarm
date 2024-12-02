@@ -113,13 +113,51 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 pm._global_break = not pm._global_break
                 return pm._global_break
 
+        @self.app.post("/breakpoint/turns")
+        def set_breakpoint_number(turn_amount: int):
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                pm.breakpoint_counter = turn_amount - 1
+                return pm.breakpoint_counter
+
+        @self.app.get("/breakpoint/turns")
+        def get_breakpoint_number():
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                return pm.breakpoint_counter
+
+        @self.app.post("/breakpoint")
+        def toggle_breakpoint(event_type: str):
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                pm.toggle_breakpoint(event_type)
+                return pm.breakpoint
+
+        @self.app.get("/breakpoint")
+        def show_breakpoints():
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                return pm.breakpoint
+
         @self.app.post("/chat")
-        def post_chat():
+        def post_chat(user_input: str):
             """Toggle the global break state."""
             pm = ProviderManager._instance
             if pm:
                 pm._global_break = not pm._global_break
-                return pm._global_break
+                pm.last_user_input = user_input
+                return user_input
+
+        @self.app.get("/chat")
+        def is_waiting_for_user_input():
+            """Toggle the global break state."""
+            pm = ProviderManager._instance
+            if pm:
+                return pm._global_break & pm.wait_for_user_input
 
         @self.app.get("/break")
         def get_break():

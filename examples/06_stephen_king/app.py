@@ -100,4 +100,4 @@ The story should be around 10000 words long, and should be a mix of horror and s
 Start by create an outline for the story, and then write the first chapter.
 """
 
-response = Schwarm().quickstart(stephen_king_agent, input, mode="interactive")
+response = Schwarm().quickstart(stephen_king_agent, input)

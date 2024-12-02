@@ -7,4 +7,4 @@ class UserInteractionConfig(BaseEventHandleProviderConfig):
 
 class UserInteractionProvider(BaseEventHandleProvider):
     def handle_event(self, event):
-        raise NotImplementedError
+        return

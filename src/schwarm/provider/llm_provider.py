@@ -1,6 +1,7 @@
 """Provider for the Lite LLM API."""
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -255,22 +256,47 @@ class LLMProvider(BaseLLMProvider):
         chunks = []
         full_response = ""
         stream_manager = StreamManager()
-
+        tool_calls = []
         try:
             for part in response:
                 if not part or not part.choices:
                     continue
+                delta = part.choices[0].delta
 
-                content = part.choices[0].delta.content
-                if content:
-                    await stream_manager.write(content)
-                    full_response += content
-                    chunks.append(part)
+                if delta and delta.content:
+                    content = delta.content
+                    # Process the content chunk as needed
+                    if content:
+                        await stream_manager.write(content)
+                        full_response += content
+                        chunks.append(part)
+                elif delta and delta.function_call:
+                    
+                elif delta and delta.tool_calls:
+                    for tc_chunk in delta.tool_calls:
+                        while len(chunks) <= tc_chunk.index:
+                            chunks.append({"id": "", "function": {"name": "", "arguments": ""}})
+
+                        # Accumulate the tool call information
+                        tc = chunks[tc_chunk.index]
+                        if tc_chunk.id:
+                            tc["id"] += tc_chunk.id
+                        if tc_chunk.function.name:
+                            tc["function"]["name"] += tc_chunk.function.name
+                        if tc_chunk.function.arguments:
+                            tc["function"]["arguments"] += tc_chunk.function.arguments
+
+                        await stream_manager.write(json.dumps(tc))
+                        # full_response += content
+                        # chunks.append(part)
+
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
         finally:
             await stream_manager.close()
+
+        print(tool_calls)
 
         # Create a mock response object if no chunks were received
         if not chunks and full_response:

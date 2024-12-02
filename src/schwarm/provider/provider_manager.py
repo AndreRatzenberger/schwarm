@@ -10,6 +10,7 @@ from typing import Optional, TypeVar
 from loguru import logger
 
 from schwarm.events.event import Event
+from schwarm.models.event import EventType
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
@@ -79,6 +80,19 @@ class ProviderManager:
 
             self._providers: list[BaseProvider] = []
             self._global_break: bool = False
+            self.breakpoint: dict[EventType, bool] = {
+                EventType.START: False,
+                EventType.HANDOFF: False,
+                EventType.INSTRUCT: False,
+                EventType.MESSAGE_COMPLETION: False,
+                EventType.POST_MESSAGE_COMPLETION: False,
+                EventType.START_TURN: False,
+                EventType.TOOL_EXECUTION: False,
+                EventType.POST_TOOL_EXECUTION: False,
+            }
+            self.breakpoint_counter: int = 0
+            self.wait_for_user_input: bool = False
+            self.last_user_input: str = ""
 
             # Stores registered provider classes and their configs
             # {config_class: provider_class}
@@ -87,10 +101,19 @@ class ProviderManager:
             self.telemetry_manager = telemetry_manager
             self._initialized = True
 
-    def wait_for_frontend(self) -> None:
+    def toggle_breakpoint(self, event_type: str) -> bool:
+        """Toggle the global break state."""
+        event = EventType(event_type)
+        self.breakpoint[event] = not self.breakpoint[event]
+        return self.breakpoint[event]
+
+    def wait_for_frontend(self, wait_for_user_input: bool = False) -> None:
         """Wait for the frontend to signal a global break."""
+        if self.breakpoint_counter != 0:
+            return
         self._global_break = True
-        logger.info("Waiting for frontend...")
+        self.wait_for_user_input = wait_for_user_input
+        logger.info(f"Waiting for frontend... wait_for_user_input: {wait_for_user_input}")
         while self._global_break:
             pass
 

@@ -18,11 +18,13 @@ class ProviderContextModel(BaseModel):
 
     max_turns: int = Field(default=10, description="Maximum number of turns in a conversation")
     current_turn: int = Field(default=0, description="Current turn in the conversation")
+    breakpoint_counter: int = Field(default=0, description="Current turn in the conversation")
     override_model: str | None = Field(default=None, description="Model override for the current conversation")
     message_history: list[Message] = Field(
         default_factory=list, description="History of all messages in the current conversation"
     )
     current_message: Message | None = Field(default=None, description="The current message being processed")
+    default_handoff_agent: Any = Field(default=None, description="The agent currently using this provider")
     current_agent: Any = Field(default=None, description="The agent currently using this provider")  # TODO str?
     previous_agent: Any = Field(default=None, description="The agent currently using this provider")  # TODO str?
     available_agents: list[Any] = Field(default_factory=list, description="Map of all available agents by name")
