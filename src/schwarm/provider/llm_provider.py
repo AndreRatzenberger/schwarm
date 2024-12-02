@@ -282,7 +282,9 @@ class LLMProvider(BaseLLMProvider):
                         "arguments": delta.function_call.arguments,
                     }
                     logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
-                    await stream_manager.write(json.dumps(function_call_data))  # Write function_call to the stream
+                    await stream_tool_manager.write(
+                        str(delta.function_call.arguments)
+                    )  # Write function_call to the stream
                     chunk["choices"][0]["delta"]["function_call"] = function_call_data
                 elif delta and delta.tool_calls:
                     tool_calls_list = []
@@ -296,7 +298,7 @@ class LLMProvider(BaseLLMProvider):
                         }
                         logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
                         tool_calls_list.append(tool_call_data)
-                        await stream_tool_manager.write(tool_call.function.arguments)
+                        await stream_tool_manager.write(str(tool_call.function.arguments))
 
                     chunk["choices"][0]["delta"]["tool_calls"] = tool_calls_list
 

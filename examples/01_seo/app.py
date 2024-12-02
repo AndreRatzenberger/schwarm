@@ -68,25 +68,25 @@ def main():
         name="orchestrator",
         instructions=orchestrator_instructions,
         parallel_tool_calls=False,
-        configs=[LLMConfig(enable_cache=True)],
+        configs=[LLMConfig(streaming=True)],
     )
 
     blog_writer = Agent(
         name="blog_writer",
         instructions=blog_writer_instructions,
-        configs=[LLMConfig(enable_cache=True)],
+        configs=[LLMConfig(streaming=True)],
     )
 
     seo_optimizer = Agent(
         name="seo_optimizer",
         instructions=seo_optimizer_instructions,
-        configs=[LLMConfig(enable_cache=True)],
+        configs=[LLMConfig(streaming=True)],
     )
 
     user_agent = Agent(
         name="user_agent",
         instructions="Print the final blog post.",
-        configs=[LLMConfig(enable_cache=True)],
+        configs=[LLMConfig(streaming=True)],
         tool_choice="none",  # forces to print the final blog post
     )
 

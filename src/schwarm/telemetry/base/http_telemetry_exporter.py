@@ -1,14 +1,15 @@
 """Base class for custom OpenTelemetry exporters."""
 
+import asyncio
 import mimetypes
 import socket
 from abc import ABC, abstractmethod
 from threading import Thread
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from opentelemetry.sdk.trace.export import SpanExportResult
@@ -186,17 +187,31 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 result += obj[1].name
             return f"{result}"
 
-        @self.app.get("/stream/")
-        async def stream_endpoint():
-            """Stream LLM outputs."""
+        @self.app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
+            """Stream LLM outputs via WebSocket."""
             stream_manager = StreamManager()
-            return StreamingResponse(stream_manager.stream_messages(), media_type="text/plain")
+            await stream_manager.connect(websocket)
+            try:
+                while True:
+                    await asyncio.sleep(1)  # Keep connection alive
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+            finally:
+                await stream_manager.disconnect(websocket)
 
-        @self.app.get("/stream/tool")
-        async def stream_tool_endpoint():
-            """Stream LLM outputs."""
+        @self.app.websocket("/ws/tool")
+        async def tool_websocket_endpoint(websocket: WebSocket):
+            """Stream tool outputs via WebSocket."""
             stream_manager = StreamToolManager()
-            return StreamingResponse(stream_manager.stream_messages(), media_type="text/plain")
+            await stream_manager.connect(websocket)
+            try:
+                while True:
+                    await asyncio.sleep(1)  # Keep connection alive
+            except Exception as e:
+                logger.error(f"Tool WebSocket error: {e}")
+            finally:
+                await stream_manager.disconnect(websocket)
 
     def _start_api(self):
         def run():
