@@ -15,7 +15,7 @@ logs/
 .pytest_cache/
 .cache/
 .data/
-
+node_modules/
 db.json
 
 # Logs

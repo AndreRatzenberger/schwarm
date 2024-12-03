@@ -17,6 +17,7 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.manager.server import WebsocketManager2
+from schwarm.manager.websocket_messages import WebsocketMessage
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.utils.settings import get_environment
@@ -198,6 +199,14 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         @self.app.get("/break")
         def get_break():
             """Get the current break state."""
+            pm = ProviderManager._instance
+            if pm:
+                return pm._global_break
+
+        @self.app.post("/trigger/messages")
+        async def trigger():
+            """Get the current break state."""
+            await ws_manager.send_message(WebsocketMessage(message_type="BREAK", message=""))
             pm = ProviderManager._instance
             if pm:
                 return pm._global_break
