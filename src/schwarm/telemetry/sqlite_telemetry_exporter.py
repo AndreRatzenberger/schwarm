@@ -89,7 +89,7 @@ class SqliteTelemetryExporter(HttpTelemetryExporter):
                         parent_span_id = format(span.parent.span_id, "016x")
 
                     # Convert attributes to JSON string
-                    attributes_json = self._convert_attributes(dict(span.attributes))
+                    attributes_json = self._convert_attributes(dict(span.attributes))  # type: ignore
 
                     conn.execute(
                         """

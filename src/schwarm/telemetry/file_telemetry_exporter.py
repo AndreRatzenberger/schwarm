@@ -1,14 +1,15 @@
 """Exporter to write spans to a file."""
 
+from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 
 
 class FileTelemetryExporter(TelemetryExporter):
     """Exporter to write spans to a file."""
 
-    def __init__(self, file_path="schwarm_events.log"):
+    def __init__(self, config: TelemetryConfig = TelemetryConfig(), file_path="schwarm_events.log"):
         """Initialize the exporter with a file path."""
-        super().__init__()
+        super().__init__(config)
         self.file_path = file_path
 
     def export(self, spans):

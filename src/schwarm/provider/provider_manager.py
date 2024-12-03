@@ -1,5 +1,6 @@
 """Manages provider lifecycles and access."""
 
+import asyncio
 import importlib
 import inspect
 import os
@@ -10,7 +11,8 @@ from typing import Optional, TypeVar
 from loguru import logger
 
 from schwarm.events.event import Event
-from schwarm.manager.websocket_manager import WebsocketManager
+from schwarm.manager.server import WebsocketManager2
+from schwarm.manager.websocket_messages import WebsocketMessage
 from schwarm.models.event import EventType
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider, BaseEventHandleProviderConfig
@@ -117,11 +119,11 @@ class ProviderManager:
         self._global_break = True
         self.wait_for_user_input = wait_for_user_input
         logger.info(f"Waiting for frontend... wait_for_user_input: {wait_for_user_input}")
-        wm = WebsocketManager()
+        wm = WebsocketManager2()
         if self.wait_for_user_input:
-            wm.send_chat_requested()
+            asyncio.run(wm.send_message(WebsocketMessage.chat_requested()))
         else:
-            wm.send_is_waiting()
+            asyncio.run(wm.send_message(WebsocketMessage.is_waiting()))
         while self._global_break:
             pass
 

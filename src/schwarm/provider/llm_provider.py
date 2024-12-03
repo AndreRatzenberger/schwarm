@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -11,7 +10,8 @@ from litellm.caching.caching import Cache
 from litellm.integrations.custom_logger import CustomLogger
 from loguru import logger
 
-from schwarm.manager.stream_manager import StreamManager, StreamToolManager
+from schwarm.manager.server import WebsocketManager2
+from schwarm.manager.websocket_messages import WebsocketMessage
 from schwarm.models.message import Message, MessageInfo
 from schwarm.provider.base.base_llm_provider import BaseLLMProvider, BaseLLMProviderConfig
 from schwarm.utils.file import temporary_env_vars
@@ -241,7 +241,7 @@ class LLMProvider(BaseLLMProvider):
 
             return Message(
                 content=content or "",
-                role=role,
+                role=role,  # type: ignore
                 name=model,
                 tool_calls=tool_calls,
                 info=info,
@@ -315,35 +315,33 @@ class LLMProvider(BaseLLMProvider):
     #     msg = litellm.stream_chunk_builder(chunks, messages=messages)
 
     #     return self._create_completion_response(msg, model, messages)
-    
+
     async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
         """Handle streaming response from LiteLLM.
-        
+
         Args:
             response: The streaming response from LiteLLM
             messages: List of message dictionaries
             model: The model name being used
-            
+
         Returns:
             Message: A complete message built from all chunks
-            
+
         Raises:
             CompletionError: If streaming fails
         """
         chunks = []
         full_response = ""
         stream_manager = None
-        stream_tool_manager = None
-        
+
         try:
             # Initialize stream managers
-            stream_manager = StreamManager()
-            stream_tool_manager = StreamToolManager()
-            
+            stream_manager = WebsocketManager2()
+
             for part in response:
                 if not part or not part.choices:
                     continue
-                    
+
                 delta = part.choices[0].delta
                 chunk = {"choices": [{"delta": {}}]}
 
@@ -354,7 +352,7 @@ class LLMProvider(BaseLLMProvider):
                         if content:
                             logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
                             try:
-                                await stream_manager.write(content)
+                                await stream_manager.send_message(WebsocketMessage.stream(message=content))
                                 full_response += content
                                 chunk["choices"][0]["delta"]["content"] = content
                             except Exception as e:
@@ -369,7 +367,9 @@ class LLMProvider(BaseLLMProvider):
                         }
                         logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
                         try:
-                            await stream_tool_manager.write(str(delta.function_call.arguments))
+                            await stream_manager.send_message(
+                                WebsocketMessage.stream(message=str(delta.function_call.arguments))
+                            )
                             chunk["choices"][0]["delta"]["function_call"] = function_call_data
                         except Exception as e:
                             logger.error(f"Error writing function call chunk: {e}")
@@ -389,7 +389,10 @@ class LLMProvider(BaseLLMProvider):
                             logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
                             tool_calls_list.append(tool_call_data)
                             try:
-                                await stream_tool_manager.write(str(tool_call.function.arguments))
+                                await stream_manager.send_message(
+                                    WebsocketMessage.stream(message=str(tool_call.function.arguments))
+                                )
+
                             except Exception as e:
                                 logger.error(f"Error writing tool call chunk: {e}")
                                 # Continue processing even if one chunk fails
@@ -402,27 +405,13 @@ class LLMProvider(BaseLLMProvider):
                 except Exception as e:
                     logger.error(f"Error processing stream chunk: {e}")
                     # Continue processing other chunks even if one fails
-                    
+
                 # Small delay to prevent overwhelming the stream
                 await asyncio.sleep(0.1)
 
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
-            
-        finally:
-            # Ensure both managers are properly closed
-            if stream_manager:
-                try:
-                    await stream_manager.close()
-                except Exception as e:
-                    logger.error(f"Error closing stream manager: {e}")
-                    
-            if stream_tool_manager:
-                try:
-                    await stream_tool_manager.close()
-                except Exception as e:
-                    logger.error(f"Error closing stream tool manager: {e}")
 
         # Build final message from chunks
         try:

@@ -2,15 +2,16 @@
 
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 
+from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 
 
 class JaegerTelemetryExporter(TelemetryExporter):
     """Exporter for sending OpenTelemetry spans to Jaeger."""
 
-    def __init__(self, host="localhost", port=6831):
+    def __init__(self, config: TelemetryConfig = TelemetryConfig(), host="localhost", port=6831):
         """Exporter for sending OpenTelemetry spans to Jaeger."""
-        super().__init__()
+        super().__init__(config=config)
         self.jaeger_exporter = JaegerExporter(
             agent_host_name=host,
             agent_port=port,
