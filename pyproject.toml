@@ -61,12 +61,8 @@ schwarm = "schwarm.app:main"
 
 # Build
 [tool.hatch.build.targets.sdist]
-include = ["/src/nektar/dist", "/src/schwarm/*.py", "/src/schwarm/**/*.py"]
+include = ["/src/schwarm/*.py", "/src/schwarm/**/*.py"]
 ignore-vcs = true
-
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/nektar/dist" = "schwarm"
 
 
 # pipeline

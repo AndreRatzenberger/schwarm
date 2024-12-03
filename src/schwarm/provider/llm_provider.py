@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from typing import TYPE_CHECKING, Any, cast
 
 import litellm
@@ -241,7 +240,7 @@ class LLMProvider(BaseLLMProvider):
 
             return Message(
                 content=content or "",
-                role=role,
+                role=role,  # type: ignore
                 name=model,
                 tool_calls=tool_calls,
                 info=info,
@@ -315,18 +314,18 @@ class LLMProvider(BaseLLMProvider):
     #     msg = litellm.stream_chunk_builder(chunks, messages=messages)
 
     #     return self._create_completion_response(msg, model, messages)
-    
+
     async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
         """Handle streaming response from LiteLLM.
-        
+
         Args:
             response: The streaming response from LiteLLM
             messages: List of message dictionaries
             model: The model name being used
-            
+
         Returns:
             Message: A complete message built from all chunks
-            
+
         Raises:
             CompletionError: If streaming fails
         """
@@ -334,16 +333,16 @@ class LLMProvider(BaseLLMProvider):
         full_response = ""
         stream_manager = None
         stream_tool_manager = None
-        
+
         try:
             # Initialize stream managers
             stream_manager = StreamManager()
             stream_tool_manager = StreamToolManager()
-            
+
             for part in response:
                 if not part or not part.choices:
                     continue
-                    
+
                 delta = part.choices[0].delta
                 chunk = {"choices": [{"delta": {}}]}
 
@@ -402,14 +401,14 @@ class LLMProvider(BaseLLMProvider):
                 except Exception as e:
                     logger.error(f"Error processing stream chunk: {e}")
                     # Continue processing other chunks even if one fails
-                    
+
                 # Small delay to prevent overwhelming the stream
                 await asyncio.sleep(0.1)
 
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
             raise CompletionError(f"Streaming failed: {e}") from e
-            
+
         finally:
             # Ensure both managers are properly closed
             if stream_manager:
@@ -417,7 +416,7 @@ class LLMProvider(BaseLLMProvider):
                     await stream_manager.close()
                 except Exception as e:
                     logger.error(f"Error closing stream manager: {e}")
-                    
+
             if stream_tool_manager:
                 try:
                     await stream_tool_manager.close()

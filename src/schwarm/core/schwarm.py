@@ -281,7 +281,7 @@ class Schwarm:
     @log_function_call(log_level="DEBUG")
     def _complete_agent_request(self, agent: Agent, context_variables: dict[str, Any], override_model: str) -> Message:
         """Complete an agent request."""
-        context_variables = defaultdict(str, context_variables)
+        context_variables = defaultdict(str, context_variables)  # type: ignore
 
         self._set_instructions(agent)
         self._trigger_event(EventType.INSTRUCT)

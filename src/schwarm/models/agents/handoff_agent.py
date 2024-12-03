@@ -36,8 +36,7 @@ class HandoffAgent(Agent):
         """Handoff to a specific agent."""
         if agent_name not in self.possible_agents:
             return Result(
-                success=False,
                 value=f"Agent {agent_name} is not in the list of possible agents.",
                 agent=self,
             )
-        return f"Handing off to agent {agent.name} because {reason}."
+        return Result()

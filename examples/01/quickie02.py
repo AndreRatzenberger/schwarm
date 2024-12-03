@@ -18,4 +18,4 @@ with open(f"{script_path}/prompts/v0.txt", encoding="utf-8") as f:
     my_first_agent.instructions = f.read()
 
 
-Schwarm(interaction_mode="stop_and_go").quickstart(agent=my_first_agent, input="I want a sleek web shop")
+Schwarm().quickstart(agent=my_first_agent, input="I want a sleek web shop")
