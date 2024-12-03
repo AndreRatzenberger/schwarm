@@ -32,6 +32,7 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         self.api_port = api_port
         self.app = FastAPI()
         self.loaded_modules = {}
+        self.chat_status_connections = set()
 
         mimetypes.add_type("application/javascript", ".js")
         mimetypes.add_type("application/javascript", ".mjs")
@@ -84,6 +85,33 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                     continue  # Port is in use, try next
         raise RuntimeError("No free port found in the specified range.")
 
+    async def broadcast_chat_status(self):
+        """Broadcast chat status to all connected clients."""
+        pm = ProviderManager._instance
+        if pm and self.chat_status_connections:
+            status = pm._global_break and pm.wait_for_user_input
+            # Create a copy of the set to avoid modification during iteration
+            connections = self.chat_status_connections.copy()
+            disconnected = set()
+
+            for connection in connections:
+                try:
+                    try:
+                        await connection.send_json(status)
+                    except WebSocketDisconnect:
+                        logger.debug("Client disconnected during broadcast")
+                        disconnected.add(connection)
+                    except Exception as e:
+                        logger.error(f"Error sending chat status: {e}")
+                        disconnected.add(connection)
+                except Exception as e:
+                    logger.error(f"Unexpected error in broadcast: {e}")
+                    disconnected.add(connection)
+
+            # Remove disconnected connections after iteration
+            if disconnected:
+                self.chat_status_connections.difference_update(disconnected)
+
     @abstractmethod
     def query_spans(self):
         """Retrieve all spans. To be implemented by subclasses."""
@@ -108,19 +136,21 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
             return FileResponse(str(self.base_dir.joinpath("index.html")))
 
         @self.app.post("/break")
-        def set_break():
+        async def set_break():
             """Toggle the global break state."""
             pm = ProviderManager._instance
             if pm:
                 pm._global_break = not pm._global_break
+                await self.broadcast_chat_status()
                 return pm._global_break
 
         @self.app.post("/breakpoint/turns")
-        def set_breakpoint_number(turn_amount: int):
+        async def set_breakpoint_number(turn_amount: int):
             """Toggle the global break state."""
             pm = ProviderManager._instance
             if pm:
                 pm.breakpoint_counter = turn_amount - 1
+                await self.broadcast_chat_status()
                 return pm.breakpoint_counter
 
         @self.app.get("/breakpoint/turns")
@@ -131,11 +161,12 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 return pm.breakpoint_counter
 
         @self.app.post("/breakpoint")
-        def toggle_breakpoint(event_type: str):
+        async def toggle_breakpoint(event_type: str):
             """Toggle the global break state."""
             pm = ProviderManager._instance
             if pm:
                 pm.toggle_breakpoint(event_type)
+                await self.broadcast_chat_status()
                 return pm.breakpoint
 
         @self.app.get("/breakpoint")
@@ -146,12 +177,13 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 return pm.breakpoint
 
         @self.app.post("/chat")
-        def post_chat(user_input: str):
+        async def post_chat(user_input: str):
             """Toggle the global break state."""
             pm = ProviderManager._instance
             if pm:
                 pm._global_break = not pm._global_break
                 pm.last_user_input = user_input
+                await self.broadcast_chat_status()
                 return user_input
 
         @self.app.get("/chat")
@@ -206,6 +238,28 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 logger.error(f"WebSocket error: {e}")
             finally:
                 await stream_manager.disconnect(websocket)
+
+        @self.app.websocket("/ws/chat-status")
+        async def chat_status_endpoint(websocket: WebSocket):
+            """Stream chat status updates via WebSocket."""
+            await websocket.accept()
+            self.chat_status_connections.add(websocket)
+            try:
+                # Send initial status
+                await self.broadcast_chat_status()
+                while True:
+                    try:
+                        # Keep connection alive and handle disconnection
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("Chat status WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"Chat status WebSocket error: {e}")
+            finally:
+                if websocket in self.chat_status_connections:
+                    self.chat_status_connections.remove(websocket)
 
     def _start_api(self):
         def run():
