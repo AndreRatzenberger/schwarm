@@ -16,7 +16,7 @@ from loguru import logger
 from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.configs.telemetry_config import TelemetryConfig
-from schwarm.manager.stream_manager import StreamManager, StreamToolManager
+from schwarm.manager.stream_manager import StreamManager
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.utils.settings import get_environment
@@ -188,7 +188,7 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 result += obj[1].name
             return f"{result}"
 
-        @self.app.websocket("/ws")
+        @self.app.websocket("/ws/stream")
         async def websocket_endpoint(websocket: WebSocket):
             """Stream LLM outputs via WebSocket."""
             stream_manager = StreamManager()
@@ -204,25 +204,6 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 logger.debug("WebSocket disconnected normally")
             except Exception as e:
                 logger.error(f"WebSocket error: {e}")
-            finally:
-                await stream_manager.disconnect(websocket)
-
-        @self.app.websocket("/ws/tool")
-        async def tool_websocket_endpoint(websocket: WebSocket):
-            """Stream tool outputs via WebSocket."""
-            stream_manager = StreamToolManager()
-            await stream_manager.connect(websocket)
-            try:
-                while True:
-                    try:
-                        # Wait for messages but allow for graceful shutdown
-                        await asyncio.sleep(0.1)
-                    except asyncio.CancelledError:
-                        break
-            except WebSocketDisconnect:
-                logger.debug("WebSocket disconnected normally")
-            except Exception as e:
-                logger.error(f"Tool WebSocket error: {e}")
             finally:
                 await stream_manager.disconnect(websocket)
 
