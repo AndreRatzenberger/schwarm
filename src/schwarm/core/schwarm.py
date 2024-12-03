@@ -1,5 +1,6 @@
 """Agent class."""
 
+import asyncio
 import copy
 import os
 import sys
@@ -12,6 +13,8 @@ from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.core.logging import log_function_call, logger, setup_logging
 from schwarm.core.tools import ToolHandler
 from schwarm.events.event import EventType
+from schwarm.manager.server import WebsocketManager2
+from schwarm.manager.websocket_messages import WebsocketMessage
 from schwarm.models.agents.user_agent import UserAgent
 from schwarm.models.event import create_event, create_full_event
 from schwarm.models.message import Message
@@ -226,6 +229,8 @@ class Schwarm:
         """Process a single turn in the conversation."""
         user_handoff = None
         if isinstance(agent, UserAgent):
+            wm = WebsocketManager2()
+            asyncio.run(wm.send_message(WebsocketMessage.chat_requested()))
             self._provider_manager.wait_for_frontend(True)
             completion = Message(role="user", content=self._provider_manager.last_user_input)
             user_handoff = agent.agent_to_pass_to
@@ -318,11 +323,14 @@ class Schwarm:
 
     def pause(self, event_type: EventType = EventType.INSTRUCT):
         """Pause the conversation."""
+        wm = WebsocketManager2()
         if self._provider_manager.breakpoint[event_type]:
+            asyncio.run(wm.send_message(WebsocketMessage.is_waiting()))
             self._provider_manager.wait_for_frontend()
             return
 
         if self._provider_manager._global_break:
+            asyncio.run(wm.send_message(WebsocketMessage.is_waiting()))
             self._provider_manager.wait_for_frontend()
 
     def _trigger_event(self, event_type: EventType):

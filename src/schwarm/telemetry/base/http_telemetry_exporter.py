@@ -68,6 +68,10 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
         """Forward spans to the backend."""
         try:
             result = self.export(spans)
+            for span in spans:
+                asyncio.create_task(
+                    ws_manager.send_message(WebsocketMessage(message_type="EVENT", message=span.to_dict()))
+                )
             if result is None:
                 return SpanExportResult.SUCCESS
             return result
