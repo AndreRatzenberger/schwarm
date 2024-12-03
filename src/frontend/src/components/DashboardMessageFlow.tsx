@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MessageSquare, Radio } from 'lucide-react';
+import { MessageSquare, Radio, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useStreamStore } from '../store/streamStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { usePauseStore } from '../store/pauseStore';
+import { useChatStore } from '../store/chatStore';
 import { Card } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { Alert, AlertDescription } from './ui/alert';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
 
 interface StreamMessage {
     id: string;
@@ -50,6 +53,7 @@ export default function DashboardMessageFlow() {
     const wsRef = useRef<WebSocket | null>(null);
     const currentMessageRef = useRef('');
     const currentAgentRef = useRef('System');
+    const { isChatRequested, chatInput, setChatInput, submitChat } = useChatStore();
 
     // Get color for agent, creating a new one if needed
     const getAgentColor = (agent: string) => {
@@ -57,6 +61,13 @@ export default function DashboardMessageFlow() {
             agentColors.set(agent, agentColors.size % colorPalette.length);
         }
         return colorPalette[agentColors.get(agent)!];
+    };
+
+    const handleSubmitChat = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (chatInput.trim()) {
+            await submitChat(chatInput.trim());
+        }
     };
 
     const connect = () => {
@@ -147,6 +158,20 @@ export default function DashboardMessageFlow() {
                     <Alert variant="destructive" className="mb-4">
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
+                )}
+                {isChatRequested && (
+                    <form onSubmit={handleSubmitChat} className="mb-4 flex space-x-2">
+                        <Input
+                            type="text"
+                            placeholder="Type your message..."
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            className="flex-1"
+                        />
+                        <Button type="submit" size="sm">
+                            <Send className="h-4 w-4" />
+                        </Button>
+                    </form>
                 )}
                 <ScrollArea className="h-[600px] w-full rounded-md border p-4" ref={scrollAreaRef}>
                     <div className="space-y-4">
@@ -246,6 +271,7 @@ export default function DashboardMessageFlow() {
                         )}
                     </div>
                 </ScrollArea>
+
             </div>
         </Card>
     );

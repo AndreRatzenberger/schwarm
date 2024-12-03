@@ -5,6 +5,7 @@ import { usePauseStore } from '../store/pauseStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useDataStore } from '../store/dataStore';
 import { useBreakpointStore } from '../store/breakpointStore';
+import { useChatStore } from '../store/chatStore';
 import PlayPauseButton from './PlayPauseButton';
 import RefreshButton from './RefreshButton';
 import { Badge } from './ui/badge';
@@ -31,25 +32,25 @@ function transformSpansToLogs(spans: Span[]): Log[] {
 
     const [agent, activity] = span.name.split('-').map(str => str.trim());
     const isEventType = activity && activity.includes("EventType.");
-    
+
     const isError = span.status_code == 'ERROR';
     const timestamp = new Date(Number(span.start_time) / 1_000_000).toISOString();
-    
+
     let level: Log['level'] = 'LOG';
     if (isError) {
       level = 'ERROR';
     } else if (isEventType) {
       const eventType = activity.replace("EventType.", "");
-      if (eventType === 'START_TURN' || eventType === 'INSTRUCT' || 
-          eventType === 'MESSAGE_COMPLETION' || eventType === 'POST_MESSAGE_COMPLETION' || 
-          eventType === 'TOOL_EXECUTION' || eventType === 'POST_TOOL_EXECUTION' || 
-          eventType === 'HANDOFF') {
+      if (eventType === 'START_TURN' || eventType === 'INSTRUCT' ||
+        eventType === 'MESSAGE_COMPLETION' || eventType === 'POST_MESSAGE_COMPLETION' ||
+        eventType === 'TOOL_EXECUTION' || eventType === 'POST_TOOL_EXECUTION' ||
+        eventType === 'HANDOFF') {
         level = eventType;
       } else {
         level = 'INFO';
       }
     }
-    
+
     return {
       id: span.id,
       timestamp,
@@ -75,6 +76,7 @@ export function ActiveRunBanner() {
   const { findRunIdFromLogs, setActiveRunId } = useRunStore();
   const { endpointUrl, setIsLoading } = useSettingsStore();
   const { breakpoints, turnAmount, fetchBreakpoints, fetchTurnAmount, toggleBreakpoint, setTurnAmount } = useBreakpointStore();
+  const setIsChatRequested = useChatStore(state => state.setIsChatRequested);
   const [isConnected, setIsConnected] = useState(false);
   const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
   const [localTurnAmount, setLocalTurnAmount] = useState(turnAmount.toString());
@@ -90,15 +92,36 @@ export function ActiveRunBanner() {
     }
   };
 
+
   const fetchWithRetry = React.useCallback(async (retryCount = 0, delay = INITIAL_RETRY_DELAY) => {
     try {
+      const checkChatStatus = async () => {
+        try {
+          const response = await fetch(`${endpointUrl}/chat`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+              'Accept': 'application/json',
+            },
+            credentials: 'omit'
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setIsChatRequested(data === true);
+          }
+        } catch (err) {
+          console.error('Failed to check chat status:', err);
+        }
+      };
+
       const url = new URL(`${endpointUrl}/spans`);
       const { latestId: currentLatestId } = useLogStore.getState();
 
       if (currentLatestId) {
         url.searchParams.append('after_id', currentLatestId);
       }
-      
+
       const response = await fetch(url, {
         method: 'GET',
         mode: 'cors',
@@ -111,24 +134,24 @@ export function ActiveRunBanner() {
       if (!response.ok) {
         throw new Error(`Server returned ${response.status} ${response.statusText}`);
       }
-      
+
       const jsonData = await response.json();
       setIsConnected(true);
       setLastSuccessfulFetch(new Date());
-      
+
       // Store raw spans in dataStore
       setData(jsonData);
-      
+
       // Transform spans to logs
       const logs = transformSpansToLogs(jsonData);
-      
+
       if (logs.length > 0) {
         if (currentLatestId) {
           appendLogs(logs);
         } else {
           setLogs(logs);
         }
-        
+
         const runId = findRunIdFromLogs(logs);
         if (runId) {
           setActiveRunId(runId);
@@ -136,11 +159,14 @@ export function ActiveRunBanner() {
       }
       setError(null);
       setIsLoading(false);
+
+      // Check chat status after successful spans fetch
+      await checkChatStatus();
     } catch (err) {
       console.error('Fetch error:', err);
       setIsConnected(false);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      
+
       if (retryCount < MAX_RETRIES) {
         setTimeout(() => {
           fetchWithRetry(retryCount + 1, delay * 2);
@@ -156,11 +182,11 @@ export function ActiveRunBanner() {
       } else {
         errorDetails = `${errorMessage}. Please check your network connection and server status.`;
       }
-      
+
       setError(errorDetails);
       setIsLoading(false);
     }
-  }, [endpointUrl, setData, setError, appendLogs, setLogs, findRunIdFromLogs, setActiveRunId, setIsLoading]);
+  }, [endpointUrl, setData, setError, setIsLoading, findRunIdFromLogs, appendLogs, setLogs, setActiveRunId, setIsChatRequested]);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -181,7 +207,7 @@ export function ActiveRunBanner() {
         fetchTurnAmount();
       }
     }, refreshInterval);
-    
+
     return () => clearInterval(intervalId);
   }, [fetchWithRetry, refreshInterval, isLoading, isPaused]);
 
@@ -203,8 +229,8 @@ export function ActiveRunBanner() {
             <div className="flex items-center text-red-600">
               <AlertCircle className="h-5 w-5 mr-2" />
               <p className="text-sm">{error || `Unable to connect to ${endpointUrl}`}</p>
-              <button 
-                onClick={() => fetchWithRetry()} 
+              <button
+                onClick={() => fetchWithRetry()}
                 className="ml-4 px-2 py-1 text-sm bg-red-100 hover:bg-red-200 rounded-md transition-colors"
               >
                 Retry Connection
@@ -214,7 +240,7 @@ export function ActiveRunBanner() {
             <>
               <div className="flex items-center space-x-4">
                 <PlayPauseButton />
-                
+
                 {showRefreshButton && (
                   <RefreshButton onRefresh={fetchWithRetry} />
                 )}
