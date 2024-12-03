@@ -315,7 +315,7 @@ class LLMProvider(BaseLLMProvider):
 
     #     return self._create_completion_response(msg, model, messages)
 
-    async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str) -> Message:
+    async def _handle_streaming(self, response, messages: list[dict[str, Any]], model: str, agent_name: str) -> Message:
         """Handle streaming response from LiteLLM.
 
         Args:
@@ -353,7 +353,7 @@ class LLMProvider(BaseLLMProvider):
                         if content:
                             logger.debug(f"Chunks content: {json.dumps(content, indent=2)}")
                             try:
-                                await stream_manager.write(content)
+                                await stream_manager.write(content, agent_name)
                                 full_response += content
                                 chunk["choices"][0]["delta"]["content"] = content
                             except Exception as e:
@@ -368,7 +368,7 @@ class LLMProvider(BaseLLMProvider):
                         }
                         logger.debug(f"Chunks function_call_data: {json.dumps(function_call_data, indent=2)}")
                         try:
-                            await stream_tool_manager.write(str(delta.function_call.arguments))
+                            await stream_tool_manager.write(str(delta.function_call.arguments), agent_name)
                             chunk["choices"][0]["delta"]["function_call"] = function_call_data
                         except Exception as e:
                             logger.error(f"Error writing function call chunk: {e}")
@@ -388,7 +388,7 @@ class LLMProvider(BaseLLMProvider):
                             logger.debug(f"Chunks tool_call_data: {json.dumps(tool_call_data, indent=2)}")
                             tool_calls_list.append(tool_call_data)
                             try:
-                                await stream_tool_manager.write(str(tool_call.function.arguments))
+                                await stream_tool_manager.write(str(tool_call.function.arguments), agent_name)
                             except Exception as e:
                                 logger.error(f"Error writing tool call chunk: {e}")
                                 # Continue processing even if one chunk fails
@@ -469,7 +469,7 @@ class LLMProvider(BaseLLMProvider):
             if config.streaming and streaming:
                 response = completion(**completion_kwargs)
                 loop = asyncio.get_event_loop()
-                return loop.run_until_complete(self._handle_streaming(response, message_list, model))
+                return loop.run_until_complete(self._handle_streaming(response, message_list, model, agent_name))
 
             response = completion(**completion_kwargs)
             return self._create_completion_response(response, model, message_list)

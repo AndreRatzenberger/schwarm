@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { Info, Clock, Cpu, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { Clock, Cpu, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { useLogStore } from '../store/logStore';
 import { useRunStore } from '../store/runStore';
 import CompactNetworkView from '../components/CompactNetworkView';
 import CompactMessageFlow from '../components/CompactMessageFlow';
-import StreamViewer from '../components/StreamViewer';
+import DashboardMessageFlow from '../components/DashboardMessageFlow';
 import { Card } from '../components/ui/card';
 
 function DashboardView() {
@@ -71,7 +71,7 @@ function DashboardView() {
     const isUp = current > previous;
     const Icon = isUp ? TrendingUp : TrendingDown;
     const colorClass = isUp ? 'text-green-500' : 'text-red-500';
-    
+
     return (
       <div className={`flex items-center ${colorClass} text-sm ml-2`}>
         <Icon className="h-4 w-4" />
@@ -79,12 +79,11 @@ function DashboardView() {
     );
   };
 
-  const handleMessage = (message: string) => {
-    console.log('New message received:', message);
-  };
+
 
   return (
     <div className="space-y-6">
+
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-white p-6 rounded-lg shadow-sm">
@@ -107,6 +106,7 @@ function DashboardView() {
                 <p className="text-sm font-medium text-gray-600">Events / Turns</p>
                 <p className="text-2xl font-semibold text-gray-900">{eventsToday} / {turns}</p>
               </div>
+              <TrendIndicator current={eventsToday} previous={prevEventsToday} />
             </div>
           </div>
         </Card>
@@ -136,29 +136,27 @@ function DashboardView() {
           </div>
         </Card>
       </div>
+      {/* Message Flow */}
 
+
+      {/* Message Flow */}
       {/* Network and Message Flow */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <DashboardMessageFlow />
+
         <Card className="bg-white rounded-lg shadow-sm p-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Network Overview</h2>
-          <CompactNetworkView />
-        </Card>
-        <Card className="bg-white rounded-lg shadow-sm p-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Messages</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Events</h2>
           <CompactMessageFlow />
+          <h2 className="text-lg font-semibold text-gray-900 mt-4">Network Overview</h2>
+          <CompactNetworkView />
+
         </Card>
       </div>
 
-      <Card className="bg-white rounded-lg shadow-sm">
-        <div className="p-2">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Info className="h-5 w-5 text-indigo-600 mr-2" />
-            Message streams
-          </h2>
 
-          <StreamViewer onMessageReceived={handleMessage} />
-        </div>
-      </Card>
+
+
     </div>
   );
 }

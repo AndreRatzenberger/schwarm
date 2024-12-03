@@ -123,6 +123,7 @@ exclude = [
     "**/.venv",
     "**/dump",          # exclude virtual environment - exclude means that it will not be scanned
     "**/settings.json",
+    "src/frontend/",
 ]
 useLibraryCodeForTypes = true
 ignore = [
@@ -160,10 +161,18 @@ lint.ignore = ["E203", "E266", "E501", "F541", "D417"]
 lint.exclude = ["logs/", "data/", "tests/", "docs/", "dump/"]
 lint.pydocstyle.convention = "google"
 lint.isort.combine-as-imports = true
-exclude = ["logs/", "data/", "tests/", "docs/", "src/templates/", "dump/"]
+exclude = [
+    "logs/",
+    "data/",
+    "tests/",
+    "docs/",
+    "src/templates/",
+    "dump/",
+    "src/frontend/",
+]
 
 [tool.pytest.ini_options]
-addopts = "--cov src/schwarm --cov-report html -v"
+addopts = " -v"
 minversion = "6.0"
 python_files = "test_*.py"
 python_classes = "Test"

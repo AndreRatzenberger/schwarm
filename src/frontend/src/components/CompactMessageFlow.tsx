@@ -32,10 +32,10 @@ export default function CompactMessageFlow() {
   useEffect(() => {
     // Filter and transform logs to chat format
     const chatLogs = logs
-      .filter((log): log is Log & { level: keyof typeof levelColors } => 
-        log.level === 'INSTRUCT' || 
-        log.level === 'MESSAGE_COMPLETION' || 
-        log.level === 'START_TURN' || 
+      .filter((log): log is Log & { level: keyof typeof levelColors } =>
+        log.level === 'INSTRUCT' ||
+        log.level === 'MESSAGE_COMPLETION' ||
+        log.level === 'START_TURN' ||
         log.level === 'TOOL_EXECUTION'
       )
       .map(log => ({
@@ -63,7 +63,7 @@ export default function CompactMessageFlow() {
   const renderItem = (item: ChatLog) => {
     const side = agentSides.get(item.agent) || 'left'
     const colors = levelColors[item.type] || levelColors.LOG
-    
+
     return (
       <div key={item.id} className={`flex flex-col ${side === 'right' ? 'items-end' : 'items-start'}`}>
         <div className={`max-w-[70%] rounded-lg p-2 ${colors.bg} ${colors.text} ml-2 mr-2`}>
@@ -83,7 +83,7 @@ export default function CompactMessageFlow() {
 
   return (
     <div className="bg-white rounded-lg shadow-sm">
-      <ScrollArea className="h-[250px] w-full rounded-md border p-2">
+      <ScrollArea className="h-[300px] w-full rounded-md border p-2">
         <div className="space-y-2">
           {items.map(renderItem)}
         </div>

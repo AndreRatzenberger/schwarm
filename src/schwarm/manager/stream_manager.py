@@ -50,7 +50,7 @@ class StreamManager:
         self.active_connections.remove(websocket)
         logger.debug(f"WebSocket connection closed. Remaining connections: {len(self.active_connections)}")
 
-    async def write(self, chunk: str, message_type: MessageType = MessageType.DEFAULT) -> None:
+    async def write(self, chunk: str, agent_name: str, message_type: MessageType = MessageType.DEFAULT) -> None:
         """Write a chunk to all connected WebSocket clients.
 
         Args:
@@ -67,7 +67,7 @@ class StreamManager:
         if pm:
             pm.chunk += chunk
 
-        message = {"type": message_type.value, "content": chunk}
+        message = {"type": message_type.value, "content": chunk, "agent": agent_name}
 
         disconnected = set()
         for connection in self.active_connections:
@@ -112,6 +112,6 @@ class StreamToolManager(StreamManager):
     Uses the WebSocket-based StreamManager with the TOOL message type.
     """
 
-    async def write(self, chunk: str) -> None:
+    async def write(self, chunk: str, agent_name: str) -> None:
         """Write a tool output chunk to the stream."""
-        await super().write(chunk, MessageType.TOOL)
+        await super().write(chunk, agent_name, MessageType.TOOL)

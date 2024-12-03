@@ -20,6 +20,10 @@ export interface Span {
   [key: string]: unknown;
 }
 
+export interface WebSocketMessage {
+  message_type: 'CHAT' | 'BREAK' | 'ERROR' | 'EVENT' | 'STREAM';
+  message: string;
+}
 
 
 export interface StreamViewerProps {
