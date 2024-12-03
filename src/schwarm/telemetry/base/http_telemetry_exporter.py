@@ -17,6 +17,7 @@ from opentelemetry.sdk.trace.export import SpanExportResult
 
 from schwarm.configs.telemetry_config import TelemetryConfig
 from schwarm.manager.stream_manager import StreamManager
+from schwarm.manager.websocket_manager import WebsocketManager
 from schwarm.provider.provider_manager import ProviderManager
 from schwarm.telemetry.base.telemetry_exporter import TelemetryExporter
 from schwarm.utils.settings import get_environment
@@ -220,8 +221,27 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 result += obj[1].name
             return f"{result}"
 
-        @self.app.websocket("/ws/stream")
+        @self.app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
+            """Stream LLM outputs via WebSocket."""
+            websocket_manager = WebsocketManager()
+            await websocket_manager.connect(websocket)
+            try:
+                while True:
+                    try:
+                        # Wait for messages but allow for graceful shutdown
+                        await asyncio.sleep(0.1)
+                    except asyncio.CancelledError:
+                        break
+            except WebSocketDisconnect:
+                logger.debug("WebSocket disconnected normally")
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+            finally:
+                await websocket_manager.disconnect(websocket)
+
+        @self.app.websocket("/ws/stream")
+        async def websocket_stream_endpoint(websocket: WebSocket):
             """Stream LLM outputs via WebSocket."""
             stream_manager = StreamManager()
             await stream_manager.connect(websocket)
@@ -238,28 +258,6 @@ class HttpTelemetryExporter(TelemetryExporter, ABC):
                 logger.error(f"WebSocket error: {e}")
             finally:
                 await stream_manager.disconnect(websocket)
-
-        @self.app.websocket("/ws/chat-status")
-        async def chat_status_endpoint(websocket: WebSocket):
-            """Stream chat status updates via WebSocket."""
-            await websocket.accept()
-            self.chat_status_connections.add(websocket)
-            try:
-                # Send initial status
-                await self.broadcast_chat_status()
-                while True:
-                    try:
-                        # Keep connection alive and handle disconnection
-                        await asyncio.sleep(0.1)
-                    except asyncio.CancelledError:
-                        break
-            except WebSocketDisconnect:
-                logger.debug("Chat status WebSocket disconnected normally")
-            except Exception as e:
-                logger.error(f"Chat status WebSocket error: {e}")
-            finally:
-                if websocket in self.chat_status_connections:
-                    self.chat_status_connections.remove(websocket)
 
     def _start_api(self):
         def run():
