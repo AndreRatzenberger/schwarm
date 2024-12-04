@@ -1989,7 +1989,7 @@ wheels = [
 
 [[package]]
 name = "schwarm"
-version = "0.1.75"
+version = "0.1.76"
 source = { editable = "." }
 dependencies = [
     { name = "arxiv" },

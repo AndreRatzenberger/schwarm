@@ -1,6 +1,6 @@
 [project]
 name = "schwarm"
-version = "0.1.75"
+version = "0.1.76"
 description = "A very opinionated package for building agent systems. Also very alpha."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -61,7 +61,7 @@ schwarm = "schwarm.app:main"
 
 # Build
 [tool.hatch.build.targets.sdist]
-include = ["/src/schwarm/*.py", "/src/schwarm/**/*.py"]
+include = ["src/frontend/dist", "/src/schwarm/*.py", "/src/schwarm/**/*.py"]
 ignore-vcs = true
 
 
@@ -70,11 +70,11 @@ ignore-vcs = true
 
 [tool.poe.tasks.nektar_npm_install]
 cmd = "npm install"
-cwd = "src/nektar"
+cwd = "src/frontend"
 
 [tool.poe.tasks.nektar_npm_build]
 cmd = "npm run build"
-cwd = "src/nektar"
+cwd = "src/frontend"
 
 
 [tool.poe.tasks.schwarm_sync]

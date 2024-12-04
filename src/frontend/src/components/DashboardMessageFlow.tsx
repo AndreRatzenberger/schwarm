@@ -141,7 +141,7 @@ export default function DashboardMessageFlow() {
 
     useEffect(() => {
         if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+            scrollAreaRef.current.scrollTop = 0;
         }
     }, [messages, currentMessageRef.current]);
 
@@ -184,7 +184,51 @@ export default function DashboardMessageFlow() {
                 )}
                 <ScrollArea className="h-[600px] w-full rounded-md border p-4" ref={scrollAreaRef}>
                     <div className="space-y-4">
-                        {messages.map((message: StreamMessage) => {
+                        {currentMessageRef.current && (
+                            <div className="flex flex-col items-start">
+                                <div className={`max-w-[70%] rounded-lg p-3 ${getAgentColor(currentAgentRef.current).bg} ${getAgentColor(currentAgentRef.current).text} ml-4 mr-4`}>
+                                    <div className="flex items-center space-x-2 mb-1">
+                                        <MessageSquare className="h-4 w-4" />
+                                        <span className="font-semibold text-sm">
+                                            {currentAgentRef.current}
+                                        </span>
+                                    </div>
+                                    <div className="prose prose-sm max-w-none">
+                                        <ReactMarkdown
+                                            className="break-words"
+                                            components={{
+                                                h1: ({ ...props }) => <h1 className="text-2xl font-bold mt-4 mb-2" {...props} />,
+                                                h2: ({ ...props }) => <h2 className="text-xl font-bold mt-3 mb-2" {...props} />,
+                                                h3: ({ ...props }) => <h3 className="text-lg font-bold mt-2 mb-1" {...props} />,
+                                                p: ({ ...props }) => <p className="mb-2" {...props} />,
+                                                ul: ({ ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
+                                                ol: ({ ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                                                li: ({ ...props }) => <li className="mb-1" {...props} />,
+                                                code: ({ inline, children, ...props }: CodeProps) =>
+                                                    inline ? (
+                                                        <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
+                                                            {children}
+                                                        </code>
+                                                    ) : (
+                                                        <code className="block bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm overflow-x-auto" {...props}>
+                                                            {children}
+                                                        </code>
+                                                    ),
+                                                pre: ({ ...props }) => (
+                                                    <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto mb-4" {...props} />
+                                                ),
+                                                blockquote: ({ ...props }) => (
+                                                    <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic mb-4" {...props} />
+                                                ),
+                                            }}
+                                        >
+                                            {currentMessageRef.current}
+                                        </ReactMarkdown>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {[...messages].reverse().map((message: StreamMessage) => {
                             const colors = getAgentColor(message.agent);
                             return (
                                 <div key={message.id} className="flex flex-col items-start">
@@ -234,53 +278,8 @@ export default function DashboardMessageFlow() {
                                 </div>
                             );
                         })}
-                        {currentMessageRef.current && (
-                            <div className="flex flex-col items-start">
-                                <div className={`max-w-[70%] rounded-lg p-3 ${getAgentColor(currentAgentRef.current).bg} ${getAgentColor(currentAgentRef.current).text} ml-4 mr-4`}>
-                                    <div className="flex items-center space-x-2 mb-1">
-                                        <MessageSquare className="h-4 w-4" />
-                                        <span className="font-semibold text-sm">
-                                            {currentAgentRef.current}
-                                        </span>
-                                    </div>
-                                    <div className="prose prose-sm max-w-none">
-                                        <ReactMarkdown
-                                            className="break-words"
-                                            components={{
-                                                h1: ({ ...props }) => <h1 className="text-2xl font-bold mt-4 mb-2" {...props} />,
-                                                h2: ({ ...props }) => <h2 className="text-xl font-bold mt-3 mb-2" {...props} />,
-                                                h3: ({ ...props }) => <h3 className="text-lg font-bold mt-2 mb-1" {...props} />,
-                                                p: ({ ...props }) => <p className="mb-2" {...props} />,
-                                                ul: ({ ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
-                                                ol: ({ ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
-                                                li: ({ ...props }) => <li className="mb-1" {...props} />,
-                                                code: ({ inline, children, ...props }: CodeProps) =>
-                                                    inline ? (
-                                                        <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
-                                                            {children}
-                                                        </code>
-                                                    ) : (
-                                                        <code className="block bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm overflow-x-auto" {...props}>
-                                                            {children}
-                                                        </code>
-                                                    ),
-                                                pre: ({ ...props }) => (
-                                                    <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto mb-4" {...props} />
-                                                ),
-                                                blockquote: ({ ...props }) => (
-                                                    <blockquote className="border-l-4 border-gray-200 dark:border-gray-700 pl-4 italic mb-4" {...props} />
-                                                ),
-                                            }}
-                                        >
-                                            {currentMessageRef.current}
-                                        </ReactMarkdown>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </ScrollArea>
-
             </div>
         </Card>
     );

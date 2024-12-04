@@ -42,8 +42,8 @@ export default function CompactMessageFlow() {
         ...log,
         type: log.level
       }))
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-5) // Only show last 5 messages
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Reverse chronological order
+      .slice(0, 5) // Only show last 5 messages
 
     // Determine agent sides
     const newAgentSides = new Map<string, 'left' | 'right'>()
