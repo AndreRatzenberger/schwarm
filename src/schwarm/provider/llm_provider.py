@@ -472,7 +472,10 @@ class LLMProvider(BaseLLMProvider):
                 return loop.run_until_complete(self._handle_streaming(response, message_list, model, agent_name))
 
             response = completion(**completion_kwargs)
-            return self._create_completion_response(response, model, message_list)
+            return_value = self._create_completion_response(response, model, message_list)
+            # sm = StreamManager()
+            # asyncio.run(sm.write(str(return_value.content), agent_name))
+            return return_value
 
         except Exception as e:
             if isinstance(e, CompletionError):

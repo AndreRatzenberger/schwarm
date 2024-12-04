@@ -119,7 +119,9 @@ class ProviderManager:
         while self._global_break:
             pass
 
-    def trigger_event(self, event: Event, provider_list: list[str] | None = None) -> list[ProviderContextModel]:
+    def trigger_event(
+        self, event: Event, context: ProviderContextModel, provider_list: list[str] | None = None
+    ) -> list[ProviderContextModel]:
         """Trigger an event across all relevant providers.
 
         Args:
@@ -145,7 +147,7 @@ class ProviderManager:
             if not isinstance(provider, BaseEventHandleProvider):
                 continue
             try:
-                result = provider.handle_event(event)
+                result = provider.handle_event(event, context)
                 event.context = result
                 if result:
                     event.provider_id = provider.provider_name

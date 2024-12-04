@@ -66,6 +66,9 @@ export default function DashboardMessageFlow() {
     const handleSubmitChat = async (e: React.FormEvent) => {
         e.preventDefault();
         if (chatInput.trim()) {
+            // Add user message to the message flow
+            addMessage(chatInput.trim(), 'User');
+            // Submit to backend
             await submitChat(chatInput.trim());
         }
     };
@@ -147,6 +150,12 @@ export default function DashboardMessageFlow() {
             <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-gray-900">Message Flow</h2>
+                    {isChatRequested && (
+                        <div className="flex items-center space-x-1 ml-2 text-blue-600">
+                            <MessageSquare className="h-4 w-4" />
+                            <span className="text-sm font-medium">Chat Requested</span>
+                        </div>
+                    )}
                     {isConnected && (
                         <div className="flex items-center space-x-2 text-sm text-green-600">
                             <Radio className="w-3 h-3 animate-pulse" />

@@ -347,7 +347,8 @@ class Schwarm:
         # Send the event to the provider manager
         if self._provider_context:
             event = create_full_event(self._provider_context, event_type)
-            if event:
-                self._provider_manager.trigger_event(event)
+            if self._provider_context and event:
+                event.context = self._provider_context
+                self._provider_manager.trigger_event(event, self._provider_context)
 
         self.pause(event_type)

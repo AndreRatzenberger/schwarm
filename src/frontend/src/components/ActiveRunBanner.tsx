@@ -10,7 +10,7 @@ import PlayPauseButton from './PlayPauseButton';
 import RefreshButton from './RefreshButton';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, MessageSquare } from 'lucide-react';
 import type { Log, Span } from '../types';
 
 const MAX_RETRIES = 3;
@@ -76,7 +76,7 @@ export function ActiveRunBanner() {
   const { findRunIdFromLogs, setActiveRunId } = useRunStore();
   const { endpointUrl, setIsLoading } = useSettingsStore();
   const { breakpoints, turnAmount, fetchBreakpoints, fetchTurnAmount, toggleBreakpoint, setTurnAmount } = useBreakpointStore();
-  const setIsChatRequested = useChatStore(state => state.setIsChatRequested);
+  const { setIsChatRequested, isChatRequested } = useChatStore();
   const [isConnected, setIsConnected] = useState(false);
   const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
   const [localTurnAmount, setLocalTurnAmount] = useState(turnAmount.toString());
@@ -92,29 +92,28 @@ export function ActiveRunBanner() {
     }
   };
 
+  const checkChatStatus = async () => {
+    try {
+      const response = await fetch(`${endpointUrl}/chat`, {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json',
+        },
+        credentials: 'omit'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsChatRequested(data === true);
+      }
+    } catch (err) {
+      console.error('Failed to check chat status:', err);
+    }
+  };
 
   const fetchWithRetry = React.useCallback(async (retryCount = 0, delay = INITIAL_RETRY_DELAY) => {
     try {
-      const checkChatStatus = async () => {
-        try {
-          const response = await fetch(`${endpointUrl}/chat`, {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-              'Accept': 'application/json',
-            },
-            credentials: 'omit'
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setIsChatRequested(data === true);
-          }
-        } catch (err) {
-          console.error('Failed to check chat status:', err);
-        }
-      };
-
       const url = new URL(`${endpointUrl}/spans`);
       const { latestId: currentLatestId } = useLogStore.getState();
 
@@ -186,7 +185,7 @@ export function ActiveRunBanner() {
       setError(errorDetails);
       setIsLoading(false);
     }
-  }, [endpointUrl, setData, setError, setIsLoading, findRunIdFromLogs, appendLogs, setLogs, setActiveRunId, setIsChatRequested]);
+  }, [endpointUrl, setData, setError, appendLogs, setLogs, findRunIdFromLogs, setActiveRunId, setIsLoading, setIsChatRequested]);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -255,6 +254,12 @@ export function ActiveRunBanner() {
                     <span className="text-xs text-gray-500">
                       (Last update: {lastSuccessfulFetch.toLocaleTimeString()})
                     </span>
+                  )}
+                  {isChatRequested && (
+                    <div className="flex items-center space-x-1 ml-2 text-blue-600">
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="text-sm font-medium">Chat Requested</span>
+                    </div>
                   )}
                 </div>
               </div>

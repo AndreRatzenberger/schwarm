@@ -73,7 +73,7 @@ export default function CompactMessageFlow() {
               {item.agent} - {item.level}
             </span>
           </div>
-          <p className="text-xs mt-1 line-clamp-2">
+          <p className="flex text-xs mt-1 line-clamp-2">
             {formatTextToEventType(item)}
           </p>
         </div>

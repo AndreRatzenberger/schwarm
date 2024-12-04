@@ -10,13 +10,13 @@ export function cn(...inputs: ClassValue[]) {
 export function formatTextToEventType(eventLog: Log): string {
   switch (eventLog.level) {
     case 'MESSAGE_COMPLETION':
-      return 'Message Completion'
+      return `${printObject(eventLog.attributes, 'streamed_output')}`
     case 'POST_MESSAGE_COMPLETION':
-      return 'Post Message Completion'
+      return `${printObject(eventLog.attributes, 'streamed_output')}`
     case 'TOOL_EXECUTION':
-      return 'Tool Execution'
+      return `${printObject(eventLog.attributes, 'context_variables')}`
     case 'POST_TOOL_EXECUTION':
-      return 'Post Tool Execution'
+      return `${printObject(eventLog.attributes, 'context_variables')}`
     case 'START_TURN':
       return `${printObject(eventLog.attributes, 'agent')}`
     case 'INSTRUCT':

@@ -6,5 +6,5 @@ class UserInteractionConfig(BaseEventHandleProviderConfig):
 
 
 class UserInteractionProvider(BaseEventHandleProvider):
-    def handle_event(self, event):
+    def handle_event(self, event, context):
         return

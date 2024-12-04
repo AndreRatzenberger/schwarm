@@ -7,7 +7,7 @@ from pydantic import Field
 from zep_python.client import Zep
 from zep_python.types import Message as ZepMessage, SessionSearchResult
 
-from schwarm.models.event import Event
+from schwarm.models.event import Event, EventType
 from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_event_handle_provider import BaseEventHandleProvider
 from schwarm.provider.base.base_provider import BaseProviderConfig
@@ -21,6 +21,7 @@ class ZepConfig(BaseProviderConfig):
     zep_api_key: str = Field(..., description="API key for Zep service")
     zep_api_url: str = Field(default="http://localhost:8000", description="URL for Zep service")
     min_fact_rating: float = Field(default=0.7, description="Minimum rating for facts to be considered")
+    save_every_message: bool = Field(default=False, description="Whether to save every message to memory")
     on_completion_save_completion_to_memory: bool = Field(
         default=True, description="Whether to save completions to memory"
     )
@@ -92,7 +93,7 @@ class ZepProvider(BaseEventHandleProvider):
         if not text:
             return result
         if len(text) <= max_length:
-            return [ZepMessage(role="user", content=text)]
+            return [ZepMessage(role="user", content=text, role_type="user")]
         for i in range(0, len(text), max_length):
             result.append(ZepMessage(role="user", content=text[i : i + max_length], role_type="user"))
         return result
@@ -150,7 +151,11 @@ class ZepProvider(BaseEventHandleProvider):
         if not provider_context or not provider_context.current_message:
             return
 
-        message = provider_context.current_message
+        for item in reversed(provider_context.message_history):
+            if item.role == "user":
+                message = item
+                break
+
         zep_messages = self.split_text(message.content)
 
         try:
@@ -162,6 +167,9 @@ class ZepProvider(BaseEventHandleProvider):
         """Not implemented as this is primarily an event-based provider."""
         raise NotImplementedError("ZepProvider does not support direct completion")
 
-    def handle_event(self, event: Event) -> ProviderContextModel | None:
+    def handle_event(self, event: Event, context: ProviderContextModel) -> ProviderContextModel | None:
         """Handle an event."""
+        if self.config.on_completion_save_completion_to_memory:
+            if event.type == EventType.POST_MESSAGE_COMPLETION:
+                self.save_completion(context)
         return None

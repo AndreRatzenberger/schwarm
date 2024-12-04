@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import Field
 
 from schwarm.events.event import Event
+from schwarm.models.provider_context import ProviderContextModel
 from schwarm.provider.base.base_provider import BaseProvider, BaseProviderConfig
 
 
@@ -21,6 +22,6 @@ class BaseEventHandleProvider(BaseProvider, ABC):
     event_log: list[Event] = []
 
     @abstractmethod
-    def handle_event(self, event: Event) -> dict[str, Any] | None:
+    def handle_event(self, event: Event, context: ProviderContextModel) -> dict[str, Any] | None:
         """Handle an event."""
         self.event_log.append(event)
